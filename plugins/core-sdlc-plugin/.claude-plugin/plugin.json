@@ -1,0 +1,28 @@
+{
+  "name": "core-sdlc-plugin",
+  "version": "0.0.1",
+  "description": "Universal SDLC orchestrator with stack provider auto-discovery. Owns the pipeline; framework plugins register themselves via stack.md profiles. Includes 5 cost-tiered default agents (BA Opus, Dev Sonnet, QA Sonnet with iteration cap, Sec Opus, Docs Haiku).",
+  "author": {
+    "name": "Oleksii Kruhlyk",
+    "url": "https://github.com/AratKruglik"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/AratKruglik/claude-sdlc",
+  "keywords": ["sdlc", "orchestrator", "pipeline", "ai-assisted-engineering"],
+  "dependencies": {
+    "plugins": [
+      {
+        "name": "superpowers",
+        "marketplace": "obra/superpowers",
+        "version": ">=1.0.0",
+        "policy": "warn",
+        "skills_used": [
+          "thinking-deeply",
+          "test-driven-development",
+          "verification-before-completion"
+        ],
+        "fallback_note": "Pipeline runs without these but with reduced rigor in BA, QA, and Security phases."
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "sdlc-marketplace",
+  "version": "0.0.1",
+  "description": "Multi-stack AI-assisted SDLC pipelines for Claude Code. Stack Provider Pattern: core owns the pipeline, framework plugins register themselves via stack.md profiles.",
+  "owner": {
+    "name": "Oleksii Kruhlyk",
+    "url": "https://github.com/AratKruglik"
+  },
+  "plugins": [
+    {
+      "name": "core-sdlc-plugin",
+      "source": "./plugins/core-sdlc-plugin",
+      "description": "Universal SDLC orchestrator with auto-discovery of stack providers. Provides pipeline-orchestrator skill plus 5 cost-tiered default agents (BA, Dev, QA, Sec, Docs)."
+    },
+    {
+      "name": "laravel-plugin",
+      "source": "./plugins/laravel-plugin",
+      "description": "Laravel + Inertia + Vue stack provider. Registers Laravel profile via stack.md; provides laravel-architect and artisan-specialist agents plus laravel-conventions and eloquent-patterns skills."
+    }
+  ]
+}

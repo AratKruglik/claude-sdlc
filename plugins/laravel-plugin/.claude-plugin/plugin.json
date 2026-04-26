@@ -1,0 +1,24 @@
+{
+  "name": "laravel-plugin",
+  "version": "0.0.1",
+  "description": "Laravel + Inertia + Vue stack provider for the SDLC marketplace. Registers the Laravel profile via stack.md; substitutes laravel-architect for the development phase and adds an artisan-specialist agent for an extra database phase. Includes laravel-conventions and eloquent-patterns skills, laravel-boost MCP integration, and a Pint Stop-hook for auto-formatting.",
+  "author": {
+    "name": "Oleksii Kruhlyk",
+    "url": "https://github.com/AratKruglik"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/AratKruglik/claude-sdlc",
+  "keywords": ["laravel", "php", "inertia", "vue", "sdlc", "stack-provider"],
+  "dependencies": {
+    "plugins": [
+      {
+        "name": "core-sdlc-plugin",
+        "marketplace": "self",
+        "version": ">=0.0.1",
+        "policy": "block",
+        "skills_used": ["pipeline-orchestrator"],
+        "fallback_note": "core-sdlc-plugin is required — laravel-plugin only provides a stack profile and specialized agents; it cannot run without the core orchestrator."
+      }
+    ]
+  }
+}

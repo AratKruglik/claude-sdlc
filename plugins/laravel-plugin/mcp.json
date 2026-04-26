@@ -1,0 +1,18 @@
+{
+  "_comment": "Laravel-specific MCP servers. This file is a FRAGMENT — copy/merge into your project's .mcp.json (project root) when using laravel-plugin. The plugin's hooks/installer (when available) will offer to do this automatically.",
+  "mcpServers": {
+    "laravel-boost": {
+      "command": "docker",
+      "args": [
+        "compose",
+        "exec",
+        "-T",
+        "app",
+        "php",
+        "/var/www/artisan",
+        "boost:mcp"
+      ],
+      "_description": "Laravel Boost MCP — Artisan-aware tools for laravel-architect and artisan-specialist agents. Requires laravel/boost installed in the project (composer require laravel/boost --dev) and a docker-compose service named 'app'. If you don't use Docker, replace with: { \"command\": \"php\", \"args\": [\"artisan\", \"boost:mcp\"] }"
+    }
+  }
+}
