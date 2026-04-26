@@ -6,23 +6,7 @@
     "name": "Oleksii Kruhlyk",
     "url": "https://github.com/AratKruglik"
   },
-  "license": "MIT",
+  "license": "GPL-3.0",
   "homepage": "https://github.com/AratKruglik/claude-sdlc",
-  "keywords": ["sdlc", "orchestrator", "pipeline", "ai-assisted-engineering"],
-  "dependencies": {
-    "plugins": [
-      {
-        "name": "superpowers",
-        "marketplace": "obra/superpowers",
-        "version": ">=1.0.0",
-        "policy": "warn",
-        "skills_used": [
-          "thinking-deeply",
-          "test-driven-development",
-          "verification-before-completion"
-        ],
-        "fallback_note": "Pipeline runs without these but with reduced rigor in BA, QA, and Security phases."
-      }
-    ]
-  }
+  "keywords": ["sdlc", "orchestrator", "pipeline", "ai-assisted-engineering"]
 }

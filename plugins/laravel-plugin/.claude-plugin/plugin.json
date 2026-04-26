@@ -6,19 +6,8 @@
     "name": "Oleksii Kruhlyk",
     "url": "https://github.com/AratKruglik"
   },
-  "license": "MIT",
+  "license": "GPL-3.0",
   "homepage": "https://github.com/AratKruglik/claude-sdlc",
   "keywords": ["laravel", "php", "inertia", "vue", "sdlc", "stack-provider"],
-  "dependencies": {
-    "plugins": [
-      {
-        "name": "core-sdlc-plugin",
-        "marketplace": "self",
-        "version": ">=0.0.1",
-        "policy": "block",
-        "skills_used": ["pipeline-orchestrator"],
-        "fallback_note": "core-sdlc-plugin is required — laravel-plugin only provides a stack profile and specialized agents; it cannot run without the core orchestrator."
-      }
-    ]
-  }
+  "dependencies": ["core-sdlc-plugin"]
 }
