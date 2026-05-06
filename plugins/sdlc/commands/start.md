@@ -66,3 +66,13 @@ If any phase fails fatally (e.g. agent crashes, post-validation impossible to sa
 /sdlc:start "Add /healthz endpoint" --stack=vanilla
 /sdlc:start "Fix typo in README"
 ```
+
+## Headless mode
+
+Set `SDLC_NONINTERACTIVE=true` in the environment to run without interactive prompts (intended for CI / automation):
+
+- `policy=block` dependency failures emit machine-readable JSON to stdout and exit 1 (no install prompts).
+- `policy=warn` failures write a single line to stderr and continue.
+- `policy=graceful-degrade` is silent in both modes.
+
+The skill picks up the env var directly (Step 0a-1 in `pipeline-orchestrator/SKILL.md`); no flag is needed on the command line.

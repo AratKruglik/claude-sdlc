@@ -1,5 +1,6 @@
 ---
 stack: laravel
+aspects: [backend, database]
 priority: 100
 detect:
   all:
@@ -9,18 +10,30 @@ detect:
         pattern: '"laravel/framework"'
 ---
 
-# Laravel Stack Profile
+# Laravel Stack Profile (backend + database)
 
-Registers Laravel + Inertia + Vue projects with the SDLC pipeline. Auto-detected by presence of `composer.json` containing `"laravel/framework"`.
+Registers Laravel projects with the SDLC pipeline. Auto-detected by presence of `composer.json` containing `"laravel/framework"`.
+
+This plugin owns the **backend** and **database** aspects. Frontend is handled by a separate plugin matching the actual frontend stack:
+- Inertia + Vue → `inertia-vue-plugin`
+- Inertia + React → `inertia-react-plugin` (future)
+- Livewire → `laravel-livewire-plugin` (future)
+- Alpine + Blade → `laravel-blade-plugin` (future)
+- API-only (no frontend) → no frontend plugin needed
 
 ## Agents per phase
 
-- business_analysis: business-analyst        # core agent
-- development: laravel-architect              # Laravel-specific
-- database: artisan-specialist                # extra phase (see below)
-- qa: qa-engineer                             # core agent
-- security: security-analyst                  # core agent
-- documentation: document-writer              # core agent
+```yaml
+business_analysis: business-analyst         # core agent (aspect-agnostic)
+development:
+  backend: laravel-architect                # owned by this plugin
+database: artisan-specialist                # extra phase, aspect=database
+qa: qa-engineer                             # core agent (aspect-agnostic in v1)
+security: security-analyst                  # core agent
+documentation: document-writer              # core agent
+```
+
+Note: this plugin does NOT declare `development.frontend`. That slot is filled by whichever frontend-aspect plugin is active in the project.
 
 ## Convention skills to apply
 
@@ -32,13 +45,19 @@ Registers Laravel + Inertia + Vue projects with the SDLC pipeline. Auto-detected
 - name: database
   after: development
   agent: artisan-specialist
+  aspect: database
   description: |
     Run migrations, factories, and seeders. Verify schema integrity. Update model factories
     to reflect schema changes. Skip if the development phase made no DB-related changes.
 
 ## Phase prompts injection
 
-For development phase, inject:
+For development phase (backend aspect), inject:
+> You are working on the **backend** aspect. Your scope:
+> - Eloquent models, migrations stubs (artisan-specialist elaborates), Form Requests, Policies, Actions, Controllers, routes, providers, jobs, observers.
+> - You DO NOT write frontend code (Vue/React/Blade/Livewire). The frontend-aspect agent will run separately and handle UI.
+> - You DO design the backend API contract that the frontend will consume — document it clearly in your output for the frontend agent.
+>
 > Use Artisan commands for code generation where appropriate:
 > `php artisan make:model -mfsc`, `make:request`, `make:policy`, `make:action` (if Spatie laravel-actions installed).
 >
@@ -50,12 +69,6 @@ For development phase, inject:
 > - Resource controllers with explicit `__invoke` methods for non-CRUD endpoints
 >
 > Apply skills: `laravel:laravel-conventions`, `laravel:eloquent-patterns`.
->
-> Frontend (Inertia + Vue 3 Composition API):
-> - Pages live in `resources/js/Pages/`
-> - Forms use `useForm` from `@inertiajs/vue3`
-> - Props typed via TypeScript when project uses TS, otherwise documented in PHPDoc on the controller
-> - Layouts via `<script setup>` `defineOptions({ layout: AuthenticatedLayout })`
 >
 > Run after writing code:
 > - `./vendor/bin/pint` (auto-formats, do not iterate on style issues)
@@ -81,7 +94,6 @@ For security phase, inject:
 > - **`APP_DEBUG`:** Production config should have `APP_DEBUG=false`. If the changes touch `.env.example`, verify.
 > - **Mail / Queue / Cache config:** Verify no credentials hardcoded; all from `config()` reading `env()`.
 > - **CSRF on state-changing routes:** Any non-GET route in `routes/web.php` must be inside the default web middleware group (which includes `VerifyCsrfToken`).
-> - **Inertia data exposure:** Props passed to Inertia pages can leak sensitive data. Verify password hashes, internal IDs, etc., are not in `Inertia::render()` payloads.
 
 ## Post-pipeline checks
 
