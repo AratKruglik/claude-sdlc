@@ -3,7 +3,15 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
-## [Unreleased] — marketplace v0.1.0
+## [0.1.1] — marketplace v0.1.1
+
+### Fixed
+
+- **`marketplace.json` source types**: replaced unsupported shorthand strings `"obra/superpowers"` and `"anthropics/claude-plugins-official"` with proper source objects — `{ "source": "url", "url": "https://github.com/obra/superpowers.git" }` and `{ "source": "git-subdir", "url": "https://github.com/anthropics/claude-plugins-official.git", "path": "plugins/security-guidance" }`. Fixes _"This plugin uses a source type your Claude Code version does not support"_ error on install.
+
+---
+
+## [0.1.0] — marketplace v0.1.0
 
 ### Added (marketplace port + cost optimization)
 - **8 нових стек-плагінів** (ported з Rolique/claude-plugins v0.1.1): `js-foundation`, `nodejs-plugin`, `nestjs-plugin`, `nextjs-plugin`, `react-plugin`, `vue-plugin`, `angular-plugin`, `react-native-plugin`. Маркетплейс з 2 → 10 локальних плагінів.
