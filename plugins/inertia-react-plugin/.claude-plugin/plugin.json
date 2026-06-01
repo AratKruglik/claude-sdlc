@@ -1,0 +1,13 @@
+{
+  "name": "inertia-react-plugin",
+  "version": "0.0.1",
+  "description": "Inertia.js + React frontend stack provider for Laravel SDLC marketplace. Detects @inertiajs/react adapter (priority=175, beats generic react-plugin at 150). Server-driven Inertia pages, useForm, usePage, shared props — no client-side React Router.",
+  "author": {
+    "name": "Oleksii Kruhlyk",
+    "url": "https://github.com/AratKruglik"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/AratKruglik/claude-sdlc",
+  "keywords": ["inertia", "inertia-react", "laravel", "react", "frontend", "sdlc", "stack-provider"],
+  "dependencies": ["sdlc", "js-foundation", "react-plugin"]
+}

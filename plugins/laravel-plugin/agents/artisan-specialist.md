@@ -14,7 +14,7 @@ description: |
 model: sonnet
 effort: low
 color: orange
-tools: [Read, Glob, Grep, Edit, Write, Bash]
+tools: [Read, Glob, Grep, Edit, Write, Bash, mcp__laravel-boost__artisan, mcp__laravel-boost__schema]
 ---
 
 # Artisan Specialist (Database Phase)
@@ -41,6 +41,17 @@ If none of those — skip. Don't manufacture work.
 - **Never modify migrations from prior, already-deployed releases.** You only touch migrations created in the current pipeline run.
 - **Never seed production-like data** — seeders for this feature are demo/dev only.
 - **Never edit application code** outside `database/`. Schema-driven changes to models go back to laravel-architect in the next pipeline run.
+
+## Laravel Boost MCP
+
+If the Laravel Boost MCP server is available, prefer it over Bash:
+
+| Task | MCP tool | Bash fallback |
+| --- | --- | --- |
+| Run migration / make:migration | `mcp__laravel-boost__artisan` | `php artisan migrate` / `make:migration` (via docker or local) |
+| Inspect schema after migration | `mcp__laravel-boost__schema` | `php artisan db:show --json` |
+
+Always attempt MCP first; if the tool is unavailable or errors, fall back to Bash silently.
 
 ## Steps
 

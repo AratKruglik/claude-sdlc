@@ -16,7 +16,7 @@ Registers Laravel projects with the SDLC pipeline. Auto-detected by presence of 
 
 This plugin owns the **backend** and **database** aspects. Frontend is handled by a separate plugin matching the actual frontend stack:
 - Inertia + Vue → `inertia-vue-plugin`
-- Inertia + React → `inertia-react-plugin` (future)
+- Inertia + React → `inertia-react-plugin`
 - Livewire → `laravel-livewire-plugin` (future)
 - Alpine + Blade → `laravel-blade-plugin` (future)
 - API-only (no frontend) → no frontend plugin needed
@@ -70,6 +70,8 @@ For development phase (backend aspect), inject:
 >
 > Apply skills: `laravel:laravel-conventions`, `laravel:eloquent-patterns`.
 >
+> If Laravel Boost MCP is available (`mcp__laravel-boost__artisan`), prefer it for `make:*` Artisan commands; otherwise use Bash.
+>
 > Run after writing code:
 > - `./vendor/bin/pint` (auto-formats, do not iterate on style issues)
 > - `./vendor/bin/phpstan analyse` (if installed; treat warnings as advisory unless they block compilation)
@@ -102,3 +104,11 @@ For security phase, inject:
 - `php artisan route:list`
 
 These run after the documentation phase. They are advisory — failures are reported but do not retry.
+
+## MCP integration
+
+The `laravel-boost` MCP server provides Artisan-aware tools (`mcp__laravel-boost__artisan`, `mcp__laravel-boost__schema`, `mcp__laravel-boost__route_list`, `mcp__laravel-boost__tinker`). When wired, agents use it instead of Bash for Artisan operations.
+
+**Detection:** if `laravel/boost` appears in `composer.json` `require-dev`, the server is likely installed. Wiring is manual — see `mcp.json` for the fragment to merge into the project's `.mcp.json`.
+
+**Graceful degradation:** agents fall back to `php artisan …` (or `docker compose exec -T app php artisan …`) when Boost MCP tools are unavailable.

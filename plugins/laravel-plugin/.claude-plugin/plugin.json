@@ -6,7 +6,7 @@
     "name": "Oleksii Kruhlyk",
     "url": "https://github.com/AratKruglik"
   },
-  "license": "GPL-3.0",
+  "license": "MIT",
   "homepage": "https://github.com/AratKruglik/claude-sdlc",
   "keywords": ["laravel", "php", "inertia", "vue", "sdlc", "stack-provider"],
   "dependencies": ["sdlc"]

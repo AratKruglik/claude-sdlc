@@ -6,7 +6,7 @@
     "name": "Oleksii Kruhlyk",
     "url": "https://github.com/AratKruglik"
   },
-  "license": "GPL-3.0",
+  "license": "MIT",
   "homepage": "https://github.com/AratKruglik/claude-sdlc",
   "keywords": ["sdlc", "orchestrator", "pipeline", "ai-assisted-engineering"]
 }

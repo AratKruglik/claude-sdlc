@@ -2,7 +2,7 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v0.1.4** — 10 plugins: 1 core + 1 shared lib + 7 JS/TS stacks + Laravel. Cost-optimized: model tiering + `effort` per-subagent.
+**v0.1.0** — 10 plugins: 1 core + 1 shared lib + 7 JS/TS stacks + Laravel. Cost-optimized: model tiering + `effort` per-subagent.
 
 ---
 
@@ -127,23 +127,10 @@ Aspects are dispatched in canonical order: `database → backend → frontend �
 | Command | Purpose |
 |---|---|
 | `/sdlc:start "feature"` | Run the full 5-phase pipeline |
-| `/sdlc:start "feature" --stack=NAME` | Force a specific stack instead of auto-detecting |
 | `/sdlc:batch "task1" "task2"` | Run pipelines in parallel for multiple tasks (isolated worktrees) |
 | `/sdlc:list-stacks` | Show detected stack profiles and their priorities |
 | `/sdlc:doctor` | Preflight check: dependency check, stack detection, cost baseline |
 | `/sdlc:security-init` | Materialize security-patterns.yaml for the security-guidance plugin |
-
-### Running a specific stack manually
-
-By default `/sdlc:start` auto-detects the stack by scanning the project files. To override:
-
-```bash
-/sdlc:start "add user authentication" --stack=laravel-plugin
-/sdlc:start "add user authentication" --stack=nestjs-plugin
-/sdlc:start "add user authentication" --stack=react-plugin
-```
-
-Use `/sdlc:list-stacks` first to see available stack names and which one would be selected automatically.
 
 ---
 
@@ -374,4 +361,4 @@ npx check-jsonschema --schemafile schemas/stack.schema.json <(yq '.frontmatter' 
 
 ## License
 
-GPL-3.0 — see [`LICENSE`](./LICENSE).
+MIT — see [`LICENSE`](./LICENSE).

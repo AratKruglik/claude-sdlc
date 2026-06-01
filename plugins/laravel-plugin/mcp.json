@@ -12,7 +12,7 @@
         "/var/www/artisan",
         "boost:mcp"
       ],
-      "_description": "Laravel Boost MCP — Artisan-aware tools for laravel-architect and artisan-specialist agents. Requires laravel/boost installed in the project (composer require laravel/boost --dev) and a docker-compose service named 'app'. If you don't use Docker, replace with: { \"command\": \"php\", \"args\": [\"artisan\", \"boost:mcp\"] }"
+      "_description": "Laravel Boost MCP — Artisan-aware tools for laravel-architect and artisan-specialist agents.\nRequires laravel/boost installed in the project (composer require laravel/boost --dev).\n\nDocker setup (default): docker-compose service named 'app'.\nNon-Docker / Herd setup: replace command with { \"command\": \"php\", \"args\": [\"artisan\", \"boost:mcp\"] }\n\nDetection: laravel/boost in composer.json require-dev means the server is likely available."
     }
   }
 }
