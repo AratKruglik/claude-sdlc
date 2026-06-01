@@ -1,6 +1,6 @@
 {
   "name": "sdlc-marketplace",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Multi-stack AI-assisted SDLC pipelines for Claude Code. Stack Provider Pattern: core owns the pipeline, framework plugins register themselves via stack.md profiles.",
   "owner": {
     "name": "Oleksii Kruhlyk",
@@ -9,12 +9,19 @@
   "plugins": [
     {
       "name": "superpowers",
-      "source": "obra/superpowers",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/obra/superpowers.git"
+      },
       "description": "Runtime dependency. Enables richer reasoning in BA (brainstorming), QA (test-driven-development), and all architect agents (verification-before-completion). Pipeline degrades gracefully without it."
     },
     {
       "name": "security-guidance",
-      "source": "anthropics/claude-plugins-official",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/anthropics/claude-plugins-official.git",
+        "path": "plugins/security-guidance"
+      },
       "description": "Optional external dependency (official Anthropic). Hooks-based in-session security review: per-edit pattern match, end-of-turn diff review, commit review. Pipeline runs without it; the security phase still does full OWASP."
     },
     {
