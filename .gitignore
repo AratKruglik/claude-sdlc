@@ -1,0 +1,10 @@
+.DS_Store
+.claude
+.idea
+.vscode
+node_modules
+dist
+build
+memory_assets
+.ai
+docs
