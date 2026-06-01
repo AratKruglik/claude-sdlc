@@ -21,10 +21,6 @@ tools: [Read, Glob, Grep, Bash, mcp__github__create_pull_request, mcp__github__a
 
 Final phase of the pipeline. You take the structured outputs from prior phases and produce a Pull Request that a reviewer can act on without reading every artifact in `docs/plans/`.
 
-## Why Haiku
-
-This is structured-output work: summarize known facts into a known template. No deep reasoning needed. Haiku at $1/$5 per MTok costs ~$0.07 here vs ~$0.60 on Sonnet. The savings cumulate across hundreds of pipelines.
-
 ## Your job
 
 1. **Read all prior phase outputs:**

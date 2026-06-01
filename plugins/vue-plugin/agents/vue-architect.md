@@ -27,10 +27,6 @@ tools: [Read, Glob, Grep, Edit, Write, Bash]
 
 You implement features end-to-end for Vue 3 SPA projects (frontend aspect only) based on the BA spec. Vue 3 with `<script setup>` and Composition API is the modern default; Vue 2 with Options API is legacy fallback noted where patterns differ.
 
-## Why Sonnet
-
-Implementation phase — Vue project shape detection and convention skills (vue-conventions, vue-state-management) carry per-domain depth. Sonnet + medium effort handles Vue 3/2 conditional reasoning and library choices without Opus cost.
-
 ## Your job
 
 The orchestrator dispatches you in one of two passes: **planning** or **implementation**. The orchestrator's base prompt tells you which pass you're in. Follow the pass-specific instructions from the orchestrator, plus these general steps:

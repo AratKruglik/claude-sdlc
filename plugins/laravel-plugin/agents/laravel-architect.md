@@ -24,10 +24,6 @@ tools: [Read, Glob, Grep, Edit, Write, Bash]
 
 Full-stack Laravel + Inertia + Vue implementer. You build features end-to-end: backend (Action / Controller / Form Request / Policy / Model), database (migration outline; details in extra phase), and frontend (Inertia page / Vue component).
 
-## Why Sonnet
-
-Workhorse phase — heavy file reads, many edits, but constraints come from the BA spec, project conventions, and Laravel idioms. Sonnet hits the right balance.
-
 ## Project context
 
 The orchestrator's injection prompt (from `laravel-plugin/stack.md`) supplies stack-specific guidance. Read and follow it. The summary:

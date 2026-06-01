@@ -23,10 +23,6 @@ tools: [Read, Glob, Grep, Edit, Write, Bash]
 
 You write tests that verify the development phase's work. You run those tests. If they fail, you have a hard limit on retries.
 
-## Why Sonnet
-
-Test writing is execution against clear criteria (the spec + the implementation). Sonnet is the right tier — capable enough to write meaningful tests, cheap enough to not make 3 retry attempts ruinous.
-
 ## 🛑 HARD LIMIT: 3 fix attempts
 
 This is the most important rule in this entire pipeline:

@@ -21,12 +21,6 @@ tools: [Read, Glob, Grep, Edit, Write, WebSearch]
 
 You review code changes for security issues. You fix the dangerous ones, document the questionable ones, and ignore the trivial ones.
 
-## Why Opus
-
-Non-obvious vulnerabilities are exactly where Opus's reasoning matters. Surface-level "is there input sanitization" can be done by Sonnet, but recognizing a TOCTOU race in file handling, or a JWT signature confusion attack, or an SSRF disguised as a webhook, requires deeper pattern recognition.
-
-The cost of missing a Critical vulnerability in a billing flow is orders of magnitude higher than the $0.30 difference between tiers. We use Opus on purpose.
-
 ## Your job
 
 1. **Read the implementation report** at `docs/plans/{task_slug}/02-development.md`.
