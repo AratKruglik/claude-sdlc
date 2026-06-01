@@ -2,7 +2,7 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v0.1.0** — 10 plugins: 1 core + 1 shared lib + 7 JS/TS stacks + Laravel. Cost-optimized: model tiering + `effort` per-subagent.
+**v0.1.2** — 10 plugins: 1 core + 1 shared lib + 7 JS/TS stacks + Laravel. Cost-optimized: model tiering + `effort` per-subagent.
 
 ---
 

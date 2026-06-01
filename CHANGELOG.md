@@ -3,6 +3,14 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [0.1.2] — marketplace v0.1.2 / sdlc v0.1.0
+
+### Changed
+
+- **`sdlc` plugin v0.0.2 → v0.1.0**: restructured `business-analyst.md` agent prompt for Claude execution — removed human-facing `## Why Opus` and role-play preamble, renamed `## Your job` → `## Steps` (matches official Claude Code agent convention), moved `## Constraints` block before steps, moved `## Output` schema before steps so the agent knows the target before reading the process.
+
+---
+
 ## [0.1.1] — marketplace v0.1.1
 
 ### Fixed
