@@ -1,0 +1,17 @@
+{
+  "_comment": "Hooks for java-plugin. PostToolUse: optionally format changed Java files via google-java-format or Spotless when present. Skips silently when neither is configured.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_FILE\"; case \"$f\" in *.java) [ -f pom.xml ] && grep -q 'spotless' pom.xml 2>/dev/null && ./mvnw -q spotless:apply -Dspotless.check.skip=true 2>/dev/null; [ -f build.gradle.kts ] && grep -q 'spotless' build.gradle.kts 2>/dev/null && ./gradlew -q spotlessApply 2>/dev/null; exit 0;; esac",
+            "timeout": 30000
+          }
+        ]
+      }
+    ]
+  }
+}

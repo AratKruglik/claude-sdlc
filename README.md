@@ -2,7 +2,7 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v0.2.0** — 10 plugins: 1 core + 1 shared lib + 7 JS/TS stacks + Laravel. Cost-optimized: model tiering + `effort` per-subagent.
+**v0.3.0** — 13 plugins: 1 core + 2 shared libs + 7 JS/TS stacks + Laravel + 2 Java stacks. Cost-optimized: model tiering + `effort` per-subagent.
 
 ---
 
@@ -77,6 +77,8 @@ Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: 
 | 100 | `laravel-plugin` | backend, database | `composer.json` + `laravel/framework` |
 | 150 | `react-plugin` | frontend | `package.json` + `react` (without `next`, `react-native`) |
 | 150 | `vue-plugin` | frontend | `package.json` + `vue` |
+| 100 | `java-plugin` | backend | `pom.xml` or `build.gradle` or `build.gradle.kts` |
+| 150 | `spring-boot-plugin` | backend | any build file + `spring-boot` marker |
 | 200 | `nestjs-plugin` | backend, database | `package.json` + `@nestjs/core` |
 | 200 | `angular-plugin` | frontend | `package.json` + `@angular/core` |
 | 250 | `nextjs-plugin` | backend, frontend | `package.json` + `next` |
@@ -162,6 +164,8 @@ Claude Code subagent frontmatter supports:
 | `vue-architect` | vue | `sonnet` | `medium` | Vue 3/2 detection + convention skills |
 | `angular-architect` | angular | `sonnet` | `medium` | Angular standalone/NgModule, signals, NgRx |
 | `rn-architect` | react-native | `sonnet` | `medium` | Expo/bare + iOS/Android axes |
+| `java-architect` | java | `sonnet` | `medium` | Plain Java — records, domain objects, build tooling |
+| `spring-boot-architect` | spring-boot | `sonnet` | `medium` | Spring Boot — controllers, JPA, migrations, Spring Security |
 
 > `effort: high` on Opus is the most expensive combination. That's why only 2 leverage agents use it (BA and Security) — where reasoning quality directly impacts every downstream phase.
 
@@ -191,6 +195,7 @@ Claude Code subagent frontmatter supports:
 |---|---|---|
 | `sdlc` | Core | Pipeline orchestrator + 5 default agents |
 | `js-foundation` | Shared lib | TypeScript + npm patterns (no stack profile) |
+| `java-foundation` | Shared lib | Java conventions + Maven/Gradle + JVM testing (no stack profile) |
 | `nodejs-plugin` | Stack provider | Express / Fastify / Koa / plain Node.js |
 | `nestjs-plugin` | Stack provider | NestJS + TypeORM/Prisma/Mongoose |
 | `nextjs-plugin` | Stack provider | Next.js App Router (full-stack) |
@@ -199,6 +204,8 @@ Claude Code subagent frontmatter supports:
 | `angular-plugin` | Stack provider | Angular 18-21 |
 | `react-native-plugin` | Stack provider | React Native / Expo |
 | `laravel-plugin` | Stack provider | Laravel + Inertia + Vue |
+| `java-plugin` | Stack provider | Plain Java (Maven/Gradle, no web framework) |
+| `spring-boot-plugin` | Stack provider | Spring Boot REST + Spring Data JPA + Flyway/Liquibase |
 
 ### Optional external dependencies
 
@@ -219,6 +226,8 @@ Claude Code subagent frontmatter supports:
 | Next.js (full-stack) | nextjs (250) | nextjs-architect (owns backend + frontend) |
 | Expo mobile | react-native (300) | rn-architect (frontend) |
 | Vanilla Node.js | nodejs (100) | node-architect |
+| Plain Java (no framework) | java (100) | java-architect |
+| Spring Boot REST API | spring-boot (150) | spring-boot-architect |
 | Unknown stack | vanilla (0) | developer (fallback) |
 
 ---

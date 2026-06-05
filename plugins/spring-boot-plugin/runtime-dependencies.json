@@ -1,0 +1,4 @@
+{
+  "_comment": "Runtime plugin dependencies for spring-boot-plugin. Read by pipeline-orchestrator/SKILL.md (Step 0a) at the start of /sdlc:start. Currently empty — spring-boot-plugin does not require external superpowers skills directly. The core sdlc plugin's runtime-dependencies.json declares cross-cutting dependencies (e.g., superpowers).",
+  "dependencies": []
+}

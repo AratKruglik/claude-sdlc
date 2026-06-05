@@ -1,6 +1,6 @@
 {
   "name": "sdlc-marketplace",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Multi-stack AI-assisted SDLC pipelines for Claude Code. Stack Provider Pattern: core owns the pipeline, framework plugins register themselves via stack.md profiles.",
   "owner": {
     "name": "Oleksii Kruhlyk",
@@ -83,6 +83,21 @@
       "name": "inertia-react-plugin",
       "source": "./plugins/inertia-react-plugin",
       "description": "Inertia.js + React frontend stack provider (priority=175). Pairs with laravel-plugin for full-stack Laravel+Inertia+React projects. Detects @inertiajs/react adapter. Adds inertia-react-architect agent (Sonnet/medium). Beats generic react-plugin (150) for the frontend aspect. Server-driven Inertia pages — no React Router."
+    },
+    {
+      "name": "java-foundation",
+      "source": "./plugins/java-foundation",
+      "description": "Shared Java foundation skills for the SDLC marketplace. Contains stack-agnostic Java conventions (java-conventions — records, sealed types, Optional, streams), build-tooling (Maven/Gradle wrapper, BOM dependency management), and jvm-testing (JUnit 5, Mockito, AssertJ, Testcontainers). No agent, no stack profile — pure shared library. Referenced by java-plugin and spring-boot-plugin."
+    },
+    {
+      "name": "java-plugin",
+      "source": "./plugins/java-plugin",
+      "description": "Plain Java backend stack provider (priority=100). Detects any Maven or Gradle project (pom.xml / build.gradle / build.gradle.kts). Adds java-architect agent (Sonnet/medium) for plain Java libraries, CLI tools, and micro-services without a recognized web framework. Falls back gracefully when spring-boot-plugin (priority 150) matches instead. Reuses java-foundation skills."
+    },
+    {
+      "name": "spring-boot-plugin",
+      "source": "./plugins/spring-boot-plugin",
+      "description": "Spring Boot backend stack provider (priority=150). Detects Spring Boot projects via spring-boot marker in any build file. Adds spring-boot-architect agent (Sonnet/medium) covering REST controllers, Spring Data JPA, Bean Validation, Spring Security, Flyway/Liquibase migrations, and @SpringBootTest/@WebMvcTest/@DataJpaTest test slices. Beats java-plugin (100) on the backend aspect for Spring projects. Reuses java-foundation skills."
     }
   ]
 }

@@ -1,0 +1,13 @@
+{
+  "name": "spring-boot-plugin",
+  "version": "0.0.1",
+  "description": "Spring Boot backend stack provider for the SDLC marketplace (priority=150). Detects Spring Boot projects via pom.xml / build.gradle / build.gradle.kts and registers spring-boot-architect (Sonnet/medium) as the development-phase backend implementer. Covers REST controllers, Spring Data JPA, Bean Validation, Spring Security, Flyway/Liquibase migrations, application.yml configuration, and @SpringBootTest/@WebMvcTest/@DataJpaTest slice testing. Reuses shared skills from java-foundation. Beats java-plugin (100) on the backend aspect for Spring projects.",
+  "author": {
+    "name": "Oleksii Kruhlyk",
+    "url": "https://github.com/AratKruglik"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/AratKruglik/claude-sdlc",
+  "keywords": ["java", "spring", "spring-boot", "jpa", "rest", "backend", "sdlc", "stack-provider"],
+  "dependencies": ["sdlc", "java-foundation"]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "java-foundation",
+  "version": "0.0.1",
+  "description": "Shared Java foundation skills for the SDLC marketplace. Contains stack-agnostic conventions: java-conventions (modern Java idioms — records, sealed types, Optional, streams, immutability, null discipline), build-tooling (Maven vs Gradle detection, wrappers, dependency/BOM management, semver) and jvm-testing (JUnit 5, Mockito, AssertJ, Testcontainers). Referenced cross-plugin by every Java framework provider (java-plugin, spring-boot-plugin). No agent, no stack profile — pure shared library.",
+  "author": {
+    "name": "Oleksii Kruhlyk",
+    "url": "https://github.com/AratKruglik"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/AratKruglik/claude-sdlc",
+  "keywords": ["java", "jvm", "maven", "gradle", "junit", "shared", "foundation", "sdlc"],
+  "dependencies": ["sdlc"]
+}
