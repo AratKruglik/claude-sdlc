@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "docker compose exec -T php vendor/bin/php-cs-fixer fix || vendor/bin/php-cs-fixer fix || true",
+            "description": "Auto-format PHP files with PHP-CS-Fixer at the end of any session. Tries Docker first (service 'php'), falls back to the local vendor binary, swallows errors so it never blocks the user."
+          }
+        ]
+      }
+    ]
+  }
+}

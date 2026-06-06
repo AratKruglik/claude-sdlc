@@ -233,12 +233,10 @@ class SubscriptionResource extends JsonResource
 
 ## 7. Code style
 
-- **PSR-12** + Laravel preferences.
-- Pint runs auto-fix on Stop hook (laravel-plugin provides one).
-- PHPStan level 6+ where the project supports it.
-- `declare(strict_types=1);` at the top of every PHP file in `app/`.
-- Single-quoted strings unless interpolation needed.
-- Arrow functions (`fn`) for short closures.
+General PHP style (PSR-12, `declare(strict_types=1)`, enums, readonly, single quotes, `fn` arrow functions) lives in `php-foundation:php-conventions` — follow it. Laravel-specific additions on top:
+
+- Pint runs auto-fix on the Stop hook (laravel-plugin provides one) — do not hand-tune whitespace Pint owns.
+- PHPStan / Larastan level 6+ where the project supports it.
 
 ## 8. Anti-patterns to avoid
 
