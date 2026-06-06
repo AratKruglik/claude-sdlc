@@ -1,0 +1,17 @@
+{
+  "_comment": "Hooks for spring-boot-plugin. PostToolUse: optionally format changed Java files via Spotless when configured in Maven or Gradle. Skips silently when not present.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_FILE\"; case \"$f\" in *.java) [ -f pom.xml ] && grep -q 'spotless' pom.xml 2>/dev/null && ./mvnw -q spotless:apply -Dspotless.check.skip=true 2>/dev/null; [ -f build.gradle.kts ] && grep -q 'spotless' build.gradle.kts 2>/dev/null && ./gradlew -q spotlessApply 2>/dev/null; [ -f build.gradle ] && grep -q 'spotless' build.gradle 2>/dev/null && ./gradlew -q spotlessApply 2>/dev/null; exit 0;; esac",
+            "timeout": 30000
+          }
+        ]
+      }
+    ]
+  }
+}

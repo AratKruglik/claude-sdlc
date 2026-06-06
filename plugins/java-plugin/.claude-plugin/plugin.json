@@ -1,0 +1,13 @@
+{
+  "name": "java-plugin",
+  "version": "0.0.1",
+  "description": "Plain Java backend stack provider for the SDLC marketplace (priority=100). Detects any Maven or Gradle project and registers a java-architect agent (Sonnet/medium) as the development-phase backend implementer. Handles CLI tools, libraries, plain services without a web framework. Falls back gracefully to this plugin when no higher-priority Java framework plugin matches (e.g. spring-boot-plugin at 150). Reuses shared skills from java-foundation (java-conventions, build-tooling, jvm-testing).",
+  "author": {
+    "name": "Oleksii Kruhlyk",
+    "url": "https://github.com/AratKruglik"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/AratKruglik/claude-sdlc",
+  "keywords": ["java", "jvm", "maven", "gradle", "backend", "sdlc", "stack-provider"],
+  "dependencies": ["sdlc", "java-foundation"]
+}

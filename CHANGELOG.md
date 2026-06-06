@@ -3,6 +3,51 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [0.3.0] — marketplace v0.3.0
+
+### Added — Java stack (3 new plugins)
+
+- **`java-foundation` v0.0.1** — Pure shared skill library for any JVM project. No agent, no stack profile. Provides:
+  - `java-conventions` — Modern Java (17+) idioms: records, sealed types, pattern matching, `Optional`, streams, immutability, null discipline, `var`, package layout.
+  - `build-tooling` — Maven vs Gradle detection, wrapper (`./mvnw` / `./gradlew`), BOM dependency management, version properties, multi-module projects.
+  - `jvm-testing` — JUnit 5 (AAA structure, parameterised tests), Mockito (constructor injection, no `@InjectMocks`), AssertJ fluent assertions, Testcontainers integration tests, JaCoCo coverage.
+
+- **`java-plugin` v0.0.1** — Plain Java backend stack provider (priority=100). Detects any Maven or Gradle project by build-file presence (`pom.xml` / `build.gradle` / `build.gradle.kts`). Adds `java-architect` agent (Sonnet/medium). Suitable for libraries, CLI tools, micro-services without a recognized web framework. Acts as a mid-tier fallback — `spring-boot-plugin` (priority 150) wins on Spring projects.
+
+- **`spring-boot-plugin` v0.0.1** — Spring Boot backend stack provider (priority=150). Detects `spring-boot` marker in any build file. Adds `spring-boot-architect` agent (Sonnet/medium) plus two convention skills:
+  - `spring-conventions` — REST controllers (`@RestController`, `@RequestMapping`), service layer (`@Service`, `@Transactional`), constructor injection, `@ConfigurationProperties` records, Bean Validation, `ProblemDetail` error handling (RFC 9457).
+  - `spring-data-jpa` — JPA entities, `JpaRepository`, JPQL `@Query`, N+1 avoidance (`@EntityGraph` / `JOIN FETCH`), Flyway/Liquibase migration stubs, optimistic locking, pagination.
+  - Phase-prompt injection: Spring-specific dev (layers, annotations, migrations), QA (`@SpringBootTest`, `@WebMvcTest`, `@DataJpaTest` slices, MockMvc), and security (Spring Security `HttpSecurity`, CSRF, `@PreAuthorize`, Actuator exposure, SpEL injection) guidance.
+
+### Architecture: three-tier Java layering
+
+```
+java-foundation  (no agent, no stack — pure skill library)
+     ↑
+java-plugin (priority 100, backend aspect — any Maven/Gradle)
+     ↑
+spring-boot-plugin (priority 150, backend aspect — Spring Boot)
+```
+
+Mirrors the `js-foundation → nodejs-plugin → nestjs-plugin` layering. `java-foundation` skills are reused by both framework-level plugins.
+
+### Priority resolution for Java projects
+
+| Project type | Active profile | Backend agent |
+|---|---|---|
+| Spring Boot (`spring-boot` in build file) | `spring-boot` (150) | `spring-boot-architect` |
+| Plain Java (Maven/Gradle, no Spring) | `java` (100) | `java-architect` |
+| No build file | `vanilla` (0) | `developer` (fallback) |
+
+### Installation
+
+```
+/plugin install spring-boot-plugin@sdlc-marketplace   # pulls sdlc + java-foundation automatically
+/plugin install java-plugin@sdlc-marketplace          # for plain Java projects
+```
+
+---
+
 ## [0.1.4] — marketplace v0.1.4 / sdlc v0.1.2
 
 ### Changed

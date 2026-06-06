@@ -1,0 +1,32 @@
+patterns:
+  - rule_name: java_runtime_exec
+    regex: "Runtime\\.getRuntime\\(\\)\\.exec|ProcessBuilder"
+    paths: ["**/*.java"]
+    exclude_paths: ["**/*Test*.java", "**/*Tests.java", "**/test/**"]
+    reminder: "Runtime.exec / ProcessBuilder with user-controlled input is a command-injection risk. Use a parameterized list form, never concatenate user data into a shell string."
+
+  - rule_name: java_unsafe_deserialization
+    regex: "ObjectInputStream|readObject\\(\\)"
+    paths: ["**/*.java"]
+    reminder: "Java native deserialization (ObjectInputStream.readObject) is dangerous with untrusted data. Prefer JSON/Protobuf. If you must deserialize, use a serialization filter (ObjectInputFilter, JEP 290)."
+
+  - rule_name: java_hardcoded_secret
+    regex: "(?i)(password|secret|api_?key|token|credential)\\s*=\\s*\"[^\"]{4,}\""
+    paths: ["**/*.java", "**/*.properties", "**/*.yml", "**/*.yaml"]
+    exclude_paths: ["**/*Test*.java", "**/*Tests.java", "**/test/**"]
+    reminder: "Hardcoded secret detected. Credentials must come from environment variables or a secrets manager — never from source code."
+
+  - rule_name: java_sql_concatenation
+    regex: "\"\\s*\\+\\s*(query|sql|where|id|name|input|param|value)"
+    paths: ["**/*.java"]
+    reminder: "String concatenation in SQL queries risks SQL injection. Use parameterized queries (PreparedStatement / JPA named parameters / Criteria API)."
+
+  - rule_name: java_path_traversal
+    regex: "new File\\(.*request\\.getParameter|Paths\\.get\\(.*getParameter"
+    paths: ["**/*.java"]
+    reminder: "File path constructed from user input risks path traversal. Validate and canonicalize with Path.toRealPath() and confirm it stays inside the allowed base directory."
+
+  - rule_name: java_xxe
+    regex: "DocumentBuilderFactory|SAXParserFactory|XMLInputFactory"
+    paths: ["**/*.java"]
+    reminder: "XML parsing may be vulnerable to XXE if external entities are enabled. Set FEATURE_SECURE_PROCESSING, disable DOCTYPE declarations and external entity resolution explicitly."
