@@ -2,7 +2,7 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v0.3.0** — 13 plugins: 1 core + 2 shared libs + 7 JS/TS stacks + Laravel + 2 Java stacks. Cost-optimized: model tiering + `effort` per-subagent.
+**v0.5.0** — 21 plugins: 1 core + 4 shared libs + 7 JS/TS stacks + 5 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks. Cost-optimized: model tiering + `effort` per-subagent.
 
 ---
 
@@ -75,10 +75,14 @@ Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: 
 | 0 | `vanilla` (sdlc) | — | `*` (always matches) |
 | 100 | `nodejs-plugin` | backend | `package.json` + express/fastify/koa/... |
 | 100 | `laravel-plugin` | backend, database | `composer.json` + `laravel/framework` |
+| 100 | `symfony-plugin` | backend, database | `composer.json` + `symfony/framework-bundle` |
+| 100 | `java-plugin` | backend | `pom.xml` or `build.gradle` or `build.gradle.kts` |
+| 100 | `aspnet-core-plugin` | backend, database | `appsettings.json` |
 | 150 | `react-plugin` | frontend | `package.json` + `react` (without `next`, `react-native`) |
 | 150 | `vue-plugin` | frontend | `package.json` + `vue` |
-| 100 | `java-plugin` | backend | `pom.xml` or `build.gradle` or `build.gradle.kts` |
 | 150 | `spring-boot-plugin` | backend | any build file + `spring-boot` marker |
+| 175 | `inertia-vue-plugin` | frontend | `package.json` + `@inertiajs/vue3` |
+| 175 | `inertia-react-plugin` | frontend | `package.json` + `@inertiajs/react` |
 | 200 | `nestjs-plugin` | backend, database | `package.json` + `@nestjs/core` |
 | 200 | `angular-plugin` | frontend | `package.json` + `@angular/core` |
 | 250 | `nextjs-plugin` | backend, frontend | `package.json` + `next` |
@@ -157,15 +161,21 @@ Claude Code subagent frontmatter supports:
 | `document-writer` | sdlc | `haiku` | `low` | Structured output from known facts; ~10× cheaper than Opus |
 | `laravel-architect` | laravel | `sonnet` | `medium` | Laravel idioms + Inertia/Vue |
 | `artisan-specialist` | laravel | `sonnet` | `low` | Mechanical DB work: column types, indexes, factories |
+| `symfony-architect` | symfony | `sonnet` | `medium` | Attribute routing, controllers-as-services, DI, Voters, Serializer, Messenger, Twig |
+| `doctrine-specialist` | symfony | `sonnet` | `low` | Doctrine entity mappings, generated migrations, fixtures, schema verification |
 | `node-architect` | nodejs | `sonnet` | `medium` | Express/Fastify — implementation driven by clear Node.js idioms |
 | `nest-architect` | nestjs | `sonnet` | `medium` | Convention skills carry per-domain depth |
 | `nextjs-architect` | nextjs | `sonnet` | `medium` | RSC/Client patterns well-defined by spec and convention skills |
 | `react-architect` | react | `sonnet` | `medium` | React conventions and state/routing skills |
 | `vue-architect` | vue | `sonnet` | `medium` | Vue 3/2 detection + convention skills |
 | `angular-architect` | angular | `sonnet` | `medium` | Angular standalone/NgModule, signals, NgRx |
+| `inertia-vue-architect` | inertia-vue | `sonnet` | `medium` | Inertia.js + Vue 3 server-driven pages, no client-side router |
+| `inertia-react-architect` | inertia-react | `sonnet` | `medium` | Inertia.js + React server-driven pages, no React Router |
 | `rn-architect` | react-native | `sonnet` | `medium` | Expo/bare + iOS/Android axes |
 | `java-architect` | java | `sonnet` | `medium` | Plain Java — records, domain objects, build tooling |
 | `spring-boot-architect` | spring-boot | `sonnet` | `medium` | Spring Boot — controllers, JPA, migrations, Spring Security |
+| `aspnet-core-architect` | aspnet-core | `sonnet` | `medium` | Minimal API / MVC, DTOs, FluentValidation, DI, authorization, HTTPS/HSTS |
+| `efcore-specialist` | aspnet-core | `sonnet` | `low` | EF Core Fluent API config, column types, indexes, migration generation and verification |
 
 > `effort: high` on Opus is the most expensive combination. That's why only 2 leverage agents use it (BA and Security) — where reasoning quality directly impacts every downstream phase.
 
@@ -195,7 +205,9 @@ Claude Code subagent frontmatter supports:
 |---|---|---|
 | `sdlc` | Core | Pipeline orchestrator + 5 default agents |
 | `js-foundation` | Shared lib | TypeScript + npm patterns (no stack profile) |
+| `php-foundation` | Shared lib | PHP 8 conventions + Composer + PHPUnit/Pest (no stack profile) |
 | `java-foundation` | Shared lib | Java conventions + Maven/Gradle + JVM testing (no stack profile) |
+| `csharp-foundation` | Shared lib | C# conventions + dotnet CLI/NuGet + xUnit/Moq/FluentAssertions (no stack profile) |
 | `nodejs-plugin` | Stack provider | Express / Fastify / Koa / plain Node.js |
 | `nestjs-plugin` | Stack provider | NestJS + TypeORM/Prisma/Mongoose |
 | `nextjs-plugin` | Stack provider | Next.js App Router (full-stack) |
@@ -203,9 +215,13 @@ Claude Code subagent frontmatter supports:
 | `vue-plugin` | Stack provider | Vue 3 SPA |
 | `angular-plugin` | Stack provider | Angular 18-21 |
 | `react-native-plugin` | Stack provider | React Native / Expo |
-| `laravel-plugin` | Stack provider | Laravel + Inertia + Vue |
+| `inertia-vue-plugin` | Stack provider | Inertia.js + Vue 3 (Laravel backend) |
+| `inertia-react-plugin` | Stack provider | Inertia.js + React (Laravel backend) |
+| `laravel-plugin` | Stack provider | Laravel + Eloquent + Artisan + Inertia |
+| `symfony-plugin` | Stack provider | Symfony + Doctrine ORM + Twig / API Platform |
 | `java-plugin` | Stack provider | Plain Java (Maven/Gradle, no web framework) |
 | `spring-boot-plugin` | Stack provider | Spring Boot REST + Spring Data JPA + Flyway/Liquibase |
+| `aspnet-core-plugin` | Stack provider | ASP.NET Core Web API + EF Core (.NET 6+) |
 
 ### Optional external dependencies
 
@@ -220,7 +236,9 @@ Claude Code subagent frontmatter supports:
 
 | Project | Profile | Development dispatch |
 |---|---|---|
-| Laravel + Vue SPA (Inertia) | laravel (100) | laravel-architect (backend) + artisan-specialist (db) |
+| Laravel + Vue SPA (Inertia) | laravel (100) + inertia-vue (175) | laravel-architect (backend) + artisan-specialist (db) + inertia-vue-architect (frontend) |
+| Laravel + React SPA (Inertia) | laravel (100) + inertia-react (175) | laravel-architect (backend) + artisan-specialist (db) + inertia-react-architect (frontend) |
+| Symfony + Doctrine | symfony (100) | symfony-architect (backend) + doctrine-specialist (db) |
 | Express + React | nodejs (100) + react (150) | node-architect (backend) + react-architect (frontend) |
 | NestJS + Angular | nestjs (200) + angular (200) | nest-architect (backend) + angular-architect (frontend) |
 | Next.js (full-stack) | nextjs (250) | nextjs-architect (owns backend + frontend) |
@@ -228,6 +246,8 @@ Claude Code subagent frontmatter supports:
 | Vanilla Node.js | nodejs (100) | node-architect |
 | Plain Java (no framework) | java (100) | java-architect |
 | Spring Boot REST API | spring-boot (150) | spring-boot-architect |
+| ASP.NET Core Web API + EF Core | aspnet-core (100) | aspnet-core-architect (backend) + efcore-specialist (db) |
+| ASP.NET Core + React SPA | aspnet-core (100) + react (150) | aspnet-core-architect (backend) + efcore-specialist (db) + react-architect (frontend) |
 | Unknown stack | vanilla (0) | developer (fallback) |
 
 ---

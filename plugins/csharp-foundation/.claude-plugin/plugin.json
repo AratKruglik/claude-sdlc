@@ -1,0 +1,13 @@
+{
+  "name": "csharp-foundation",
+  "version": "0.0.1",
+  "description": "Shared C#/.NET foundation skills for the SDLC marketplace. Contains stack-agnostic conventions: csharp-conventions (modern C# idioms — nullable reference types, records, pattern matching, async/await, IDisposable, naming), dotnet-tooling (dotnet CLI, NuGet, csproj/sln, central package management, dotnet format) and dotnet-testing (xUnit, Moq/NSubstitute, FluentAssertions, coverlet). Referenced cross-plugin by every .NET framework provider in the marketplace. No agent, no stack profile — pure shared library.",
+  "author": {
+    "name": "Oleksii Kruhlyk",
+    "url": "https://github.com/AratKruglik"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/AratKruglik/claude-sdlc",
+  "keywords": ["csharp", "dotnet", "nuget", "xunit", "shared", "foundation", "sdlc"],
+  "dependencies": ["sdlc"]
+}

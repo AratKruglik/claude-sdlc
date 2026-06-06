@@ -1,0 +1,30 @@
+patterns:
+  - rule_name: csharp_process_start
+    regex: "Process\\.Start\\s*\\(|ProcessStartInfo"
+    paths: ["**/*.cs"]
+    exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**"]
+    reminder: "Process.Start with user-controlled arguments is a command-injection risk. Never concatenate user input into the command or arguments. Use a parameterized argument list and validate all inputs against an allowlist."
+
+  - rule_name: csharp_unsafe_deserialization
+    regex: "BinaryFormatter|LosFormatter|NetDataContractSerializer|JavaScriptSerializer|SoapFormatter"
+    paths: ["**/*.cs"]
+    exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**"]
+    reminder: "BinaryFormatter and related formatters are dangerous with untrusted data and are deprecated (.NET 5+). Prefer System.Text.Json or Newtonsoft.Json with TypeNameHandling.None. BinaryFormatter is disabled by default in .NET 5+ — do not re-enable it."
+
+  - rule_name: csharp_sql_concatenation
+    regex: "CommandText\\s*=\\s*[^;]*\\+|new SqlCommand\\s*\\([^)]*\\+|new NpgsqlCommand\\s*\\([^)]*\\+"
+    paths: ["**/*.cs"]
+    exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**"]
+    reminder: "String concatenation in SQL commands risks SQL injection. Use parameterized queries (SqlParameter / NpgsqlParameter) or an ORM (EF Core) with parameterized LINQ instead of raw string-built SQL."
+
+  - rule_name: csharp_hardcoded_secret
+    regex: "(?i)(password|secret|api_?key|token|connectionstring|apiSecret)\\s*=\\s*\"[^\"]{4,}\""
+    paths: ["**/*.cs", "**/*.json", "**/*.yaml", "**/*.yml", "**/*.xml"]
+    exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**", "**/appsettings.Development.json", "**/*.example.*"]
+    reminder: "Hardcoded secret detected. Read credentials from environment variables, IConfiguration (appsettings + env overrides), or a secrets manager (Azure Key Vault, AWS Secrets Manager). Never commit secrets to source control."
+
+  - rule_name: csharp_xxe
+    regex: "DtdProcessing\\s*=\\s*DtdProcessing\\.Parse|XmlResolver\\s*=\\s*new XmlUrlResolver"
+    paths: ["**/*.cs"]
+    exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**"]
+    reminder: "Enabling DTD processing (DtdProcessing.Parse) or an XmlUrlResolver makes XML parsing vulnerable to XXE attacks. Keep DtdProcessing.Prohibit (default) and set XmlResolver = null for untrusted XML input."

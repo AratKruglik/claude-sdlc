@@ -1,0 +1,4 @@
+{
+  "_comment": "Runtime plugin dependencies for aspnet-core-plugin. Currently empty — aspnet-core-plugin does not require external superpowers skills directly. The core sdlc plugin's runtime-dependencies.json declares cross-cutting dependencies (e.g., superpowers).",
+  "dependencies": []
+}

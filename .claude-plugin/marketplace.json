@@ -1,6 +1,6 @@
 {
   "name": "sdlc-marketplace",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Multi-stack AI-assisted SDLC pipelines for Claude Code. Stack Provider Pattern: core owns the pipeline, framework plugins register themselves via stack.md profiles.",
   "owner": {
     "name": "Oleksii Kruhlyk",
@@ -93,6 +93,16 @@
       "name": "inertia-react-plugin",
       "source": "./plugins/inertia-react-plugin",
       "description": "Inertia.js + React frontend stack provider (priority=175). Pairs with laravel-plugin for full-stack Laravel+Inertia+React projects. Detects @inertiajs/react adapter. Adds inertia-react-architect agent (Sonnet/medium). Beats generic react-plugin (150) for the frontend aspect. Server-driven Inertia pages — no React Router."
+    },
+    {
+      "name": "csharp-foundation",
+      "source": "./plugins/csharp-foundation",
+      "description": "Shared C#/.NET foundation skills for the SDLC marketplace. Contains stack-agnostic C# conventions (csharp-conventions — nullable reference types, records, pattern matching, async/await + CancellationToken, IDisposable, naming), dotnet-tooling (dotnet CLI, NuGet PackageReference, central package management, Directory.Build.props, dotnet format), and dotnet-testing (xUnit [Fact]/[Theory], Moq/NSubstitute, FluentAssertions, coverlet coverage). No agent, no stack profile — pure shared library. Referenced by aspnet-core-plugin."
+    },
+    {
+      "name": "aspnet-core-plugin",
+      "source": "./plugins/aspnet-core-plugin",
+      "description": "ASP.NET Core backend + database stack provider (priority=100). Detects projects via appsettings.json. Provides aspnet-core-architect (Sonnet/medium — Minimal API / MVC controllers, DTOs, FluentValidation, DI, Options pattern, authorization policies, HTTPS/HSTS, EF Core entity stubs, Program.cs composition) and efcore-specialist (Sonnet/low — entity Fluent API configuration, column types, indexes, unique constraints, cascade rules, migration generation and verification) agents plus aspnet-conventions and efcore-patterns skills. Reuses csharp-foundation skills. Extra database phase after development. Designs the API contract for SPA frontend plugins (vue/react)."
     },
     {
       "name": "java-foundation",

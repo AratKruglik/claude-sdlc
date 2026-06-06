@@ -3,6 +3,53 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [0.5.0] — marketplace v0.5.0
+
+### Added — C# shared foundation + ASP.NET Core stack (2 new plugins)
+
+- **`csharp-foundation` v0.0.1** — Pure shared skill library for any .NET project. No agent, no stack profile. Mirrors `java-foundation` / `php-foundation` / `js-foundation`. Provides:
+  - `csharp-conventions` — Modern C# (C# 10+ / .NET 6+) idioms: nullable reference types, `record` / `readonly record struct`, primary constructors, pattern matching (switch expressions, property patterns, list patterns), `async`/`await` + `CancellationToken`, `IDisposable`/`IAsyncDisposable` + `using`, file-scoped namespaces, naming conventions (PascalCase / `_camelCase` fields / `I`-prefixed interfaces), class design rules (sealed, composition over inheritance).
+  - `dotnet-tooling` — `dotnet` CLI (build/run/test/publish/format/restore), NuGet `PackageReference` lifecycle, central package management (`Directory.Packages.props`), `global.json` SDK pinning, `Directory.Build.props` solution-wide properties, `packages.lock.json`, `.editorconfig` + `dotnet format`.
+  - `dotnet-testing` — xUnit (`[Fact]`/`[Theory]`/`[InlineData]`/`[MemberData]`), Moq (`MockBehavior.Strict`, `VerifyAll`) and NSubstitute, FluentAssertions (collections, exceptions, numeric/date, `BeEquivalentTo`), coverlet coverage + threshold enforcement, `IClassFixture<T>` for shared resources, test project layout.
+  - `security-patterns.yaml` — C# security rules for `security-guidance`: `Process.Start`, `BinaryFormatter`/`LosFormatter`/`JavaScriptSerializer` deserialization, SQL concatenation into `CommandText`, hardcoded secrets, XXE via `DtdProcessing.Parse`.
+
+- **`aspnet-core-plugin` v0.0.1** — ASP.NET Core backend + database stack provider (priority=100). Detects ASP.NET Core projects via `appsettings.json` (glob-based). Adds two agents plus two convention skills:
+  - `aspnet-core-architect` (Sonnet/medium) — Minimal API endpoint groups with `TypedResults`, MVC `[ApiController]`, DTOs as `record` types, FluentValidation `AbstractValidator<T>`, DI lifetimes, Options pattern (`IOptions<T>`), policy-based and resource-based authorization, `ProblemDetails` error handling (RFC 9457), structured logging, JWT Bearer authentication, HTTPS/HSTS pipeline, User Secrets / Key Vault for secrets management, EF Core entity stubs. Designs the API contract for SPA frontend plugins.
+  - `efcore-specialist` (Sonnet/low) — finalizes EF Core entity configurations (`IEntityTypeConfiguration<T>`, Fluent API, column types with `HasPrecision`/`HasMaxLength`, `OnDelete` cascade/restrict/set-null), generates migrations via `dotnet ef migrations add`, reviews the generated SQL, runs `dotnet ef database update`, rollback test. Runs in the extra `database` phase.
+  - `aspnet-conventions` — Program.cs composition order, Minimal API endpoint groups, DI lifetimes, Options pattern, FluentValidation, `ProblemDetails`, structured logging, JWT Bearer, HTTPS/HSTS, configuration layering (appsettings + env vars + User Secrets), health checks (`/health/live` + `/health/ready`).
+  - `efcore-patterns` — DbContext design with `ApplyConfigurationsFromAssembly`, Fluent API column types, relations (`HasOne`/`HasMany`, `OnDelete`), `AsNoTracking` projections to DTOs, avoiding N+1 (`Include`/`AsSplitQuery`), transactions, parameterized raw SQL (`FromSql(FormattableString)` — never `FromSqlRaw` with interpolation).
+  - Phase-prompt injection: ASP.NET Core-specific dev (Program.cs layers, DTOs, validation, authorization, middleware order, secrets), QA (`WebApplicationFactory<TProgram>`, xUnit `IClassFixture`, EF Core in-memory / Testcontainers), and security (authorization gaps, anti-forgery, HTTPS/HSTS, CORS misconfiguration, EF Core raw SQL, over-posting, Data Protection, CSP) guidance.
+  - `dotnet format` Stop hook + post-pipeline checks (`dotnet build`, `dotnet test`, `dotnet format --verify-no-changes`, `dotnet ef database update`).
+  - `security-patterns.yaml` — ASP.NET Core security rules: `[AllowAnonymous]` on controllers, `FromSqlRaw` with string interpolation, `IgnoreAntiforgeryToken`, `AllowAnyOrigin`+`AllowCredentials`, hardcoded connection strings, entity binding (over-posting), HSTS misconfiguration, Data Protection not configured for cookie auth.
+
+### Added — security-patterns.yaml for existing plugins
+
+- **`laravel-plugin`** — Added `security-patterns.yaml` with Laravel-specific security rules: `$guarded = []` (mass assignment disabled), `DB::statement`/`whereRaw`/`selectRaw` string concatenation (SQL injection), `APP_DEBUG=true` in production, `Route::any()`, CSRF `$except = ['*']`, `{!! $var !!}` unescaped Blade output, hardcoded secrets, `Gate::before()` unconditional bypass.
+
+### Changed
+
+- **`js-foundation` — `security-patterns.yaml` updated**: standardized all rules to use `regex` + `paths` keys (removed non-standard `substrings` key). Added two new rules: `js_hardcoded_secret` (credentials in JS/TS source) and `js_prototype_pollution` (`__proto__` / `constructor.prototype` assignment). Existing rules (`dom_injection_innerhtml`, `child_process_exec`, `dom_injection_document_write`, `js_dynamic_code_execution`) updated with explicit `paths` arrays and improved reminders.
+
+### Architecture: C# layering
+
+```
+csharp-foundation  (no agent, no stack — pure skill library)
+        ↑
+aspnet-core-plugin (priority 100)
+backend + database
+```
+
+Mirrors `java-foundation → {java-plugin, spring-boot-plugin}` and `php-foundation → {laravel-plugin, symfony-plugin}`. Future .NET plugins (Blazor, gRPC, plain console) can reference `csharp-foundation` skills without depending on `aspnet-core-plugin`.
+
+### Installation
+
+```
+/plugin install aspnet-core-plugin@sdlc-marketplace   # pulls sdlc + csharp-foundation automatically
+/plugin install csharp-foundation@sdlc-marketplace    # standalone, for C# skills without a stack provider
+```
+
+---
+
 ## [0.4.0] — marketplace v0.4.0
 
 ### Added — PHP shared foundation + Symfony stack (2 new plugins)

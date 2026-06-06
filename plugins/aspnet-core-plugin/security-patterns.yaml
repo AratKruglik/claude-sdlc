@@ -1,0 +1,48 @@
+patterns:
+  - rule_name: aspnet_anonymous_controller
+    regex: "\\[AllowAnonymous\\]"
+    paths: ["**/*.cs"]
+    exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**"]
+    reminder: "[AllowAnonymous] bypasses the global authorization policy. Verify this attribute is intentional on each controller/action — any miscategorised endpoint becomes publicly accessible. Prefer explicit anonymous access on specific endpoints rather than removing authorization from entire controllers."
+
+  - rule_name: aspnet_efcore_raw_sql_interpolated
+    regex: "FromSqlRaw\\s*\\([^)]*\\$\"|ExecuteSqlRaw\\s*\\([^)]*\\$\"|FromSqlRaw\\s*\\([^)]*string\\.Format|ExecuteSqlRaw\\s*\\([^)]*string\\.Format"
+    paths: ["**/*.cs"]
+    exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**"]
+    reminder: "FromSqlRaw / ExecuteSqlRaw with string interpolation or string.Format risks SQL injection. Use FromSql(FormattableString) which auto-parameterizes, or pass explicit SqlParameter / NpgsqlParameter objects. Prefer LINQ queries — they are parameterized by default."
+
+  - rule_name: aspnet_disable_antiforgery
+    regex: "IgnoreAntiforgeryToken|DisableRequestSizeLimit|SuppressImplicitRequiredAttributeForNonNullableReferenceTypes"
+    paths: ["**/*.cs"]
+    exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**"]
+    reminder: "Disabling anti-forgery validation ([IgnoreAntiforgeryToken]) on browser-facing POST/PUT/DELETE endpoints removes CSRF protection. Only disable for stateless token-authenticated (JWT/OAuth) API endpoints — verify the endpoint is not also reachable by cookie-authenticated browser sessions."
+
+  - rule_name: aspnet_cors_allow_any_with_credentials
+    regex: "AllowAnyOrigin\\(\\).*AllowCredentials|AllowCredentials.*AllowAnyOrigin"
+    paths: ["**/*.cs"]
+    exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**"]
+    reminder: "AllowAnyOrigin() combined with AllowCredentials() is forbidden by the CORS spec and blocked by all modern browsers. For credentialed cross-origin requests, specify explicit allowed origins with WithOrigins(\"https://app.example.com\")."
+
+  - rule_name: aspnet_hardcoded_connection_string
+    regex: "(?i)(connectionstring|datasource|server=|data source=)\\s*[=:]\\s*['\"][^'\"]{10,}"
+    paths: ["**/*.cs", "**/appsettings.json", "**/appsettings.*.json"]
+    exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**", "**/appsettings.Development.json"]
+    reminder: "Hardcoded connection string detected. Read connection strings from IConfiguration (environment variable override: ConnectionStrings__DefaultConnection), User Secrets in development, and Azure Key Vault / AWS Secrets Manager in production. Never commit credentials to source control."
+
+  - rule_name: aspnet_overposting_entity_binding
+    regex: "\\[FromBody\\]\\s+[A-Z][a-zA-Z]*(Entity|Model|Record)\\b|Task<IActionResult>.*\\[FromBody\\].*Entity"
+    paths: ["**/*.cs"]
+    exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**"]
+    reminder: "Binding a request body directly to an entity class risks over-posting (mass assignment). Expose only the fields the caller is allowed to set via a dedicated DTO/command record. Never bind entity classes directly from HTTP request payloads."
+
+  - rule_name: aspnet_missing_hsts_in_prod
+    regex: "app\\.UseHsts\\s*\\(\\s*\\)|HstsOptions"
+    paths: ["**/Program.cs", "**/Startup.cs"]
+    exclude_paths: ["**/*Test*.cs", "**/*Tests.cs"]
+    reminder: "Verify that UseHsts() is called only outside of the development environment (inside an !app.Environment.IsDevelopment() block). HSTS max-age should be >= 31536000 (1 year) with includeSubDomains in production. UseHttpsRedirection() must also be present."
+
+  - rule_name: aspnet_data_protection_not_configured
+    regex: "\\.AddAuthentication\\s*\\(|AddCookie\\s*\\("
+    paths: ["**/Program.cs", "**/Startup.cs"]
+    exclude_paths: ["**/*Test*.cs", "**/*Tests.cs"]
+    reminder: "Cookie authentication relies on ASP.NET Core Data Protection for encryption. By default, Data Protection keys are stored in memory and are lost on restart, invalidating all auth cookies. Configure AddDataProtection() with a persistent key store (Azure Blob, Redis, file system with DPAPI protection) for production deployments."

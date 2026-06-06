@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "docker compose exec -T app dotnet format || dotnet format || true",
+            "description": "Auto-format C# files with dotnet format at the end of any session. Tries Docker first (service 'app'), falls back to the local dotnet CLI, swallows errors so it never blocks the user."
+          }
+        ]
+      }
+    ]
+  }
+}

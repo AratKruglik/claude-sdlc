@@ -1,21 +1,36 @@
 patterns:
   - rule_name: js_dynamic_code_execution
-    substrings: ["new Function("]
+    regex: "new\\s+Function\\s*\\("
+    paths: ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.mjs", "**/*.cjs"]
     exclude_paths: ["**/*.test.*", "**/*.spec.*", "**/test/**", "**/tests/**"]
-    reminder: "new Function() executes arbitrary strings as code. Refactor to a static function or allowlist approach."
+    reminder: "new Function() executes arbitrary strings as code — equivalent to eval(). Refactor to a static function or an allowlist-based dispatch map. Never pass user-controlled input to new Function()."
 
   - rule_name: dom_injection_innerhtml
     regex: "\\.innerHTML\\s*="
     paths: ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.mjs"]
-    exclude_paths: ["**/*.test.*", "**/*.spec.*"]
-    reminder: "innerHTML assignment enables XSS. Use textContent for text, or sanitize with DOMPurify before setting innerHTML."
+    exclude_paths: ["**/*.test.*", "**/*.spec.*", "**/test/**", "**/tests/**"]
+    reminder: "innerHTML assignment enables XSS if the value contains user-controlled data. Use textContent for plain text, or sanitize with DOMPurify before setting innerHTML. For framework projects (React, Vue, Angular), use the framework's safe rendering instead of direct DOM mutation."
 
   - rule_name: dom_injection_document_write
-    substrings: ["document.write("]
+    regex: "document\\.write\\s*\\("
     paths: ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.mjs"]
-    reminder: "document.write() is unsafe and deprecated. Use DOM APIs (createElement, appendChild) instead."
+    exclude_paths: ["**/*.test.*", "**/*.spec.*", "**/test/**", "**/tests/**"]
+    reminder: "document.write() is unsafe and deprecated. Use DOM APIs (createElement, appendChild, insertAdjacentHTML with sanitized content) instead."
 
-  - rule_name: child_process_exec
+  - rule_name: js_child_process_exec
     regex: "(?:child_process|require\\(['\"]child_process['\"]\\)).*\\.exec\\s*\\("
+    paths: ["**/*.js", "**/*.ts", "**/*.mjs", "**/*.cjs"]
+    exclude_paths: ["**/*.test.*", "**/*.spec.*", "**/test/**", "**/tests/**"]
+    reminder: "child_process.exec() passes input through a shell — vulnerable to command injection. Use execFile() or spawn() with an args array instead of a shell string. Never concatenate user-controlled data into the command string."
+
+  - rule_name: js_hardcoded_secret
+    regex: "(?i)(password|secret|api_?key|token|apiSecret)\\s*[:=]\\s*['\"][^'\"]{8,}['\"]"
+    paths: ["**/*.js", "**/*.ts", "**/*.mjs", "**/*.cjs"]
+    exclude_paths: ["**/*.test.*", "**/*.spec.*", "**/test/**", "**/tests/**", "**/*.example.*", "**/*.d.ts"]
+    reminder: "Hardcoded secret detected. Read credentials from environment variables (process.env.SECRET_KEY) or a secrets manager. Never commit tokens, passwords, or API keys to source control."
+
+  - rule_name: js_prototype_pollution
+    regex: "__proto__|constructor\\s*\\[\\s*['\"]prototype['\"]\\s*\\]"
     paths: ["**/*.js", "**/*.ts", "**/*.mjs"]
-    reminder: "child_process.exec() passes input through a shell — vulnerable to injection. Use execFile() or spawn() with an args array."
+    exclude_paths: ["**/*.test.*", "**/*.spec.*", "**/test/**", "**/tests/**"]
+    reminder: "Assigning to __proto__ or constructor.prototype with user-controlled keys enables prototype pollution. Use Object.create(null) for key-value stores, and validate/sanitize keys before merging user objects."
