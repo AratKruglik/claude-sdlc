@@ -1,0 +1,13 @@
+{
+  "name": "symfony-plugin",
+  "version": "0.0.1",
+  "description": "Symfony backend + database stack provider for the SDLC marketplace. Registers the Symfony profile via stack.md (priority=100, detects symfony/framework-bundle); substitutes symfony-architect for the development phase and adds a doctrine-specialist agent for an extra database phase. Includes symfony-conventions and doctrine-patterns skills, a PHP-CS-Fixer Stop-hook for auto-formatting, and a PHP-CS-Fixer/PHPUnit post-pipeline. Reuses php-foundation skills. symfony-architect renders Twig views and designs the Serializer/API contract for SPA frontend plugins.",
+  "author": {
+    "name": "Oleksii Kruhlyk",
+    "url": "https://github.com/AratKruglik"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/AratKruglik/claude-sdlc",
+  "keywords": ["symfony", "php", "doctrine", "twig", "sdlc", "stack-provider"],
+  "dependencies": ["sdlc", "php-foundation"]
+}

@@ -2,7 +2,7 @@
 
 Laravel backend + database stack provider. Auto-detects Laravel projects (`composer.json` containing `"laravel/framework"`) and substitutes Laravel-specific agents into the pipeline. Pairs with `inertia-vue-plugin` or `inertia-react-plugin` for full Inertia frontends.
 
-> Requires [`sdlc`](../sdlc/README.md) — installed automatically as a dependency.
+> Requires [`sdlc`](../sdlc/README.md) and [`php-foundation`](../php-foundation/README.md) — installed automatically as dependencies.
 
 ## What this plugin adds
 

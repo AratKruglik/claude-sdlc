@@ -1,0 +1,35 @@
+patterns:
+  - rule_name: symfony_disabled_csrf
+    regex: "'csrf_protection'\\s*=>\\s*false|enableCsrfProtection\\(\\s*false"
+    paths: ["**/*.php"]
+    exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php"]
+    reminder: "Disabling CSRF protection on a browser-facing form removes a key defense. Keep csrf_protection enabled for stateful form submissions; only disable for stateless token-authenticated APIs and document the decision."
+
+  - rule_name: symfony_security_public_root
+    regex: "access_control:[\\s\\S]*?-\\s*\\{\\s*path:\\s*['\"]?\\^/['\"]?\\s*,\\s*roles?:\\s*(PUBLIC_ACCESS|IS_AUTHENTICATED_ANONYMOUSLY)"
+    paths: ["**/security.yaml", "**/security.yml", "**/packages/security.yaml"]
+    reminder: "An access_control rule granting PUBLIC_ACCESS to '^/' opens the entire application. Define explicit path matchers and grant public access only to the routes that need it (login, registration, health)."
+
+  - rule_name: symfony_dql_concatenation
+    regex: "(createQuery|->where|->andWhere|->orWhere)\\s*\\(\\s*['\"][^'\"]*['\"]?\\s*\\.\\s*\\$"
+    paths: ["**/*.php"]
+    exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php"]
+    reminder: "String concatenation in DQL/QueryBuilder risks injection. Use ->setParameter() with named (:param) or positional (?1) placeholders — never interpolate user input into the DQL string."
+
+  - rule_name: symfony_debug_dump
+    regex: "\\b(dd|dump)\\s*\\(|\\bVarDumper::dump"
+    paths: ["**/*.php"]
+    exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php"]
+    reminder: "dd()/dump() from the VarDumper component leaks internal state and halts the response. Remove before completing the change; use the Symfony logger (Psr\\Log\\LoggerInterface) for diagnostics."
+
+  - rule_name: symfony_inline_role_check
+    regex: "->getUser\\(\\)->getRoles\\(\\)|in_array\\(\\s*['\"]ROLE_"
+    paths: ["**/*.php"]
+    exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php", "**/Security/**Voter.php"]
+    reminder: "Inline role inspection bypasses Symfony's authorization layer. Use a Voter with #[IsGranted] / $this->denyAccessUnlessGranted(), or security.yaml access_control — not manual getRoles() checks scattered in controllers/services."
+
+  - rule_name: symfony_hardcoded_secret
+    regex: "(?i)(password|secret|api_?key|token|dsn)\\s*=>?\\s*['\"][^'\"]{6,}['\"]"
+    paths: ["**/*.php", "**/*.yaml", "**/*.yml"]
+    exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php", "**/.env.example", "**/config/packages/test/**"]
+    reminder: "Hardcoded credential detected. In Symfony, read secrets via environment variables (%env(DATABASE_URL)%) or the Secrets Vault (bin/console secrets:set) — never commit them to config or source."

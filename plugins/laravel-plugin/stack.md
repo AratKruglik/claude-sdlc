@@ -37,6 +37,9 @@ Note: this plugin does NOT declare `development.frontend`. That slot is filled b
 
 ## Convention skills to apply
 
+- php-foundation:php-conventions
+- php-foundation:composer-tooling
+- php-foundation:php-testing
 - laravel:laravel-conventions
 - laravel:eloquent-patterns
 

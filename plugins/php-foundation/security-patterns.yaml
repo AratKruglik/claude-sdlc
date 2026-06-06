@@ -1,0 +1,40 @@
+patterns:
+  - rule_name: php_dynamic_code_execution
+    regex: "\\b(eval|assert)\\s*\\(|\\bcreate_function\\s*\\("
+    paths: ["**/*.php"]
+    exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php"]
+    reminder: "eval()/assert() with a string/create_function() execute arbitrary PHP. Never pass user-controlled data. Replace with explicit logic, a match expression, or a whitelisted callable map."
+
+  - rule_name: php_shell_execution
+    regex: "\\b(shell_exec|exec|system|passthru|popen|proc_open)\\s*\\(|`[^`]*\\$"
+    paths: ["**/*.php"]
+    exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php"]
+    reminder: "Shell execution with user input is a command-injection risk. Use the array form of Symfony Process (new Process(['cmd', $arg])) or escapeshellarg() on every argument; never concatenate user data into a shell string."
+
+  - rule_name: php_unsafe_deserialization
+    regex: "\\bunserialize\\s*\\("
+    paths: ["**/*.php"]
+    reminder: "unserialize() on untrusted data enables object-injection / POP-chain attacks. Use json_decode() for data interchange. If unserialize() is unavoidable, pass ['allowed_classes' => false] (or an explicit allowlist)."
+
+  - rule_name: php_hardcoded_secret
+    regex: "(?i)(password|secret|api_?key|token|credential)\\s*=>?\\s*['\"][^'\"]{6,}['\"]"
+    paths: ["**/*.php", "**/*.yaml", "**/*.yml", "**/*.env*"]
+    exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php", "**/.env.example", "**/.env.dist"]
+    reminder: "Hardcoded secret detected. Credentials must come from environment variables (getenv / $_ENV / framework env helpers) or a secrets manager — never from source code."
+
+  - rule_name: php_sql_concatenation
+    regex: "(query|exec|prepare)\\s*\\(\\s*['\"][^'\"]*\\$|->where\\(\\s*['\"][^'\"]*\\.\\s*\\$"
+    paths: ["**/*.php"]
+    exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php"]
+    reminder: "String concatenation in SQL/DQL risks injection. Use parameter bindings (PDO prepared statements with placeholders, Eloquent/query-builder bindings, or Doctrine named/positional parameters) — never interpolate user input."
+
+  - rule_name: php_path_traversal
+    regex: "(file_get_contents|fopen|require|include|readfile|unlink)\\s*\\(\\s*\\$_(GET|POST|REQUEST|COOKIE)"
+    paths: ["**/*.php"]
+    reminder: "Filesystem path built from request data risks path traversal / local file inclusion. Validate against an allowlist and canonicalize with realpath(), then confirm the result stays inside the intended base directory."
+
+  - rule_name: php_debug_output
+    regex: "\\b(var_dump|print_r|var_export|dd|dump)\\s*\\("
+    paths: ["**/*.php"]
+    exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php"]
+    reminder: "Debug output left in code leaks internal state and can break responses. Remove var_dump/print_r/dd/dump before completing the change; use a logger (PSR-3) for diagnostics."

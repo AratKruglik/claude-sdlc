@@ -3,6 +3,49 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [0.4.0] — marketplace v0.4.0
+
+### Added — PHP shared foundation + Symfony stack (2 new plugins)
+
+- **`php-foundation` v0.0.1** — Pure shared skill library for any PHP project. No agent, no stack profile. Mirrors `java-foundation` / `js-foundation`. Provides:
+  - `php-conventions` — Modern PHP 8.x idioms: `declare(strict_types=1)`, constructor property promotion, `readonly` properties, backed enums, `match`, typed properties, named arguments, first-class callable syntax, nullsafe operator, PSR-12.
+  - `composer-tooling` — `composer.json` vs `composer.lock` contract, version constraints (`^`/`~`), `require` vs `require-dev`, PSR-4 autoloading + `dump-autoload`, scripts, `config.platform.php`.
+  - `php-testing` — PHPUnit + Pest structure (AAA), data providers / datasets, test doubles (stub vs mock discipline), fixtures, coverage targets.
+  - `security-patterns.yaml` — PHP security rules (dynamic code execution, shell execution, unsafe deserialization, hardcoded secrets, SQL concatenation, path traversal, debug output) for `security-guidance`.
+
+- **`symfony-plugin` v0.0.1** — Symfony backend + database stack provider (priority=100). Detects `symfony/framework-bundle` in `composer.json`. Adds two agents plus two convention skills:
+  - `symfony-architect` (Sonnet/medium) — attribute routing, controllers-as-services + constructor injection, Form types, Validation constraints, Voters, Serializer/DTO contract, Messenger, Twig rendering. Designs the API/serialization contract for SPA frontend plugins.
+  - `doctrine-specialist` (Sonnet/low) — finalizes Doctrine entity mappings, generates migrations via `doctrine:migrations:diff`, reviews the SQL, writes fixtures, runs `migrate` + `doctrine:schema:validate`. Runs in the extra `database` phase.
+  - `symfony-conventions` — attribute routing, DI/autowiring, Form types, validation, Voters, Serializer, Messenger.
+  - `doctrine-patterns` — entity mapping as source of truth, repositories, parameterized DQL, N+1/fetch joins, relations, batch processing, generated migrations.
+  - Phase-prompt injection: Symfony-specific dev (layers, Voters, validation, lint:container), QA (`WebTestCase`/`KernelTestCase`, dama/doctrine-test-bundle), and security (Voters/access_control, CSRF, secrets, DQL injection, Serializer over-exposure) guidance.
+  - PHP-CS-Fixer Stop hook + post-pipeline checks (`php-cs-fixer`, `phpunit`, `lint:container`, `debug:router`, `doctrine:schema:validate`).
+
+### Changed
+
+- **`laravel-plugin` v0.0.2 → v0.0.3** — now depends on `php-foundation`; `stack.md` applies `php-foundation:php-conventions`, `php-foundation:composer-tooling`, `php-foundation:php-testing` alongside its own skills; trimmed the duplicated general PHP "Code style" section from `laravel-conventions` (now lives in `php-foundation:php-conventions`).
+
+### Architecture: PHP layering
+
+```
+php-foundation  (no agent, no stack — pure skill library)
+     ↑                    ↑
+laravel-plugin       symfony-plugin
+(priority 100)       (priority 100)
+backend + database   backend + database
+```
+
+Mirrors `java-foundation → {java-plugin, spring-boot-plugin}`. Laravel and Symfony markers in `composer.json` are mutually exclusive, so the two profiles never collide.
+
+### Installation
+
+```
+/plugin install symfony-plugin@sdlc-marketplace   # pulls sdlc + php-foundation automatically
+/plugin install laravel-plugin@sdlc-marketplace   # now also pulls php-foundation
+```
+
+---
+
 ## [0.3.0] — marketplace v0.3.0
 
 ### Added — Java stack (3 new plugins)
