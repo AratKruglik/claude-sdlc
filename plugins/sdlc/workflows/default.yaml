@@ -1,0 +1,9 @@
+name: default
+description: Canonical 5-phase SDLC pipeline — business analysis through documentation.
+
+phases:
+  - business_analysis
+  - development
+  - qa
+  - security
+  - documentation
