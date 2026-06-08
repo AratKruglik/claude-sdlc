@@ -25,14 +25,22 @@ If no file is found → **HALT**:
 ❌ Workflow '{WORKFLOW_NAME}' not found.
    Searched: ~/.claude/plugins/cache/sdlc/workflows/{WORKFLOW_NAME}.yaml
    Available: {list all *.yaml in the workflows/ directory via Glob, excluding test-fixtures/}
-   Use --canonical to run the built-in 5-phase pipeline without a workflow file.
+   Omit --workflow=NAME to use the default workflow.
 ```
 
-## Step 2: Read and parse
+## Step 2: Read, parse, and validate
 
-`Read` the located file. Parse YAML. Extract `phases` array.
+`Read` the located file. Parse YAML. Validate the parsed structure against
+`schemas/workflow.schema.json` (Read the schema, verify `required` fields are
+present, types match, and no unknown properties exist). If validation fails → **HALT**:
 
-Normalize each element to `{name: string, when?: string}`:
+```text
+❌ Workflow '{WORKFLOW_NAME}' failed schema validation.
+   Errors: {list each violation — missing field, wrong type, unknown property}
+   File: {file_path}
+```
+
+Extract `phases` array. Normalize each element to `{name: string, when?: string}`:
 
 - String element `"foo"` → `{name: "foo"}`
 - Object element `{name: "foo", when: "..."}` → keep as-is
@@ -69,6 +77,16 @@ For each entry in `EFFECTIVE_PROFILE.extra_phases` (merged in Step 1a):
    not present in workflow '{WORKFLOW_NAME}' — skipping.
 ```
 
+### Conflict detection after insertion
+
+After all extra_phases have been inserted, re-run the acyclic check from Step 3
+on the merged list. If any phase name now appears more than once → **HALT**:
+
+```text
+❌ Workflow '{workflow_name}' after merging stack extra_phases contains duplicate
+   phase '{duplicate_name}'. Check the stack profile's extra_phases declaration.
+```
+
 ### Apply skip_phases
 
 Sources: Step 0c skip-rules + Step 1b sdlc.local.yaml.
@@ -80,10 +98,10 @@ Remove all phases whose `name` is in the combined skip set.
 Store the resolved list as `CONTEXT.resolved_phases[]`. Persist `WORKFLOW_NAME` in
 `CONTEXT.active_workflow`.
 
-Print (part of the existing Step 0b verbatim block, not a new block):
+Print a new line **at Step 1c** (not part of the earlier Step 0b block):
 
 ```text
-   workflow: {WORKFLOW_NAME}  ({N} phases)
+   workflow: {WORKFLOW_NAME}  ({N} phases after skips)
 ```
 
 The full "resolved plan + cost-preview" verbatim block is added in Iteration 1.
