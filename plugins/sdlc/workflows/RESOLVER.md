@@ -86,4 +86,4 @@ Print (part of the existing Step 0b verbatim block, not a new block):
    workflow: {WORKFLOW_NAME}  ({N} phases)
 ```
 
-*(Full "resolved plan + cost-preview" verbatim block is added in Iteration 1.)*
+The full "resolved plan + cost-preview" verbatim block is added in Iteration 1.
