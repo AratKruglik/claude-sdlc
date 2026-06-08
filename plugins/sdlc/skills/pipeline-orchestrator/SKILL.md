@@ -438,14 +438,12 @@ Summary:
    element to `{name, when?}`. If validation fails → HALT per RESOLVER.md Step 2.
 3. **Validate acyclic:** if any phase `name` appears more than once in the
    workflow file → HALT per RESOLVER.md Step 3.
-4. **Insert extra_phases** from `EFFECTIVE_PROFILE.extra_phases` at their `after:`
-   points, then re-run the conflict check (RESOLVER.md Step 4).
-5. **Apply skips** — same two sources as before:
-   - Step 0c skip-rules
-   - Step 1b `skip_phases` from `sdlc.local.yaml`
-6. **Persist and print:** store as `CONTEXT.resolved_phases[]`, persist
-   `WORKFLOW_NAME` in `CONTEXT.active_workflow`, and print one line per
-   RESOLVER.md Step 5.
+4. **Build resolved list (RESOLVER.md Step 4):** insert `extra_phases` from
+   `EFFECTIVE_PROFILE.extra_phases` at their `after:` points; re-run conflict
+   check; apply skips (Step 0c skip-rules + Step 1b `skip_phases` from
+   `sdlc.local.yaml`).
+5. **Persist and print (RESOLVER.md Step 5):** store as `CONTEXT.resolved_phases[]`,
+   persist `WORKFLOW_NAME` in `CONTEXT.active_workflow`, print one line at Step 1c.
 
 The resolved `CONTEXT.resolved_phases[]` replaces the hardcoded list for all
 downstream steps. Phase names and their semantics are unchanged.
