@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-$(pwd)}/plugins/sdlc/hooks/enforce-agent-model.py\"",
+            "description": "Enforce declared model tier for SDLC pipeline agents. Reads model: from agent frontmatter and injects the correct model ID via updatedInput before the Agent tool fires. Fails open for unknown agents."
+          }
+        ]
+      }
+    ]
+  }
+}
