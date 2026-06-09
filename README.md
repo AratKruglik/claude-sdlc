@@ -2,7 +2,7 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v0.5.0** — 21 plugins: 1 core + 4 shared libs + 7 JS/TS stacks + 5 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks. Cost-optimized: model tiering + `effort` per-subagent.
+**v1.0.1** — 21 plugins: 1 core + 4 shared libs + 7 JS/TS stacks + 5 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks. Cost-optimized: model tiering + `effort` per-subagent. Dynamic workflow recipes + guaranteed per-agent model enforcement.
 
 ---
 
@@ -137,6 +137,96 @@ Aspects are dispatched in canonical order: `database → backend → frontend �
 | `/sdlc:list-stacks` | Show detected stack profiles and their priorities |
 | `/sdlc:doctor` | Preflight check: dependency check, stack detection, cost baseline |
 | `/sdlc:security-init` | Materialize security-patterns.yaml for the security-guidance plugin |
+
+---
+
+## Dynamic Workflow Recipes
+
+A **workflow recipe** is a YAML file that declares which pipeline phases to run. Instead of always running all 5 phases, the orchestrator selects the right recipe automatically — or you can pick one explicitly.
+
+### Built-in recipes
+
+| Recipe | Phases | Auto-selects when |
+|---|---|---|
+| `default` | BA → Dev → QA → Security → Docs | any task |
+| `bugfix` | Dev → QA → Security → Docs | arguments contain `fix`, `bug`, `issue`; ≤500 LOC |
+| `hotfix` | Dev → QA → Security → Docs | arguments contain `hotfix`, `urgent`, `emergency`; ≤200 LOC; $0.60 cost cap |
+| `refactor` | Dev → QA → Security → Docs | arguments contain `refactor`, `cleanup`, `extract` |
+| `docs-only` | Docs | arguments contain `docs`, `readme`, `changelog`; $0.10 cost cap |
+
+### Using a specific recipe
+
+```bash
+/sdlc:start --workflow=hotfix "Fix null pointer in payment handler"
+/sdlc:start --workflow=docs-only "Update README for new auth flow"
+```
+
+### Auto-selection
+
+If no `--workflow` flag is given, the orchestrator checks each recipe's `match` rules against your `$ARGUMENTS` in priority order. First match wins; `default` always matches as the fallback.
+
+### Custom recipes
+
+Place a YAML file at `~/.claude/plugins/cache/sdlc/workflows/my-recipe.yaml`:
+
+```yaml
+name: my-recipe
+description: Internal audit workflow — skip BA, security required.
+phases:
+  - development
+  - qa
+  - security
+caps:
+  max_total_cost_usd: 1.00
+```
+
+```bash
+/sdlc:start --workflow=my-recipe "Audit user permissions module"
+```
+
+Recipe files are validated against `schemas/workflow.schema.json` on load. Invalid recipes halt with an error listing each violation.
+
+---
+
+## Model Enforcement
+
+Every agent in the SDLC pipeline declares its `model:` tier in frontmatter. The pipeline guarantees that tier is actually used — regardless of the session-level default model.
+
+**Two enforcement layers:**
+
+1. **Orchestrator (Layer 1)** — Step 3b-3 in the pipeline explicitly reads the agent's `.md` frontmatter, resolves the tier to a full model ID, and passes it in the `Agent()` dispatch call.
+
+2. **PreToolUse hook (Layer 2)** — `plugins/sdlc/hooks/enforce-agent-model.sh` intercepts every `Agent` tool call at the harness level. It reads the agent's declared `model:`, compares it with the requested model, and corrects it via `updatedInput` if they differ. This fires even if the orchestrator misses the step.
+
+The hook is registered in `plugins/sdlc/hooks/hooks.json`. To activate it for your project, add to `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$(pwd)}/plugins/sdlc/hooks/enforce-agent-model.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Tier → model ID mapping:**
+
+| Tier | Model ID |
+|---|---|
+| `opus` | `claude-opus-4-8` |
+| `sonnet` | `claude-sonnet-4-6` |
+| `haiku` | `claude-haiku-4-5-20251001` |
+
+Corrections are logged to `docs/plans/_model-enforcement.log`. Unknown agents (non-SDLC subagents) are allowed through without changes — the hook fails open.
 
 ---
 
