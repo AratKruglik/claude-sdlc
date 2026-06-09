@@ -1,0 +1,10 @@
+name: bugfix
+description: Fix a known bug — skip business analysis, run development through documentation.
+match:
+  arguments_pattern: "\\bfix(es|ed)?\\b|\\bbug\\b|\\bissue\\b"
+  loc_touched_max: 500
+phases:
+  - development
+  - qa
+  - security
+  - documentation

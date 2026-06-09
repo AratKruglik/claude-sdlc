@@ -1,0 +1,9 @@
+name: refactor
+description: Code refactoring — skip BA, restructure code without changing external behavior.
+match:
+  arguments_pattern: "\\brefactor\\b|\\bclean\\s*up\\b|\\brestructur\\w*\\b|\\bextract\\b"
+phases:
+  - development
+  - qa
+  - security
+  - documentation

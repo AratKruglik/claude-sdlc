@@ -1,0 +1,9 @@
+name: docs-only
+description: Documentation updates only — skip all implementation and review phases.
+match:
+  arguments_pattern: "\\bdoc(s|umentation)?\\b|\\breadme\\b|\\bchangelog\\b"
+  config_only: true
+caps:
+  max_total_cost_usd: 0.10
+phases:
+  - documentation
