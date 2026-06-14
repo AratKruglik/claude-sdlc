@@ -73,6 +73,45 @@ Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: 
 3. **Per-aspect dispatch.** A project can have multiple aspects (backend + frontend + database). Each aspect gets its own specialist.
 4. **Priority wins.** When multiple profiles match, the highest priority takes over.
 
+### How Stack Selection Works
+
+When `/sdlc:start` runs, the orchestrator needs to decide which agent handles development. The priority system is how it picks.
+
+Each plugin has a `stack.md` file where it describes itself: *"I handle projects that have X, and my priority is Y."* The orchestrator scans all installed plugins, runs their detection rules against the current project, and picks the highest-priority match.
+
+**Step by step:**
+
+1. Scan `~/.claude/plugins/cache/**/stack.md` — collect all registered profiles.
+2. Each profile checks its `detect` rules: is there a `package.json`? Does it contain `react`? Is there a `manage.py`? And so on.
+3. From those that matched — the profile with the **highest priority number wins**.
+
+**Example — Laravel + React (Inertia.js) project:**
+
+| Plugin | Priority | Matched? |
+|---|---|---|
+| `vanilla` (sdlc) | 0 | ✅ always |
+| `laravel-plugin` | 100 | ✅ `composer.json` + laravel |
+| `react-plugin` | 150 | ✅ `package.json` + react |
+| `inertia-react-plugin` | 175 | ✅ `package.json` + `@inertiajs/react` |
+
+Result: **backend** → `laravel-architect`, **frontend** → `inertia-react-architect` (beats plain react at 175 vs 150).
+
+**Why numbers, not "first match"?**
+
+Some technologies are supersets of others. Next.js is React + a server. NestJS is Node.js + a DI framework. When multiple plugins recognize the same project, the **more specialized one should win** — not whichever was installed first. The numbers encode that specialization:
+
+```
+0   → vanilla fallback (always matches, always loses)
+100 → base stacks (laravel, django, java, python...)
+150 → more specific (spring-boot, react SPA, vue...)
+175 → super-stacks (inertia = laravel + react combined)
+200 → even more specific (nestjs, angular...)
+250 → full-stack (nextjs = backend + frontend in one)
+300 → mobile (react-native — its own ecosystem)
+```
+
+**Aspects** let one project run multiple specialist agents in parallel. `laravel-plugin` covers `backend` + `database` aspects; `inertia-react-plugin` covers `frontend`. So a Laravel + Inertia project gets three agents — `laravel-architect`, `artisan-specialist`, and `inertia-react-architect` — each focused on its own slice, dispatched in canonical order: `database → backend → frontend`.
+
 ### Stack Priority Table
 
 | Priority | Plugin | Aspects | Detect |
