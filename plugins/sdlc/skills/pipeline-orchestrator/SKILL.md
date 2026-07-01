@@ -537,7 +537,7 @@ Examples:
 
 This is a contract with the user. Do not skip.
 
-**3b-3. Resolve model from agent frontmatter** — before spawning, resolve `{model_tier}` by reading the `model:` YAML field from the agent's `.md` file (`plugins/**/agents/{agent_name}.md`). This resolved tier is what you print in 3b-2 and pass to `Agent()` in 3c. Tier-to-ID mapping: `opus → claude-opus-4-8`, `sonnet → claude-sonnet-4-6`, `haiku → claude-haiku-4-5-20251001`. If the file is missing or the field is absent, warn inline and fall back to `sonnet`.
+**3b-3. Resolve model from agent frontmatter** — before spawning, resolve `{model_tier}` by reading the `model:` YAML field from the agent's `.md` file (`plugins/**/agents/{agent_name}.md`). This resolved tier is what you print in 3b-2 and pass to `Agent()` in 3c. Tier-to-ID mapping: `opus → claude-opus-4-8`, `sonnet → claude-sonnet-5`, `haiku → claude-haiku-4-5-20251001`. If the file is missing or the field is absent, warn inline and fall back to `sonnet`.
 
 **3b-special. Development phase two-pass execution**
 
@@ -587,10 +587,10 @@ Agent({
 **3d-1. Capture per-phase telemetry** — extract from the Agent tool result (when usage data is present in the result envelope, read `input_tokens`, `output_tokens`, `cached_input_tokens`; otherwise estimate from prompt + summary character length / 4). Compute:
 
 - `compact_summary_chars` — `len(CONTEXT.{phase}_output)`. If > 3000 chars (≈ 3K-token target), record `compact_handoff_violation: true` and emit a one-line warning to stderr: `WARN: {phase} compact summary exceeded budget ({chars} chars > 3000)`. Do not abort — the violation is recorded for post-run analysis.
-- `model` — the full model ID declared in the agent's frontmatter (`claude-opus-4-8`, `claude-sonnet-4-6`, or `claude-haiku-4-5-20251001`). This is the authoritative value because the PreToolUse hook enforces it at dispatch time. **Do not** read this from the Agent result envelope (it is not exposed there).
+- `model` — the full model ID declared in the agent's frontmatter (`claude-opus-4-8`, `claude-sonnet-5`, or `claude-haiku-4-5-20251001`). This is the authoritative value because the PreToolUse hook enforces it at dispatch time. **Do not** read this from the Agent result envelope (it is not exposed there).
 - `cost_usd` — derived from per-model pricing table (kept inline for transparency):
   - opus (`claude-opus-4-8`): input $15/MTok, cached input $1.50/MTok, output $75/MTok
-  - sonnet (`claude-sonnet-4-6`): input $3/MTok, cached input $0.30/MTok, output $15/MTok
+  - sonnet (`claude-sonnet-5`): input $3/MTok, cached input $0.30/MTok, output $15/MTok
   - haiku (`claude-haiku-4-5-20251001`): input $1/MTok, cached input $0.10/MTok, output $5/MTok
 - For aspect-aware phase fan-out, push one entry **per aspect** into `phases[]` with `phase: "{phase_name}"` and `aspect: "{aspect}"` set; aspect-agnostic phases omit `aspect`.
 
@@ -665,7 +665,7 @@ Write `docs/plans/{task_slug}/_telemetry.json`:
       "phase": "qa",
       "aspect": null,
       "agent": "qa-engineer",
-      "model": "claude-sonnet-4-6",
+      "model": "claude-sonnet-5",
       "status": "completed",
       "qa_iterations_used": 2,
       "qa_status": "completed",

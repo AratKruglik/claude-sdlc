@@ -13,7 +13,7 @@ set -uo pipefail
 tier_to_model() {
     case "$1" in
         opus)   echo "claude-opus-4-8" ;;
-        sonnet) echo "claude-sonnet-4-6" ;;
+        sonnet) echo "claude-sonnet-5" ;;
         haiku)  echo "claude-haiku-4-5-20251001" ;;
         *)      echo "" ;;
     esac

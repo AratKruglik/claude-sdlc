@@ -254,7 +254,7 @@ The hook is registered in `plugins/sdlc/hooks/hooks.json` and activates automati
 | Tier | Model ID |
 |---|---|
 | `opus` | `claude-opus-4-8` |
-| `sonnet` | `claude-sonnet-4-6` |
+| `sonnet` | `claude-sonnet-5` |
 | `haiku` | `claude-haiku-4-5-20251001` |
 
 ---
@@ -301,14 +301,18 @@ Claude Code subagent frontmatter supports:
 
 ### Estimated cost for a medium feature
 
-| Phase | Agent | Cost |
-|---|---|---|
-| BA | opus/high | ~$0.25 |
-| Dev | sonnet/medium | ~$0.60 |
-| QA | sonnet/medium (≤3 attempts) | ~$0.30 |
-| Security | opus/high | ~$0.25 |
-| Docs | haiku/low | ~$0.07 |
-| **Total** | | **~$1.47** |
+Assumes a medium feature (~445K total input tokens across the pipeline, per [Requirements](#requirements)), split roughly by phase workload below. Sonnet 5 pricing includes an introductory discount through 2026-08-31 ($2/$10 per MTok in/out vs. the $3/$15 standard rate) — both are shown since most runs during the discount window will land closer to the lower figure.
+
+| Phase | Agent | Model | Est. input / output tokens | Cost (standard) | Cost (intro, thru 2026-08-31) |
+|---|---|---|---|---|---|
+| BA | business-analyst | opus/high | 40K / 3K | ~$0.28 | ~$0.28 |
+| Dev | stack architect | sonnet/medium | 250K / 8K | ~$0.87 | ~$0.58 |
+| QA | qa-engineer | sonnet/medium (≤3 attempts) | 100K / 5K | ~$0.38 | ~$0.25 |
+| Security | security-analyst | opus/high | 40K / 3K | ~$0.28 | ~$0.28 |
+| Docs | document-writer | haiku/low | 15K / 2K | ~$0.03 | ~$0.03 |
+| **Total** | | | **445K / 21K** | **~$1.84** | **~$1.42** |
+
+Opus and Haiku pricing is unchanged from prior model generations, so only the Sonnet-tier phases (Dev, QA) shift with the Sonnet 5 introductory rate. Actual cost varies with codebase size, diff scope, and QA retry count — treat this as an order-of-magnitude estimate, not a quote.
 
 ### Additional cost levers
 
