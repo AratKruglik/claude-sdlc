@@ -1,6 +1,6 @@
 {
   "name": "sdlc",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Universal SDLC orchestrator with stack provider auto-discovery. Owns the pipeline; framework plugins register themselves via stack.md profiles. Includes 5 cost-tiered default agents (BA Opus, Dev Sonnet, QA Sonnet with iteration cap, Sec Opus, Docs Haiku). Slash command: /sdlc:start \"<feature>\".",
   "author": {
     "name": "Oleksii Kruhlyk",

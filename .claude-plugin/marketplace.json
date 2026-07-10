@@ -1,6 +1,6 @@
 {
   "name": "sdlc-marketplace",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Multi-stack AI-assisted SDLC pipelines for Claude Code. Stack Provider Pattern: core owns the pipeline, framework plugins register themselves via stack.md profiles.",
   "owner": {
     "name": "Oleksii Kruhlyk",
