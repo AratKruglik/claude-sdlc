@@ -537,7 +537,7 @@ Examples:
 
 This is a contract with the user. Do not skip.
 
-**3b-3. Resolve model from agent frontmatter** — before spawning, resolve `{model_tier}` by reading the `model:` YAML field from the agent's `.md` file (`plugins/**/agents/{agent_name}.md`). This resolved tier is what you print in 3b-2 and pass to `Agent()` in 3c. Tier-to-ID mapping: `opus → claude-opus-4-8`, `sonnet → claude-sonnet-5`, `haiku → claude-haiku-4-5-20251001`. If the file is missing or the field is absent, warn inline and fall back to `sonnet`.
+**3b-3. Resolve model from agent frontmatter** — before spawning, resolve `{model_tier}` by reading the `model:` YAML field from the agent's `.md` file (`plugins/**/agents/{agent_name}.md`). This resolved tier is what you print in 3b-2 and pass to `Agent()` in 3c. Pass the tier **as-is** (`opus`, `sonnet`, or `haiku`) — the Agent tool's `model` parameter accepts only these short aliases; a full model ID (e.g. `claude-haiku-4-5-20251001`) fails schema validation and the dispatch silently falls back to the session model. If the file is missing or the field is absent, warn inline and fall back to `sonnet`.
 
 **3b-special. Development phase two-pass execution**
 
@@ -576,7 +576,7 @@ For aspect-aware fan-out, the canonical order remains: `database → backend →
 ```
 Agent({
   subagent_type: "{agent_from_profile}",
-  model: "{model_id_resolved_in_3b-3}",
+  model: "{model_tier_resolved_in_3b-3}",   // short alias only: "opus" | "sonnet" | "haiku"
   description: "Phase {N}/{total}: {phase_name}",
   prompt: <the prompt built in 3b>
 })
@@ -587,11 +587,11 @@ Agent({
 **3d-1. Capture per-phase telemetry** — extract from the Agent tool result (when usage data is present in the result envelope, read `input_tokens`, `output_tokens`, `cached_input_tokens`; otherwise estimate from prompt + summary character length / 4). Compute:
 
 - `compact_summary_chars` — `len(CONTEXT.{phase}_output)`. If > 3000 chars (≈ 3K-token target), record `compact_handoff_violation: true` and emit a one-line warning to stderr: `WARN: {phase} compact summary exceeded budget ({chars} chars > 3000)`. Do not abort — the violation is recorded for post-run analysis.
-- `model` — the full model ID declared in the agent's frontmatter (`claude-opus-4-8`, `claude-sonnet-5`, or `claude-haiku-4-5-20251001`). This is the authoritative value because the PreToolUse hook enforces it at dispatch time. **Do not** read this from the Agent result envelope (it is not exposed there).
-- `cost_usd` — derived from per-model pricing table (kept inline for transparency):
-  - opus (`claude-opus-4-8`): input $15/MTok, cached input $1.50/MTok, output $75/MTok
-  - sonnet (`claude-sonnet-5`): input $3/MTok, cached input $0.30/MTok, output $15/MTok
-  - haiku (`claude-haiku-4-5-20251001`): input $1/MTok, cached input $0.10/MTok, output $5/MTok
+- `model` — the model tier declared in the agent's frontmatter (`opus`, `sonnet`, or `haiku`). This is the authoritative value because the PreToolUse hook enforces it at dispatch time. **Do not** read this from the Agent result envelope (it is not exposed there).
+- `cost_usd` — derived from per-tier pricing table (kept inline for transparency):
+  - opus: input $15/MTok, cached input $1.50/MTok, output $75/MTok
+  - sonnet: input $3/MTok, cached input $0.30/MTok, output $15/MTok
+  - haiku: input $1/MTok, cached input $0.10/MTok, output $5/MTok
 - For aspect-aware phase fan-out, push one entry **per aspect** into `phases[]` with `phase: "{phase_name}"` and `aspect: "{aspect}"` set; aspect-agnostic phases omit `aspect`.
 
 **3d-2. QA-specific telemetry** — when running the `qa` phase, parse the agent's compact summary for the lines `ITERATIONS_USED: N` (max 3, hard cap from the agent prompt) and `STATUS: complete | incomplete-blocked`. Record:
@@ -652,7 +652,7 @@ Write `docs/plans/{task_slug}/_telemetry.json`:
       "phase": "business_analysis",
       "aspect": null,
       "agent": "business-analyst",
-      "model": "claude-opus-4-8",
+      "model": "opus",
       "status": "completed",
       "input_tokens": 35000,
       "output_tokens": 3000,
@@ -665,7 +665,7 @@ Write `docs/plans/{task_slug}/_telemetry.json`:
       "phase": "qa",
       "aspect": null,
       "agent": "qa-engineer",
-      "model": "claude-sonnet-5",
+      "model": "sonnet",
       "status": "completed",
       "qa_iterations_used": 2,
       "qa_status": "completed",
