@@ -349,7 +349,8 @@ For each profile in `ACTIVE_PROFILES.values()` plus `PRIMARY_PROFILE`, extract:
 Merge across profiles to build `EFFECTIVE_PROFILE`:
 
 - For aspect-agnostic phases (`business_analysis`, `security`, `documentation`): use `PRIMARY_PROFILE`'s agent. If absent in primary, fall back to vanilla (core) agent.
-- For aspect-aware phases (`development`, plus `qa` if a profile declares per-aspect agents): build `EFFECTIVE_PROFILE.agents_per_phase[phase] = {aspect: agent}` by collecting from each `ACTIVE_PROFILES[aspect].agents_per_phase[phase][aspect]`.
+- For aspect-aware phases (`development`, plus `qa` per the rule below): build `EFFECTIVE_PROFILE.agents_per_phase[phase] = {aspect: agent}` by collecting from each `ACTIVE_PROFILES[aspect].agents_per_phase[phase][aspect]`.
+- **`qa` fan-out rule:** if MORE than one distinct profile is active across aspects (full-stack run, e.g. Laravel backend + Inertia frontend), build `EFFECTIVE_PROFILE.agents_per_phase.qa = {aspect: qa_agent}` where `qa_agent` is that aspect profile's declared `qa` agent (a per-aspect map entry if declared, else its plain `qa` value, else `qa-engineer`). Each aspect then gets its own QA pass with that aspect's `phase_prompts_injection` — one sonnet pass per codebase language instead of a single pass over a mixed PHP+TS diff. If only one profile is active, keep the single aspect-agnostic QA pass (backward compatible).
 - `convention_skills`: union of all active profiles' arrays (de-duplicated).
 - `phase_prompts_injection`: per-phase concat of all active profiles' injections (each plugin contributes its part).
 - `extra_phases`: union (later check for name conflicts; if any, halt with error).
@@ -465,7 +466,7 @@ This directory is the **single source of truth** for inter-phase communication. 
 For each phase in order, first determine if the phase is **aspect-agnostic** or **aspect-aware**:
 
 - **Aspect-agnostic phases** (business_analysis, security, documentation): one agent runs, taking all prior phase outputs as context. Single execution per phase.
-- **Aspect-aware phases** (development; optionally qa if profiles declare per-aspect agents): fan-out — orchestrator runs ONE agent per relevant aspect, sequentially. Default order: `database → backend → frontend → testing` (matches typical dependency direction; backend depends on database; frontend depends on backend's API contract).
+- **Aspect-aware phases** (development; qa on multi-profile runs per the Step 1a qa fan-out rule): fan-out — orchestrator runs ONE agent per relevant aspect, sequentially. Default order: `database → backend → frontend → testing` (matches typical dependency direction; backend depends on database; frontend depends on backend's API contract).
 
 For each phase:
 
