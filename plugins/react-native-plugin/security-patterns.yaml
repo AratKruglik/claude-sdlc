@@ -1,0 +1,35 @@
+patterns:
+  - rule_name: rn_asyncstorage_secrets
+    regex: "AsyncStorage\\.setItem\\([^)]*(token|secret|password|credential|apiKey|api_key)"
+    paths: ["**/*.tsx", "**/*.ts", "**/*.jsx", "**/*.js"]
+    exclude_paths: ["**/*.test.*", "**/*.spec.*"]
+    reminder: "AsyncStorage is unencrypted plaintext on device. Store tokens/secrets in expo-secure-store, react-native-keychain, or EncryptedSharedPreferences instead."
+
+  - rule_name: rn_deep_link_unvalidated
+    substrings: ["Linking.addEventListener", "Linking.getInitialURL"]
+    paths: ["**/*.tsx", "**/*.ts", "**/*.jsx", "**/*.js"]
+    exclude_paths: ["**/*.test.*", "**/*.spec.*"]
+    reminder: "Deep-link payloads are attacker-controlled input. Validate scheme/host and every parameter before navigation or state changes; never pass raw URL params into WebViews, queries, or auth flows."
+
+  - rule_name: rn_webview_arbitrary_url
+    regex: "<WebView[^>]*source=\\{\\{\\s*uri:\\s*[^'\"]"
+    paths: ["**/*.tsx", "**/*.jsx"]
+    reminder: "WebView loading a dynamic URI can render attacker-controlled content with JS enabled. Allowlist origins, disable javaScriptEnabled unless required, and never inject secrets via injectedJavaScript."
+
+  - rule_name: rn_http_cleartext
+    regex: "http://(?!localhost|127\\.0\\.0\\.1|10\\.0\\.2\\.2)"
+    paths: ["**/*.tsx", "**/*.ts", "**/*.jsx", "**/*.js"]
+    exclude_paths: ["**/*.test.*", "**/*.spec.*"]
+    reminder: "Cleartext HTTP leaks traffic on mobile networks. Use HTTPS; consider certificate pinning (e.g. react-native-ssl-pinning) for sensitive APIs."
+
+  - rule_name: rn_hardcoded_secret
+    regex: "(API_KEY|SECRET|PASSWORD|PRIVATE_KEY)\\s*[:=]\\s*['\"][A-Za-z0-9_\\-]{16,}"
+    paths: ["**/*.tsx", "**/*.ts", "**/*.jsx", "**/*.js"]
+    exclude_paths: ["**/*.test.*", "**/*.spec.*", "**/*.example.*"]
+    reminder: "Secrets bundled into the JS bundle are extractable from the shipped app. Keep secrets server-side; app-side config belongs in env-specific config delivered at build time without true secrets."
+
+  - rule_name: rn_debug_flags_shipped
+    substrings: ["__DEV__ = true", "console.log("]
+    paths: ["**/*.tsx", "**/*.ts", "**/*.jsx", "**/*.js"]
+    exclude_paths: ["**/*.test.*", "**/*.spec.*", "**/scripts/**"]
+    reminder: "Debug logging can leak tokens/PII into device logs readable by other apps (Android logcat). Strip console.* in release builds (babel-plugin-transform-remove-console) and never log credentials."
