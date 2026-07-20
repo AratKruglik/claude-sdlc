@@ -2,7 +2,7 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v1.2.0** — 26 plugins: 1 core + 5 shared libs + 7 JS/TS stacks + 5 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 5 Python stacks. Cost-optimized: model tiering + `effort` per-subagent, **fixed Haiku enforcement for the docs phase**, file-scoped format hooks, shared architect conventions (~1,600 lines of boilerplate deduped), per-aspect QA fan-out on full-stack runs.
+**v1.2.1** — 26 plugins: 1 core + 5 shared libs + 7 JS/TS stacks + 5 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 5 Python stacks. Cost-optimized: model tiering + `effort` per-subagent, **fixed Haiku enforcement for the docs phase**, file-scoped format hooks, shared architect conventions (~1,600 lines of boilerplate deduped), per-aspect QA fan-out on full-stack runs.
 
 ---
 
@@ -39,6 +39,8 @@ Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: 
 # 4. Run
 /sdlc:start "Add subscription billing with Stripe"
 ```
+
+> **Execution model:** `/sdlc:start` runs synchronously in your current Claude Code session, not as a detached background job. You stay engaged through dependency/stack-detection checks and phase boundaries — including an interactive approve/request-changes/abort gate before the development phase writes any code. The final phase autonomously opens a Pull Request via `gh pr create`. See [Pipeline Phases](#pipeline-phases) below.
 
 ---
 
@@ -506,7 +508,7 @@ npx check-jsonschema --schemafile schemas/stack.schema.json <(yq '.frontmatter' 
 
 ```bash
 /sdlc:start "Add user authentication with JWT"
-# → Auto-detects stack, runs 5 phases, creates PR
+# → Auto-detects stack, runs 5 phases in-session (with a dev-phase approval gate), creates PR
 ```
 
 ---
