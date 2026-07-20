@@ -7,11 +7,10 @@
       "version": ">=1.0.0",
       "policy": "warn",
       "skills_used": [
-        "thinking-deeply",
-        "test-driven-development",
+        "using-superpowers",
         "verification-before-completion"
       ],
-      "fallback_note": "Pipeline runs without these but with reduced rigor in BA, QA, and Security phases.",
+      "fallback_note": "Pipeline runs without these but with reduced rigor in the development and verification steps.",
       "install_command": [
         "/plugin marketplace add obra/superpowers",
         "/plugin install superpowers@superpowers"

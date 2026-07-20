@@ -185,6 +185,10 @@ If `HEADLESS == true`, suppress this print (warnings already went to stderr; suc
 
 `CONTEXT.{plugin}_unavailable` flags propagate into agent prompts via Step 3b-1's `availability_flags:` line in the per-call CONTEXT trailer — do not duplicate that wiring here.
 
+#### 0a-7. Detect security-guidance plugin
+
+Use `Glob ~/.claude/plugins/cache/**/security-guidance/.claude-plugin/plugin.json` (same detection as `/sdlc:security-init` Step 5). Set `CONTEXT.security_guidance_available = true` if found, `false` otherwise. The security-phase base prompt reads this flag directly.
+
 ### Step 0b — Detect stack profile
 
 Use `Glob` to find all stack profiles:
