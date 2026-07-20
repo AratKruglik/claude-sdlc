@@ -1,13 +1,14 @@
 {
+  "_comment": "Hooks for aspnet-core-plugin. PostToolUse: format the changed C# file with dotnet format (--include scopes it to the changed file). Tries Docker first (service 'app'), falls back to the local dotnet CLI, swallows errors so it never blocks the user.",
   "hooks": {
-    "Stop": [
+    "PostToolUse": [
       {
-        "matcher": "*",
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "docker compose exec -T app dotnet format || dotnet format || true",
-            "description": "Auto-format C# files with dotnet format at the end of any session. Tries Docker first (service 'app'), falls back to the local dotnet CLI, swallows errors so it never blocks the user."
+            "command": "f=\"$CLAUDE_FILE\"; case \"$f\" in *.cs) docker compose exec -T app dotnet format --include \"$f\" 2>/dev/null || dotnet format --include \"$f\" 2>/dev/null; exit 0;; esac",
+            "timeout": 60000
           }
         ]
       }

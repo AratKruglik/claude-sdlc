@@ -1,13 +1,14 @@
 {
+  "_comment": "Hooks for flask-plugin. PostToolUse: format the changed Python file with ruff. Tries Docker first (service 'app'), falls back to the local ruff CLI, swallows errors so it never blocks the user.",
   "hooks": {
-    "Stop": [
+    "PostToolUse": [
       {
-        "matcher": "*",
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "docker compose exec -T app ruff format . || ruff format . || true",
-            "description": "Auto-format Python files with ruff at the end of any session. Tries Docker first (service 'app'), falls back to the local ruff CLI, swallows errors so it never blocks the user."
+            "command": "f=\"$CLAUDE_FILE\"; case \"$f\" in *.py) docker compose exec -T app ruff format \"$f\" 2>/dev/null || ruff format \"$f\" 2>/dev/null; exit 0;; esac",
+            "timeout": 30000
           }
         ]
       }

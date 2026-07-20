@@ -1,13 +1,14 @@
 {
+  "_comment": "Hooks for laravel-plugin. PostToolUse: format the changed PHP file with Laravel Pint. Tries Docker first, falls back to local vendor binary, swallows errors so it never blocks the user.",
   "hooks": {
-    "Stop": [
+    "PostToolUse": [
       {
-        "matcher": "*",
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "docker compose exec -T app ./vendor/bin/pint || ./vendor/bin/pint || true",
-            "description": "Auto-format PHP files with Laravel Pint at the end of any session. Tries Docker first, falls back to local vendor binary, swallows errors so it never blocks the user."
+            "command": "f=\"$CLAUDE_FILE\"; case \"$f\" in *.php) docker compose exec -T app ./vendor/bin/pint \"$f\" 2>/dev/null || ./vendor/bin/pint \"$f\" 2>/dev/null; exit 0;; esac",
+            "timeout": 30000
           }
         ]
       }
