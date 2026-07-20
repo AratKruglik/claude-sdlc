@@ -1,6 +1,6 @@
 {
   "name": "python-plugin",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Plain Python backend stack provider (priority=100, detects pyproject.toml/requirements.txt/setup.py/Pipfile). Handles Python libraries, CLI tools, scripts, data pipelines, and microservices without a recognized web framework. Adds python-architect agent (Sonnet/medium) and python-app-conventions skill. Falls back gracefully when django-plugin/fastapi-plugin/flask-plugin (priority 150) match instead. Reuses python-foundation skills.",
   "author": {
     "name": "Oleksii Kruhlyk",
@@ -8,6 +8,17 @@
   },
   "license": "MIT",
   "homepage": "https://github.com/AratKruglik/claude-sdlc",
-  "keywords": ["python", "cli", "library", "scripts", "backend", "sdlc", "stack-provider"],
-  "dependencies": ["sdlc", "python-foundation"]
+  "keywords": [
+    "python",
+    "cli",
+    "library",
+    "scripts",
+    "backend",
+    "sdlc",
+    "stack-provider"
+  ],
+  "dependencies": [
+    "sdlc",
+    "python-foundation"
+  ]
 }

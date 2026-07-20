@@ -1,6 +1,6 @@
 {
   "name": "vue-plugin",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Vue 3 SPA frontend stack provider for SDLC marketplace. Composition API, <script setup>, Pinia, Vue Router v4, vee-validate, Vitest + @vue/test-utils. Vue 3 primary; Vue 2 fallback notes for legacy projects. Nuxt out of scope (separate plugin in roadmap).",
   "author": {
     "name": "Oleksii Kruhlyk",
@@ -8,6 +8,17 @@
   },
   "license": "MIT",
   "homepage": "https://github.com/AratKruglik/claude-sdlc",
-  "keywords": ["vue", "vue3", "spa", "frontend", "typescript", "sdlc", "stack-provider"],
-  "dependencies": ["sdlc", "js-foundation"]
+  "keywords": [
+    "vue",
+    "vue3",
+    "spa",
+    "frontend",
+    "typescript",
+    "sdlc",
+    "stack-provider"
+  ],
+  "dependencies": [
+    "sdlc",
+    "js-foundation"
+  ]
 }

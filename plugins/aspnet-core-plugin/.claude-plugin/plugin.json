@@ -1,6 +1,6 @@
 {
   "name": "aspnet-core-plugin",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "ASP.NET Core backend + database stack provider (priority=100, detects appsettings.json). Provides aspnet-core-architect (Sonnet/medium — Minimal API / MVC, DTOs, FluentValidation, DI, Options, authorization, HTTPS/HSTS, EF Core stubs) and efcore-specialist (Sonnet/low — Fluent API config, migrations, indexes). Adds aspnet-conventions and efcore-patterns skills, dotnet format Stop-hook. Reuses csharp-foundation skills. Designs the API contract for SPA frontend plugins.",
   "author": {
     "name": "Oleksii Kruhlyk",
@@ -8,6 +8,19 @@
   },
   "license": "MIT",
   "homepage": "https://github.com/AratKruglik/claude-sdlc",
-  "keywords": ["csharp", "dotnet", "aspnet", "aspnetcore", "efcore", "webapi", "backend", "sdlc", "stack-provider"],
-  "dependencies": ["sdlc", "csharp-foundation"]
+  "keywords": [
+    "csharp",
+    "dotnet",
+    "aspnet",
+    "aspnetcore",
+    "efcore",
+    "webapi",
+    "backend",
+    "sdlc",
+    "stack-provider"
+  ],
+  "dependencies": [
+    "sdlc",
+    "csharp-foundation"
+  ]
 }

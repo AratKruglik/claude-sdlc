@@ -1,6 +1,6 @@
 {
   "name": "django-plugin",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Django backend + database stack provider (priority=150). Detects manage.py or Django in pyproject.toml/requirements.txt. Provides django-architect (Sonnet/medium — views, DRF ViewSets, serializers, forms, URLconf, middleware, signals, model definitions, Django templates, DRF API contract for SPA) and django-migrations-specialist (Sonnet/low — model field finalization, indexes/constraints, makemigrations, sqlmigrate review, migrate, verify) agents plus django-conventions and django-orm-patterns skills. Reuses python-foundation skills. Extra database phase after development.",
   "author": {
     "name": "Oleksii Kruhlyk",
@@ -8,6 +8,18 @@
   },
   "license": "MIT",
   "homepage": "https://github.com/AratKruglik/claude-sdlc",
-  "keywords": ["python", "django", "drf", "djangorestframework", "backend", "database", "sdlc", "stack-provider"],
-  "dependencies": ["sdlc", "python-foundation"]
+  "keywords": [
+    "python",
+    "django",
+    "drf",
+    "djangorestframework",
+    "backend",
+    "database",
+    "sdlc",
+    "stack-provider"
+  ],
+  "dependencies": [
+    "sdlc",
+    "python-foundation"
+  ]
 }
