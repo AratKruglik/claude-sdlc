@@ -14,7 +14,7 @@ description: |
 model: opus
 effort: high
 color: red
-tools: [Read, Glob, Grep, Edit, Write, WebSearch]
+tools: [Read, Glob, Grep, Edit, Write, WebSearch, WebFetch]
 ---
 
 # Security Analyst

@@ -1,13 +1,14 @@
 {
+  "_comment": "Hooks for symfony-plugin. PostToolUse: format the changed PHP file with PHP-CS-Fixer. Tries Docker first (service 'php'), falls back to the local vendor binary, swallows errors so it never blocks the user.",
   "hooks": {
-    "Stop": [
+    "PostToolUse": [
       {
-        "matcher": "*",
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "docker compose exec -T php vendor/bin/php-cs-fixer fix || vendor/bin/php-cs-fixer fix || true",
-            "description": "Auto-format PHP files with PHP-CS-Fixer at the end of any session. Tries Docker first (service 'php'), falls back to the local vendor binary, swallows errors so it never blocks the user."
+            "command": "f=\"$CLAUDE_FILE\"; case \"$f\" in *.php) docker compose exec -T php vendor/bin/php-cs-fixer fix \"$f\" 2>/dev/null || vendor/bin/php-cs-fixer fix \"$f\" 2>/dev/null; exit 0;; esac",
+            "timeout": 30000
           }
         ]
       }

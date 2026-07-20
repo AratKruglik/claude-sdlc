@@ -9,13 +9,14 @@
 # Fails open (allow) if neither is available.
 set -uo pipefail
 
-# Tier → full model ID
+# Tier → Agent tool model alias.
+# The Agent tool's `model` parameter accepts ONLY short aliases (sonnet/opus/haiku),
+# never full model IDs — a full ID fails schema validation and the dispatch retries
+# without any model override, silently inheriting the (expensive) session model.
 tier_to_model() {
     case "$1" in
-        opus)   echo "claude-opus-4-8" ;;
-        sonnet) echo "claude-sonnet-5" ;;
-        haiku)  echo "claude-haiku-4-5-20251001" ;;
-        *)      echo "" ;;
+        opus|sonnet|haiku) echo "$1" ;;
+        *)                 echo "" ;;
     esac
 }
 
@@ -47,6 +48,10 @@ fi
 # ── only intercept Agent tool ───────────────────────────────────────────────
 [ "$tool_name" = "Agent" ] || { allow; exit 0; }
 [ -n "$agent_name" ]       || { allow; exit 0; }
+
+# subagent_type may carry a plugin prefix ("sdlc:document-writer") — strip it,
+# agent .md files are named without it
+agent_name="${agent_name##*:}"
 
 project_root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 log_path="${project_root}/docs/plans/_model-enforcement.log"

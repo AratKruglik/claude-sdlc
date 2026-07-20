@@ -24,7 +24,7 @@ If `vue-plugin` AND `react-plugin` both match (gradual migration project) — bo
 
 - business_analysis: business-analyst        # core agent
 - development: react-architect               # ⚡ React-specific
-- qa: qa-engineer                            # core agent
+- qa: qa-engineer                            # core agent; on full-stack runs (multiple active profiles) the orchestrator fans QA out per aspect, so this profile's QA pass covers only the frontend aspect with the React qa injection below
 - security: security-analyst                 # core agent
 - documentation: document-writer             # core agent
 

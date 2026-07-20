@@ -84,6 +84,10 @@ If `package.json` contains both `@inertiajs/vue3` and `@inertiajs/react` (a vueâ
 # Uses generic react-architect instead of inertia-react-architect.
 ```
 
+## Security patterns
+
+This plugin intentionally ships no `security-patterns.yaml`. The frontend code it produces is plain React, so the patterns from [`react-plugin/security-patterns.yaml`](../react-plugin/security-patterns.yaml) apply as-is (XSS via `dangerouslySetInnerHTML`, direct `innerHTML` mutation). Install `react-plugin` alongside to get them.
+
 ## License
 
 MIT â€” see [`../../LICENSE`](../../LICENSE).

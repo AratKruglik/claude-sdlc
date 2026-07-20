@@ -1,90 +1,23 @@
 ---
 name: sqlalchemy-patterns
 description: |
-  SQLAlchemy 2.0 ORM patterns for FastAPI: declarative mapped classes with Mapped/mapped_column, async session with AsyncSession, relationships with explicit lazy loading, Alembic migration workflow integration. Used by fastapi-architect (model definitions) and alembic-specialist (column type finalization and migration generation). Activated automatically by fastapi-plugin/stack.md.
+  FastAPI-specific delta on top of python-foundation:sqlalchemy-patterns: async engine and AsyncSession lifecycle, get_db dependency injection, async-safe lazy loading rules, async Alembic env.py wiring. Used by fastapi-architect (model definitions) and alembic-specialist (column type finalization and migration generation). Activated automatically by fastapi-plugin/stack.md.
 
   Use this skill to:
-  - Write SQLAlchemy 2.0 declarative models with Mapped[T] annotations and mapped_column().
   - Manage async database sessions with AsyncSession and async_sessionmaker.
-  - Define relationships with explicit lazy loading strategy (lazy="selectin" or "raise").
-  - Integrate with Alembic for migration autogeneration.
+  - Inject sessions into routes via the get_db() dependency.
+  - Apply async-safe lazy loading (lazy="selectin" or "raise"; never sync lazy loads).
+  - Integrate async Alembic env.py for migration autogeneration.
 
   Do NOT use this skill for:
+  - Framework-agnostic model, column, relationship, and querying rules — see python-foundation:sqlalchemy-patterns (load it first).
   - FastAPI routing and Pydantic schemas — see fastapi-plugin:fastapi-conventions.
   - Alembic migration execution (that's alembic-specialist's job) — this skill covers definitions.
-  - Python idioms — see python-foundation:python-conventions.
 ---
 
-# SQLAlchemy 2.0 Patterns
+# SQLAlchemy Patterns for FastAPI (async delta)
 
-## Detection
-
-Read `pyproject.toml` before writing any model code:
-
-```bash
-grep -E "sqlalchemy" pyproject.toml
-```
-
-- SQLAlchemy **2.0+**: use `Mapped`/`mapped_column` syntax (shown throughout this skill). This is the assumed baseline.
-- SQLAlchemy **1.x**: use `Column()`/`relationship()` style. Mark a comment in the code noting the legacy version; do not silently mix styles.
-
-Always prefer 2.0 style for new code. Never mix 1.x `Column()` and 2.0 `mapped_column()` in the same model.
-
----
-
-## Declarative base and mapped classes
-
-Define one `Base` class per project. All models inherit from it.
-
-```python
-from datetime import datetime
-from decimal import Decimal
-from typing import Optional
-
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-
-
-class Base(DeclarativeBase):
-    pass
-
-
-class User(Base):
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    display_name: Mapped[str] = mapped_column(String(100))
-    hashed_password: Mapped[str] = mapped_column(String(255))
-    is_active: Mapped[bool] = mapped_column(default=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-
-    orders: Mapped[list["Order"]] = relationship(
-        "Order", back_populates="user", lazy="selectin"
-    )
-```
-
-Key rules:
-- `Mapped[T]` without `Optional` means `NOT NULL`. `Mapped[Optional[T]]` means nullable.
-- `mapped_column()` without a SQLAlchemy type uses Python type inference — always provide the type explicitly (e.g., `String(255)`) for alembic-specialist to finalize correctly.
-- Use `server_default=func.now()` for database-side default timestamps, not Python-side `default=datetime.utcnow`.
-
----
-
-## Column type guidance
-
-| Python type | SQLAlchemy column type | Notes |
-|---|---|---|
-| `str` | `String(N)` | Always set length; never bare `String` |
-| `Decimal` | `Numeric(precision, scale)` | Never `Float` for money or precise values |
-| `datetime` | `DateTime(timezone=True)` | Always set `timezone=True` |
-| `int` | `Integer` or `BigInteger` | Use `BigInteger` for large tables (users, events) |
-| `bool` | `Boolean` | |
-| `UUID` | `Uuid` (SA 2.0+) or `String(36)` | `Uuid` stores as native UUID on PostgreSQL |
-| enum | `Enum(MyEnum, native_enum=False)` | `native_enum=False` for DB portability |
-| `float` | `Float` | Only for non-monetary approximations (lat/lon, scores) |
+**Load `python-foundation:sqlalchemy-patterns` via the Skill tool FIRST.** It contains the shared SQLAlchemy 2.0 core: detection, `Mapped`/`mapped_column` model definition, column type guidance, `select()` querying, relationship structure, lazy-strategy overview, and migration metadata rules. This skill covers only the async/FastAPI delta.
 
 ---
 
@@ -127,9 +60,13 @@ Use `expire_on_commit=False` so that model attributes remain accessible after a 
 
 Use `pool_pre_ping=True` to detect stale connections before use.
 
+The `get_db()` dependency owns the transaction boundary: it commits on successful `yield` exit and rolls back on exception. Never call `session.commit()` in a router handler.
+
 ---
 
-## Querying patterns
+## Async querying
+
+Every execution is awaited; statement construction follows the foundation skill.
 
 ```python
 from sqlalchemy import select
@@ -142,16 +79,6 @@ from app.users.models import User
 async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
     result = await db.execute(select(User).where(User.id == user_id))
     return result.scalar_one_or_none()
-
-
-async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
-    result = await db.execute(select(User).where(User.email == email))
-    return result.scalar_one_or_none()
-
-
-async def list_users(db: AsyncSession, skip: int = 0, limit: int = 20) -> list[User]:
-    result = await db.execute(select(User).offset(skip).limit(limit))
-    return list(result.scalars().all())
 
 
 async def get_user_with_orders(db: AsyncSession, user_id: int) -> User | None:
@@ -170,70 +97,20 @@ async def create_user(db: AsyncSession, email: str, hashed_password: str, displa
     return user
 ```
 
-Use `scalar_one_or_none()` for single-row queries. Use `scalars().all()` for multi-row queries. Use `flush()` inside a unit of work to get the generated PK without committing — let the `get_db()` dependency commit on session exit.
+---
+
+## Async lazy loading rules
+
+The foundation skill defines the lazy-strategy catalog; in async contexts only a subset is safe:
+
+- `lazy="selectin"` — safe; loads collections with a separate `SELECT IN` query.
+- `lazy="raise"` — safe; raises `MissingGreenlet` if accessed without explicit eager loading, forcing `selectinload()` at query time. Best for large or rarely-needed collections.
+- `lazy="select"` (the SQLAlchemy default) — **forbidden**: sync lazy load raises in async context. Never leave a `relationship()` without an explicit `lazy=`.
+- `lazy="subquery"` — **forbidden**: not supported by async drivers.
 
 ---
 
-## Relationships
-
-Define relationships with **explicit** `lazy` and `cascade` settings. Never rely on defaults.
-
-```python
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-
-class User(Base):
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    # One-to-many: user has many orders
-    # lazy="selectin" — loads orders automatically with a second SELECT; safe for small collections
-    orders: Mapped[list["Order"]] = relationship(
-        "Order",
-        back_populates="user",
-        lazy="selectin",
-        cascade="all, delete-orphan",
-    )
-
-    # One-to-one: user has one profile
-    # lazy="raise" — raises if accessed without explicit selectinload(); prevents accidental N+1
-    profile: Mapped[Optional["UserProfile"]] = relationship(
-        "UserProfile",
-        back_populates="user",
-        lazy="raise",
-        uselist=False,
-        cascade="all, delete-orphan",
-    )
-
-
-class Order(Base):
-    __tablename__ = "orders"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-
-    # Many-to-one: order belongs to user
-    user: Mapped["User"] = relationship("User", back_populates="orders", lazy="selectin")
-
-    # One-to-many: order has many lines
-    lines: Mapped[list["OrderLine"]] = relationship(
-        "OrderLine",
-        back_populates="order",
-        lazy="selectin",
-        cascade="all, delete-orphan",
-    )
-```
-
-**Lazy loading strategy guide:**
-- `lazy="selectin"` — loads the related collection automatically with a separate `SELECT IN` query. Best for small-to-medium collections that are always needed.
-- `lazy="raise"` — raises `MissingGreenlet` if accessed without explicit eager loading. Forces explicit `selectinload()` calls at query time. Best for large or rarely-needed collections to prevent N+1.
-- `lazy="dynamic"` — **deprecated in SQLAlchemy 2.0**, do not use.
-- Never use `lazy="subquery"` in async context — it uses a subquery that is not supported by async drivers.
-
----
-
-## Alembic integration
+## Alembic integration (async)
 
 ### alembic.ini
 
@@ -300,7 +177,7 @@ else:
     run_migrations_online()
 ```
 
-**Import all models** before `target_metadata = Base.metadata` so that Alembic sees them in the metadata and can autogenerate accurate migrations. A common pattern is a `app/db/base.py` that imports every model:
+Per the foundation skill's metadata rules, import every model before `target_metadata = Base.metadata`. The FastAPI convention is an `app/db/base.py` aggregator:
 
 ```python
 # app/db/base.py
@@ -309,18 +186,13 @@ from app.users.models import User  # noqa: F401
 from app.orders.models import Order, OrderLine  # noqa: F401
 ```
 
-`Base.metadata` is the source of truth for `--autogenerate`. Any model not imported before `target_metadata` is set will be invisible to Alembic.
-
 ---
 
-## Anti-patterns
+## Async anti-patterns
 
 | Anti-pattern | Problem | Correct approach |
 |---|---|---|
-| `session.execute(select(...))` in a sync context with `AsyncSession` | Implicit IO in async — raises `MissingGreenlet` | Always `await session.execute(...)` |
-| `String` without length | Alembic autogenerate produces `VARCHAR` with no length; some databases use `TEXT` or reject it | Always `String(N)` |
-| `lazy="dynamic"` | Deprecated in SQLAlchemy 2.0; raises warning | Use `lazy="selectin"` or explicit `selectinload()` |
+| `session.execute(select(...))` without `await` on `AsyncSession` | Implicit IO in async — raises `MissingGreenlet` | Always `await session.execute(...)` |
 | `session.commit()` in a router handler | Couples transport layer to transaction lifecycle | Let the `get_db()` dependency commit on `yield` exit |
-| `Float` for monetary values | IEEE 754 rounding errors on financial calculations | `Numeric(precision, scale)` |
 | Bare `relationship()` with no `lazy=` | Defaults to `lazy="select"` (sync lazy load) — raises in async context | Always set `lazy="selectin"` or `lazy="raise"` |
-| Importing models only in routers | Alembic never sees them; `--autogenerate` misses tables | Always import all models in `app/db/base.py` |
+| `lazy="subquery"` on any relationship | Not supported by async drivers | `lazy="selectin"` or query-time `selectinload()` |

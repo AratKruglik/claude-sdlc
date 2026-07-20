@@ -1,31 +1,33 @@
 ---
 name: sqlalchemy-patterns
 description: |
-  SQLAlchemy ORM patterns for Flask: Flask-SQLAlchemy extension setup, declarative models with db.Model, synchronous db.session queries, relationships with explicit lazy loading, Flask-Migrate integration for schema migrations. Used by flask-architect (model definitions) and flask-migrate-specialist (column finalization and migration). Activated automatically by flask-plugin/stack.md.
+  Flask-specific delta on top of python-foundation:sqlalchemy-patterns: Flask-SQLAlchemy extension setup, db.Model declarative models (3.x Mapped style and 2.x legacy db.Column), synchronous db.session lifecycle bound to the app context, Flask-Migrate integration. Used by flask-architect (model definitions) and flask-migrate-specialist (column finalization and migration). Activated automatically by flask-plugin/stack.md.
 
   Use this skill to:
-  - Write Flask-SQLAlchemy models with db.Model base and properly typed columns.
-  - Query the database with db.session and SQLAlchemy 2.0-style select() statements.
-  - Define relationships with explicit lazy loading strategy.
+  - Set up the SQLAlchemy and Migrate extensions with the app-factory pattern.
+  - Write Flask-SQLAlchemy models with the db.Model base.
+  - Query with db.session and manage the request-scoped session lifecycle.
   - Integrate Flask-Migrate for Alembic-based migrations managed via flask db commands.
 
   Do NOT use this skill for:
+  - Framework-agnostic model, column, relationship, and querying rules — see python-foundation:sqlalchemy-patterns (load it first).
   - Flask routing and template/API patterns — see flask-plugin:flask-conventions.
   - Migration execution (flask db migrate, flask db upgrade) — that's flask-migrate-specialist's job.
-  - Python idioms — see python-foundation:python-conventions.
 ---
 
-# SQLAlchemy Patterns for Flask
+# SQLAlchemy Patterns for Flask (sync delta)
 
-## Detection
+**Load `python-foundation:sqlalchemy-patterns` via the Skill tool FIRST.** It contains the shared SQLAlchemy 2.0 core: detection, `Mapped`/`mapped_column` model definition, column type guidance, `select()` querying, relationship structure, lazy-strategy overview, and migration metadata rules. This skill covers only the Flask-SQLAlchemy delta.
 
-Read `pyproject.toml` or `requirements.txt` before writing any model code:
+---
+
+## Version detection
+
+Beyond the foundation skill's SQLAlchemy detection, determine the Flask-SQLAlchemy version:
 
 ```bash
-grep -E "flask.sqlalchemy|sqlalchemy" requirements.txt pyproject.toml
+grep -E "flask.sqlalchemy" requirements.txt pyproject.toml
 ```
-
-Determine the Flask-SQLAlchemy version:
 
 - **Flask-SQLAlchemy 3.x** (released 2022+): Uses SQLAlchemy 2.0 under the hood. Supports `Mapped`/`mapped_column` style with `db.Model`. This is the baseline for new projects.
 - **Flask-SQLAlchemy 2.x** (legacy): Uses `db.Column()` style. Still common in existing projects.
@@ -66,16 +68,14 @@ def create_app(config_name: str = "development") -> Flask:
 
 ---
 
-## Model definition
+## Model definition with db.Model
 
-### Flask-SQLAlchemy 3.x with Mapped (preferred for new code)
+Models inherit from `db.Model` instead of a hand-written `DeclarativeBase`; all mapped-column, typing, and relationship rules from the foundation skill apply unchanged.
 
 ```python
 from datetime import datetime
-from decimal import Decimal
-from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
+from sqlalchemy import DateTime, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
@@ -86,9 +86,6 @@ class User(db.Model):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    display_name: Mapped[str] = mapped_column(String(100))
-    hashed_password: Mapped[str] = mapped_column(String(255))
-    is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -96,15 +93,7 @@ class User(db.Model):
     orders: Mapped[list["Order"]] = relationship(
         "Order", back_populates="user", lazy="select"
     )
-
-    def __repr__(self) -> str:
-        return f"<User id={self.id} email={self.email!r}>"
 ```
-
-Key rules:
-- `Mapped[T]` without `Optional` means `NOT NULL`. `Mapped[Optional[T]]` means nullable.
-- Always provide the SQLAlchemy type explicitly (e.g., `String(255)`) — flask-migrate-specialist uses this to finalize column lengths, precision, and constraints.
-- Use `server_default=func.now()` for database-side default timestamps, not `default=datetime.utcnow` (Python-side defaults are not reflected in DB schema).
 
 ### Flask-SQLAlchemy 2.x with db.Column (legacy)
 
@@ -130,24 +119,9 @@ class User(db.Model):
 
 ---
 
-## Column type guidance
+## Session lifecycle and querying (synchronous)
 
-| Python type | SQLAlchemy column type | Notes |
-|---|---|---|
-| `str` | `String(N)` | Always set length; never bare `String` |
-| `Decimal` | `Numeric(precision, scale)` | Never `Float` for money or precise values |
-| `datetime` | `DateTime(timezone=True)` | Always set `timezone=True` |
-| `int` | `Integer` or `BigInteger` | Use `BigInteger` for large tables (users, events) |
-| `bool` | `Boolean` | |
-| `UUID` | `Uuid` (SA 2.0+) or `String(36)` | `Uuid` stores as native UUID on PostgreSQL |
-| enum | `Enum(MyEnum, native_enum=False)` | `native_enum=False` for DB portability |
-| `float` | `Float` | Only for non-monetary approximations (lat/lon, scores) |
-
----
-
-## Querying patterns (synchronous)
-
-Flask-SQLAlchemy uses synchronous sessions. All queries are blocking — no `await`, no async generators.
+Flask-SQLAlchemy uses synchronous sessions. All queries are blocking — no `await`, no async generators. Statement construction follows the foundation skill; execution goes through `db.session`.
 
 ```python
 from sqlalchemy import select
@@ -164,12 +138,6 @@ def get_user_by_email(email: str) -> User | None:
     return db.session.execute(
         select(User).where(User.email == email)
     ).scalar_one_or_none()
-
-
-def list_users(skip: int = 0, limit: int = 20) -> list[User]:
-    return list(
-        db.session.execute(select(User).offset(skip).limit(limit)).scalars().all()
-    )
 
 
 def create_user(email: str, hashed_password: str, display_name: str) -> User:
@@ -199,73 +167,16 @@ def create_order_view():
 
 ---
 
-## Relationships
+## Lazy loading in synchronous Flask
 
-Define relationships with **explicit** `lazy` and `cascade` settings.
+The foundation skill's lazy-strategy catalog applies; in synchronous Flask the sync-only strategies are also valid:
 
-```python
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+- `lazy="select"` — the SQLAlchemy default; loads on first attribute access with a separate `SELECT`. Safe in synchronous Flask (unlike async FastAPI, where it can block the event loop).
+- `lazy="joined"` — JOIN in the same query; best for one-to-one relations or small, always-needed collections.
+- `lazy="subquery"` — valid in synchronous Flask (unlike async where it is not supported). Useful for loading collections alongside the parent.
+- `lazy="dynamic"` — deprecated in 2.0, do not use (see foundation skill).
 
-
-class User(db.Model):
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    # One-to-many: user has many orders
-    # lazy="select" — loads orders with a separate SELECT when accessed (default)
-    orders: Mapped[list["Order"]] = relationship(
-        "Order",
-        back_populates="user",
-        lazy="select",
-        cascade="all, delete-orphan",
-    )
-
-    # One-to-one: user has one profile
-    # lazy="joined" — loads profile with a JOIN in the same query
-    profile: Mapped[Optional["UserProfile"]] = relationship(
-        "UserProfile",
-        back_populates="user",
-        lazy="joined",
-        uselist=False,
-        cascade="all, delete-orphan",
-    )
-
-
-class Order(db.Model):
-    __tablename__ = "orders"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-
-    user: Mapped["User"] = relationship("User", back_populates="orders", lazy="select")
-    lines: Mapped[list["OrderLine"]] = relationship(
-        "OrderLine",
-        back_populates="order",
-        lazy="select",
-        cascade="all, delete-orphan",
-    )
-```
-
-**Lazy loading strategy guide (synchronous Flask context):**
-- `lazy="select"` — loads the related collection with a separate `SELECT` when the attribute is first accessed. This is the SQLAlchemy default and is safe in synchronous Flask (unlike async FastAPI, where it can block the event loop).
-- `lazy="joined"` — loads the relation with a JOIN in the same query. Best for one-to-one relations or small, always-needed collections.
-- `lazy="subquery"` — loads the relation with a subquery. Valid in synchronous Flask (unlike async where it is not supported). Useful for loading collections alongside the parent.
-- `lazy="dynamic"` — **deprecated in SQLAlchemy 2.0**. Do not use. Replace with explicit `select()` queries.
-
-To prevent N+1 queries on list endpoints, use `options(joinedload(...))` or `options(selectinload(...))` at query time:
-
-```python
-from sqlalchemy.orm import joinedload, selectinload
-
-
-def list_users_with_orders() -> list[User]:
-    return list(
-        db.session.execute(
-            select(User).options(selectinload(User.orders))
-        ).scalars().all()
-    )
-```
+For N+1 prevention on list endpoints, use query-time `options(joinedload(...))` or `options(selectinload(...))` as shown in the foundation skill.
 
 ---
 
@@ -281,7 +192,7 @@ migrations/
     versions/       — generated migration scripts live here
 ```
 
-For autogenerate to detect all models, Flask-Migrate's `env.py` must import all model modules before `target_metadata = db.metadata`. A common pattern is to import all models in `app/models/__init__.py` or in the app factory before `db.init_app(app)`:
+Per the foundation skill's metadata rules, all model modules must be imported before `target_metadata = db.metadata`. The Flask convention is to import them in `app/models/__init__.py` or in the app factory:
 
 ```python
 # app/__init__.py
@@ -305,14 +216,10 @@ Flask-migrate-specialist runs `flask db migrate` and `flask db upgrade`. Flask-a
 
 ---
 
-## Anti-patterns
+## Flask-specific anti-patterns
 
 | Anti-pattern | Problem | Correct approach |
 |---|---|---|
-| `String` without length | Alembic autogenerate produces `VARCHAR` with no length; PostgreSQL uses `TEXT` | Always `String(N)` |
-| `lazy="dynamic"` | Deprecated in SQLAlchemy 2.0; raises a warning | Use `lazy="select"` with explicit `selectinload()` for large collections |
-| `Float` for monetary values | IEEE 754 rounding errors on financial calculations | `Numeric(precision, scale)` |
 | `db.session.commit()` in every helper function | Makes unit testing harder; scattered transaction boundaries | Commit at the end of the request in the view or service layer |
+| Mixing `db.Column()` and `mapped_column()` | Produces inconsistent metadata; confuses tooling | One style per project; prefer `mapped_column()` for new code |
 | Importing models only in routers | Flask-Migrate's `env.py` never sees them; `--autogenerate` misses tables | Import all models in the app factory or `app/models/__init__.py` |
-| `default=datetime.utcnow` | Python-side default — not reflected in DB schema; utcnow is deprecated | `server_default=func.now()` with `DateTime(timezone=True)` |
-| Mixing `db.Column()` and `mapped_column()` | Produces inconsistent metadata; confuses tooling | Use one style per project; prefer `mapped_column()` for new code |

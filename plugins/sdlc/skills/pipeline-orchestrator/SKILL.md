@@ -185,6 +185,10 @@ If `HEADLESS == true`, suppress this print (warnings already went to stderr; suc
 
 `CONTEXT.{plugin}_unavailable` flags propagate into agent prompts via Step 3b-1's `availability_flags:` line in the per-call CONTEXT trailer — do not duplicate that wiring here.
 
+#### 0a-7. Detect security-guidance plugin
+
+Use `Glob ~/.claude/plugins/cache/**/security-guidance/.claude-plugin/plugin.json` (same detection as `/sdlc:security-init` Step 5). Set `CONTEXT.security_guidance_available = true` if found, `false` otherwise. The security-phase base prompt reads this flag directly.
+
 ### Step 0b — Detect stack profile
 
 Use `Glob` to find all stack profiles:
@@ -345,7 +349,8 @@ For each profile in `ACTIVE_PROFILES.values()` plus `PRIMARY_PROFILE`, extract:
 Merge across profiles to build `EFFECTIVE_PROFILE`:
 
 - For aspect-agnostic phases (`business_analysis`, `security`, `documentation`): use `PRIMARY_PROFILE`'s agent. If absent in primary, fall back to vanilla (core) agent.
-- For aspect-aware phases (`development`, plus `qa` if a profile declares per-aspect agents): build `EFFECTIVE_PROFILE.agents_per_phase[phase] = {aspect: agent}` by collecting from each `ACTIVE_PROFILES[aspect].agents_per_phase[phase][aspect]`.
+- For aspect-aware phases (`development`, plus `qa` per the rule below): build `EFFECTIVE_PROFILE.agents_per_phase[phase] = {aspect: agent}` by collecting from each `ACTIVE_PROFILES[aspect].agents_per_phase[phase][aspect]`.
+- **`qa` fan-out rule:** if MORE than one distinct profile is active across aspects (full-stack run, e.g. Laravel backend + Inertia frontend), build `EFFECTIVE_PROFILE.agents_per_phase.qa = {aspect: qa_agent}` where `qa_agent` is that aspect profile's declared `qa` agent (a per-aspect map entry if declared, else its plain `qa` value, else `qa-engineer`). Each aspect then gets its own QA pass with that aspect's `phase_prompts_injection` — one sonnet pass per codebase language instead of a single pass over a mixed PHP+TS diff. If only one profile is active, keep the single aspect-agnostic QA pass (backward compatible).
 - `convention_skills`: union of all active profiles' arrays (de-duplicated).
 - `phase_prompts_injection`: per-phase concat of all active profiles' injections (each plugin contributes its part).
 - `extra_phases`: union (later check for name conflicts; if any, halt with error).
@@ -461,7 +466,7 @@ This directory is the **single source of truth** for inter-phase communication. 
 For each phase in order, first determine if the phase is **aspect-agnostic** or **aspect-aware**:
 
 - **Aspect-agnostic phases** (business_analysis, security, documentation): one agent runs, taking all prior phase outputs as context. Single execution per phase.
-- **Aspect-aware phases** (development; optionally qa if profiles declare per-aspect agents): fan-out — orchestrator runs ONE agent per relevant aspect, sequentially. Default order: `database → backend → frontend → testing` (matches typical dependency direction; backend depends on database; frontend depends on backend's API contract).
+- **Aspect-aware phases** (development; qa on multi-profile runs per the Step 1a qa fan-out rule): fan-out — orchestrator runs ONE agent per relevant aspect, sequentially. Default order: `database → backend → frontend → testing` (matches typical dependency direction; backend depends on database; frontend depends on backend's API contract).
 
 For each phase:
 
@@ -537,7 +542,7 @@ Examples:
 
 This is a contract with the user. Do not skip.
 
-**3b-3. Resolve model from agent frontmatter** — before spawning, resolve `{model_tier}` by reading the `model:` YAML field from the agent's `.md` file (`plugins/**/agents/{agent_name}.md`). This resolved tier is what you print in 3b-2 and pass to `Agent()` in 3c. Tier-to-ID mapping: `opus → claude-opus-4-8`, `sonnet → claude-sonnet-5`, `haiku → claude-haiku-4-5-20251001`. If the file is missing or the field is absent, warn inline and fall back to `sonnet`.
+**3b-3. Resolve model from agent frontmatter** — before spawning, resolve `{model_tier}` by reading the `model:` YAML field from the agent's `.md` file (`plugins/**/agents/{agent_name}.md`). This resolved tier is what you print in 3b-2 and pass to `Agent()` in 3c. Pass the tier **as-is** (`opus`, `sonnet`, or `haiku`) — the Agent tool's `model` parameter accepts only these short aliases; a full model ID (e.g. `claude-haiku-4-5-20251001`) fails schema validation and the dispatch silently falls back to the session model. If the file is missing or the field is absent, warn inline and fall back to `sonnet`.
 
 **3b-special. Development phase two-pass execution**
 
@@ -576,7 +581,7 @@ For aspect-aware fan-out, the canonical order remains: `database → backend →
 ```
 Agent({
   subagent_type: "{agent_from_profile}",
-  model: "{model_id_resolved_in_3b-3}",
+  model: "{model_tier_resolved_in_3b-3}",   // short alias only: "opus" | "sonnet" | "haiku"
   description: "Phase {N}/{total}: {phase_name}",
   prompt: <the prompt built in 3b>
 })
@@ -587,11 +592,11 @@ Agent({
 **3d-1. Capture per-phase telemetry** — extract from the Agent tool result (when usage data is present in the result envelope, read `input_tokens`, `output_tokens`, `cached_input_tokens`; otherwise estimate from prompt + summary character length / 4). Compute:
 
 - `compact_summary_chars` — `len(CONTEXT.{phase}_output)`. If > 3000 chars (≈ 3K-token target), record `compact_handoff_violation: true` and emit a one-line warning to stderr: `WARN: {phase} compact summary exceeded budget ({chars} chars > 3000)`. Do not abort — the violation is recorded for post-run analysis.
-- `model` — the full model ID declared in the agent's frontmatter (`claude-opus-4-8`, `claude-sonnet-5`, or `claude-haiku-4-5-20251001`). This is the authoritative value because the PreToolUse hook enforces it at dispatch time. **Do not** read this from the Agent result envelope (it is not exposed there).
-- `cost_usd` — derived from per-model pricing table (kept inline for transparency):
-  - opus (`claude-opus-4-8`): input $15/MTok, cached input $1.50/MTok, output $75/MTok
-  - sonnet (`claude-sonnet-5`): input $3/MTok, cached input $0.30/MTok, output $15/MTok
-  - haiku (`claude-haiku-4-5-20251001`): input $1/MTok, cached input $0.10/MTok, output $5/MTok
+- `model` — the model tier declared in the agent's frontmatter (`opus`, `sonnet`, or `haiku`). This is the authoritative value because the PreToolUse hook enforces it at dispatch time. **Do not** read this from the Agent result envelope (it is not exposed there).
+- `cost_usd` — derived from per-tier pricing table (kept inline for transparency):
+  - opus: input $15/MTok, cached input $1.50/MTok, output $75/MTok
+  - sonnet: input $3/MTok, cached input $0.30/MTok, output $15/MTok
+  - haiku: input $1/MTok, cached input $0.10/MTok, output $5/MTok
 - For aspect-aware phase fan-out, push one entry **per aspect** into `phases[]` with `phase: "{phase_name}"` and `aspect: "{aspect}"` set; aspect-agnostic phases omit `aspect`.
 
 **3d-2. QA-specific telemetry** — when running the `qa` phase, parse the agent's compact summary for the lines `ITERATIONS_USED: N` (max 3, hard cap from the agent prompt) and `STATUS: complete | incomplete-blocked`. Record:
@@ -652,7 +657,7 @@ Write `docs/plans/{task_slug}/_telemetry.json`:
       "phase": "business_analysis",
       "aspect": null,
       "agent": "business-analyst",
-      "model": "claude-opus-4-8",
+      "model": "opus",
       "status": "completed",
       "input_tokens": 35000,
       "output_tokens": 3000,
@@ -665,7 +670,7 @@ Write `docs/plans/{task_slug}/_telemetry.json`:
       "phase": "qa",
       "aspect": null,
       "agent": "qa-engineer",
-      "model": "claude-sonnet-5",
+      "model": "sonnet",
       "status": "completed",
       "qa_iterations_used": 2,
       "qa_status": "completed",
