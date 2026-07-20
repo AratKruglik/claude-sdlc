@@ -247,19 +247,13 @@ Every agent in the SDLC pipeline declares its `model:` tier in frontmatter. The 
 
 **Two enforcement layers:**
 
-1. **Orchestrator (Layer 1)** — Step 3b-3 in the pipeline explicitly reads the agent's `.md` frontmatter, resolves the tier to a full model ID, and passes it in the `Agent()` dispatch call.
+1. **Orchestrator (Layer 1)** — Step 3b-3 in the pipeline explicitly reads the agent's `.md` frontmatter and passes the tier alias in the `Agent()` dispatch call.
 
 2. **PreToolUse hook (Layer 2)** — `plugins/sdlc/hooks/enforce-agent-model.sh` intercepts every `Agent` tool call at the harness level. It reads the agent's declared `model:`, compares it with the requested model, and corrects it via `updatedInput` if they differ. This fires even if the orchestrator misses the step.
 
 The hook is registered in `plugins/sdlc/hooks/hooks.json` and activates automatically when the plugin is installed via the marketplace — no manual `settings.json` changes needed.
 
-**Tier → model ID mapping:**
-
-| Tier | Model ID |
-|---|---|
-| `opus` | `claude-opus-4-8` |
-| `sonnet` | `claude-sonnet-5` |
-| `haiku` | `claude-haiku-4-5-20251001` |
+**Model tiers:** both layers pass the short alias (`opus` / `sonnet` / `haiku`) as-is — the `Agent` tool's `model` parameter accepts only these aliases, and a full pinned model ID would fail validation and silently fall back to the session model. Which concrete model each alias resolves to is decided by the harness, so the marketplace never goes stale on model releases.
 
 ---
 
