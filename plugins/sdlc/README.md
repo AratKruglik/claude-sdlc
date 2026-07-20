@@ -33,6 +33,8 @@ sdlc/
 7. Runs `post_pipeline_checks` declared by the active stack profile.
 8. Writes `_telemetry.json` with per-phase tokens, cost, and skip-rules applied.
 
+All of the above runs **synchronously in the current session** — there is no detached/background execution. The development phase includes an interactive plan/approve/request-changes/abort gate, and the final `documentation` phase autonomously opens a Pull Request via `gh pr create`.
+
 ## Cost discipline (built in)
 
 | Mechanism | Where |

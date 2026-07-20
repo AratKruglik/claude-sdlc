@@ -7,6 +7,18 @@ argument-hint: "<feature description> [--stack=NAME]"
 
 Single entry point for the SDLC pipeline.
 
+## Execution model
+
+This pipeline runs **synchronously in the current Claude Code session** — it is not a detached or autonomous background process. You stay engaged through:
+
+- Steps 0-2 (dependency preflight, stack detection, skip-rule analysis): a series of read-only `Glob`/`Read`/`git diff` calls, each of which may prompt for tool-use permission depending on your settings.
+- Phase boundaries: each phase prints an announcement banner and the orchestrator waits for its result before continuing.
+- The **development phase's plan/approval gate**: the architect writes an implementation plan, then the orchestrator stops and asks you to approve / request changes / abort before any code is written.
+
+Setting `SDLC_NONINTERACTIVE=true` (see [Headless mode](#headless-mode)) removes interactive prompts, but the pipeline still executes in-session — it does not become a background job.
+
+The final `documentation` phase **autonomously opens a Pull Request** via `gh pr create` (or the GitHub MCP equivalent) once all prior phases complete.
+
 ## Mandatory execution protocol
 
 You MUST follow these steps **in order**, **printing each announcement verbatim** (do not summarize, skip, or collapse them):
@@ -28,7 +40,7 @@ Print verbatim:
 
 Use the Skill tool to load and execute the `pipeline-orchestrator` skill. Pass the cleaned-up description and `forced_stack` flag as inputs. **Do not improvise or inline the orchestration logic — delegate to the skill.**
 
-The skill enforces its own MUST-print protocol for stack detection (`🎯 Detected stack: ...`), phase boundaries (`▶ Phase N/M: ...`), and the final summary. If you find yourself not printing these — stop, re-read the skill, and start over.
+The skill enforces its own MUST-print protocol for stack detection (`🎯 Active stack profiles: ...`), phase boundaries (`▶ Phase N/M: ...`), and the final summary. If you find yourself not printing these — stop, re-read the skill, and start over.
 
 ### Step 3 — Hard rules during orchestration
 
@@ -50,7 +62,7 @@ If any phase fails fatally (e.g. agent crashes, post-validation impossible to sa
 (For your reference — the skill itself contains the authoritative algorithm.)
 
 1. **Step 0a** — dependency preflight (reads `runtime-dependencies.json`, checks superpowers etc.).
-2. **Step 0b** — stack detection via Glob `~/.claude/plugins/cache/**/stack.md`. Picks highest-priority match. Prints `🎯 Detected stack: ...` (MANDATORY).
+2. **Step 0b** — stack detection via Glob `~/.claude/plugins/cache/**/stack.md`. Picks highest-priority match. Prints `🎯 Active stack profiles: ...` (MANDATORY).
 3. **Step 0c** — skip-rules for trivial changes.
 4. **Step 1-2** — parse profile, generate `task_slug`, create `docs/plans/{task_slug}/`.
 5. **Step 3** — execute each phase (BA → Dev → [extras] → QA → Sec → Docs) via specialist agents. Compact handoffs.

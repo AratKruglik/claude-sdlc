@@ -3,6 +3,14 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [1.2.1] — marketplace v1.2.1 / sdlc v1.2.1
+
+### Changed
+
+- **Execution-model documentation** — `/sdlc:start`, the root README, `plugins/sdlc/README.md`, and `pipeline-orchestrator/SKILL.md` now explicitly state that the pipeline runs synchronously in the current Claude Code session (not as a detached/autonomous background job), that the user stays engaged through dependency/stack-detection checks and phase boundaries (including the interactive development-phase approval gate), and that the final `documentation` phase autonomously opens a Pull Request via `gh pr create`. Addresses [#13](https://github.com/AratKruglik/claude-sdlc/issues/13).
+- Fixed a stale banner reference in `plugins/sdlc/commands/start.md`: the doc said Step 0b prints `🎯 Detected stack: ...`, but the orchestrator actually prints `🎯 Active stack profiles: ...` — the doc now matches the skill's actual output.
+- Reconciled `plugins/sdlc/.claude-plugin/plugin.json` version (was lagging at 1.1.0) with the marketplace version.
+
 ## [0.5.0] — marketplace v0.5.0
 
 ### Added — C# shared foundation + ASP.NET Core stack (2 new plugins)
