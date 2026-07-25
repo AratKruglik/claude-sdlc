@@ -100,12 +100,19 @@ If `forced_stack` is set, note it applies to every task uniformly:
 ### Step 3 — Cost estimate and confirmation (mandatory)
 
 Estimate cost per task as a full `pipeline-orchestrator` run, using the same
-per-model pricing table as `pipeline-orchestrator` Step 3d-1 (opus $15/$75 per
+per-model pricing table as `pipeline-orchestrator` Step 3d-1 (opus $5/$25 per
 MTok, sonnet $3/$15, haiku $1/$5 — input/output, ignoring cache for the
-estimate). Use `complexity_hint` to scale the estimate:
-`simple ≈ 0.5×`, `unspecified ≈ 1×`, `complex ≈ 2×` of a baseline full-pipeline
-estimate (~$1.50, based on the example run in `pipeline-orchestrator`'s
-telemetry template).
+estimate). That table is the single source of truth — do not restate prices
+elsewhere; if it changes, this step follows automatically.
+
+Use `complexity_hint` to scale a baseline full-pipeline estimate of **~$2.40**
+(README's "Estimated cost for a medium feature", which includes the Opus
+planning pass in the development phase): `simple ≈ 0.5×`, `unspecified ≈ 1×`,
+`complex ≈ 2×`.
+
+The baseline is an estimate, not a measurement, and it counts subagent phases
+only — each batch task additionally runs its own orchestrator. Treat the total
+as a lower bound when deciding whether to proceed.
 
 🚨 **MUST PRINT VERBATIM:**
 

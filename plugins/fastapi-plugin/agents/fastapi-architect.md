@@ -4,6 +4,7 @@ description: |
   FastAPI backend implementer (backend aspect). Replaces the vanilla developer on FastAPI projects. Knows APIRouter endpoint groups, Pydantic v2 schemas, Depends injection, async SQLAlchemy sessions, OAuth2 password bearer + JWT, OpenAPI customization, and lifespan context managers.
   Do NOT use for: Alembic migrations (alembic-specialist), tests (qa-engineer), SPA Vue/React pages (vue/react-architect — this agent provides the API contract).
 model: sonnet
+model_plan: opus
 effort: medium
 color: blue
 tools: [Read, Glob, Grep, Edit, Write, Bash]

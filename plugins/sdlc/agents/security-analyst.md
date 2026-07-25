@@ -12,7 +12,7 @@ description: |
   - Code style or refactoring suggestions (reviewer-style work — covered by other phases)
   - Compliance certification (this is an in-loop review, not an audit)
 model: opus
-effort: high
+effort: xhigh
 color: red
 tools: [Read, Glob, Grep, Edit, Write, WebSearch, WebFetch]
 ---

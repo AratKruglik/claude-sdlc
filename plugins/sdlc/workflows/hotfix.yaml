@@ -4,7 +4,11 @@ match:
   arguments_pattern: "\\bhotfix\\b|\\burgent\\b|\\bemergency\\b|\\bprod(uction)?\\s+fix\\b"
   loc_touched_max: 200
 caps:
-  max_total_cost_usd: 0.60
+  # Runaway guard, not a routine blocker. A hotfix runs dev (opus plan pass + sonnet
+  # implement pass) + qa + security; under the 200-LOC ceiling above that lands around
+  # $1.00-1.50 at current list prices. The cap sits ~2x over that so it fires on
+  # pathology (QA retry storms, oversized diffs) and never on a normal run.
+  max_total_cost_usd: 2.50
 phases:
   - development
   - qa

@@ -1,6 +1,6 @@
 {
   "name": "python-foundation",
-  "version": "0.1.0",
+  "version": "1.3.0",
   "description": "Shared Python foundation skills for the SDLC marketplace. Contains stack-agnostic Python conventions (python-conventions — type hints, dataclasses, match, pathlib, enums, context managers, PEP 8, strict typing), python-tooling (pyproject.toml as source of truth, pip/Poetry/uv/pipenv, venv, lockfiles, ruff lint+format, mypy, console scripts), and pytest-testing (fixtures, parametrize, conftest, monkeypatch, unittest.mock, pytest-cov). No agent, no stack profile — pure shared library. Referenced by django-plugin, fastapi-plugin, flask-plugin, and python-plugin.",
   "author": {
     "name": "Oleksii Kruhlyk",

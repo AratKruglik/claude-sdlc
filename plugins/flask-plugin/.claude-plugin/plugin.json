@@ -1,6 +1,6 @@
 {
   "name": "flask-plugin",
-  "version": "0.1.0",
+  "version": "1.3.0",
   "description": "Flask backend + database stack provider (priority=150). Detects Flask in pyproject.toml/requirements.txt. Provides flask-architect (Sonnet/medium — app factory, Blueprints, views, Flask-Login/JWT auth, Jinja2 templates or JSON API, Marshmallow/WTForms validation, SQLAlchemy model definitions) and flask-migrate-specialist (Sonnet/low — Flask-Migrate: flask db migrate, sqlmigrate review, flask db upgrade, flask db check) agents plus flask-conventions and sqlalchemy-patterns skills. Reuses python-foundation skills. Extra database phase after development.",
   "author": {
     "name": "Oleksii Kruhlyk",

@@ -37,6 +37,7 @@ The agent detects the workflow at runtime and applies matching patterns.
 - react-native-plugin:rn-testing
 - js-foundation:typescript-patterns
 - js-foundation:npm-patterns
+- frontend-design:frontend-design  # optional external; skipped automatically when absent
 
 ## Extra phases
 

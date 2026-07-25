@@ -35,6 +35,7 @@ Composes naturally with backend plugins (nodejs / nestjs / laravel) on full-stac
 - vue-plugin:vue-testing
 - js-foundation:typescript-patterns
 - js-foundation:npm-patterns
+- frontend-design:frontend-design  # optional external; skipped automatically when absent
 
 ## Extra phases
 

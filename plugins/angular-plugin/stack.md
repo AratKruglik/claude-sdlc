@@ -35,6 +35,7 @@ Composes naturally with backend plugins (nodejs / nestjs / laravel) via aspect r
 - angular-plugin:angular-testing
 - js-foundation:typescript-patterns
 - js-foundation:npm-patterns
+- frontend-design:frontend-design  # optional external; skipped automatically when absent
 
 ## Extra phases
 

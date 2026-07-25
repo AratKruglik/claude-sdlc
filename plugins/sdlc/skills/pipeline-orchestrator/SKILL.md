@@ -453,6 +453,8 @@ Summary:
    `sdlc.local.yaml`).
 5. **Persist and print (RESOLVER.md Step 5):** store as `CONTEXT.resolved_phases[]`,
    persist `WORKFLOW_NAME` in `CONTEXT.active_workflow`, print one line at Step 1c.
+6. **Persist the cost cap:** store `caps.max_total_cost_usd` (when the recipe declares
+   one) in `CONTEXT.max_total_cost_usd`, otherwise `null`. Enforced in Step 3d-3.
 
 The resolved `CONTEXT.resolved_phases[]` replaces the hardcoded list for all
 downstream steps. Phase names and their semantics are unchanged.
@@ -536,27 +538,38 @@ The two `===` delimiters are part of the prompt — agents are instructed (via t
 **3b-2. MUST PRINT VERBATIM** before spawning each agent:
 
 ```
-▶ Phase {N}/{total}: {phase_name}{IF aspect-aware: " — " + aspect} → {agent_name} ({model_tier})
+▶ Phase {N}/{total}: {phase_name}{IF aspect-aware: " — " + aspect}{IF development: " — " + pass} → {agent_name} ({model_tier})
 ```
 
 Examples:
 - Aspect-agnostic: `▶ Phase 1/6: business_analysis → business-analyst (opus)`
-- Aspect-aware: `▶ Phase 2/6: development — backend → laravel-architect (sonnet)`
-- Aspect-aware: `▶ Phase 2/6: development — frontend → inertia-vue-architect (sonnet)`
+- Development, plan pass: `▶ Phase 2/6: development — backend — plan → laravel-architect (opus)`
+- Development, implement pass: `▶ Phase 2/6: development — backend — implement → laravel-architect (sonnet)`
+- Aspect-aware: `▶ Phase 3/6: qa — frontend → qa-engineer (sonnet)`
 
 This is a contract with the user. Do not skip.
 
-**3b-3. Resolve model from agent frontmatter** — before spawning, resolve `{model_tier}` by reading the `model:` YAML field from the agent's `.md` file (`plugins/**/agents/{agent_name}.md`). This resolved tier is what you print in 3b-2 and pass to `Agent()` in 3c. Pass the tier **as-is** (`opus`, `sonnet`, or `haiku`) — the Agent tool's `model` parameter accepts only these short aliases; a full model ID (e.g. `claude-haiku-4-5-20251001`) fails schema validation and the dispatch silently falls back to the session model. If the file is missing or the field is absent, warn inline and fall back to `sonnet`.
+**3b-3. Resolve model from agent frontmatter** — before spawning, read the agent's `.md` file (`plugins/**/agents/{agent_name}.md`) and resolve `{model_tier}`:
+
+- **Planning pass of the development phase** (Pass 1 in 3b-special): use `model_plan:` if present, otherwise fall back to `model:`.
+- **Every other invocation** (including the development implementation pass): use `model:`.
+
+This resolved tier is what you print in 3b-2 and pass to `Agent()` in 3c. Pass the tier **as-is** (`opus`, `sonnet`, `haiku`, or `fable`) — the Agent tool's `model` parameter accepts only these short aliases; a full model ID (e.g. `claude-haiku-4-5-20251001`) fails schema validation and the dispatch silently falls back to the session model. (Agent *frontmatter* does accept full IDs and `inherit`; the dispatch parameter does not. Do not confuse the two.) If the file is missing or `model:` is absent, warn inline and fall back to `sonnet`.
+
+> **Enforcement is not absolute.** Model resolution order in Claude Code is `CLAUDE_CODE_SUBAGENT_MODEL` → per-invocation parameter → frontmatter. When that environment variable is set, it overrides both this step and the PreToolUse hook, and every phase silently runs on whatever it names. An organization `availableModels` allowlist can likewise skip a value and fall back to the inherited model. `/sdlc:doctor` reports both conditions — run it before trusting a cost estimate.
 
 **3b-special. Development phase two-pass execution**
 
 The development phase runs in TWO passes with a user approval gate between them. This applies to every agent invocation within the development phase (each aspect in an aspect-aware fan-out runs its own two-pass cycle).
 
+The two passes have different economics and therefore **different model tiers**. Planning is small-output, high-leverage work whose result passes a human gate and then governs the whole implementation; implementation is high-volume execution against an approved spec. Pass 1 therefore resolves `model_plan:` (typically `opus`) and Pass 2 resolves `model:` (typically `sonnet`). Both passes must carry a pass marker in `description` so the PreToolUse hook enforces the right one — see 3c.
+
 **Pass 1 — Planning:**
 
 1. Use base prompt `development_plan` (instead of `development`).
-2. Spawn the agent. It reads the BA spec + codebase and writes an implementation plan to `docs/plans/{task_slug}/02-development-plan{-aspect_suffix}.md`.
-3. Agent returns a plan summary.
+2. Resolve the model via `model_plan:` per 3b-3. Set `description` to `Phase {N}/{total}: {phase_name} [pass:plan]`.
+3. Spawn the agent. It reads the BA spec + codebase and writes an implementation plan to `docs/plans/{task_slug}/02-development-plan{-aspect_suffix}.md`.
+4. Agent returns a plan summary.
 
 **Approval gate:**
 
@@ -574,9 +587,12 @@ The development phase runs in TWO passes with a user approval gate between them.
 **Pass 2 — Implementation:**
 
 1. Use base prompt `development_implement` (instead of `development`).
-2. Spawn the agent. It reads the approved plan and implements the code.
-3. Agent writes the implementation report to `docs/plans/{task_slug}/02-development{-aspect_suffix}.md`.
-4. Standard validation (3e) applies: output must list files changed.
+2. Resolve the model via `model:` per 3b-3. Set `description` to `Phase {N}/{total}: {phase_name} [pass:implement]`.
+3. Spawn the agent. It reads the approved plan and implements the code.
+4. Agent writes the implementation report to `docs/plans/{task_slug}/02-development{-aspect_suffix}.md`.
+5. Standard validation (3e) applies: output must list files changed.
+
+Re-dispatches of Pass 1 after "request changes" keep the `[pass:plan]` marker — they are still planning work.
 
 For aspect-aware fan-out, the canonical order remains: `database → backend → frontend → testing`. Each aspect completes both passes before the next aspect begins (the plan for backend may depend on what database-aspect implemented).
 
@@ -585,22 +601,28 @@ For aspect-aware fan-out, the canonical order remains: `database → backend →
 ```
 Agent({
   subagent_type: "{agent_from_profile}",
-  model: "{model_tier_resolved_in_3b-3}",   // short alias only: "opus" | "sonnet" | "haiku"
-  description: "Phase {N}/{total}: {phase_name}",
+  model: "{model_tier_resolved_in_3b-3}",   // short alias only: "opus" | "sonnet" | "haiku" | "fable"
+  description: "Phase {N}/{total}: {phase_name}{pass_marker}",
   prompt: <the prompt built in 3b>
 })
 ```
+
+`{pass_marker}` is empty for every phase except development, where it is ` [pass:plan]` or ` [pass:implement]` per 3b-special. **The marker is a contract with `enforce-agent-model.sh`, not decoration** — the hook only sees `tool_input`, so `description` is the sole channel telling it which frontmatter field to enforce. Drop the marker on a planning pass and the hook rewrites the model back to `model:`, silently undoing the tier split.
 
 **3d. Save the COMPACT summary** returned by the agent to `CONTEXT.{phase}_output`. Verify the agent also wrote the detailed file to `docs/plans/{task_slug}/0X-{phase}.md` (use `Glob` to check). If the file is missing, ask the agent again to write it before proceeding.
 
 **3d-1. Capture per-phase telemetry** — extract from the Agent tool result (when usage data is present in the result envelope, read `input_tokens`, `output_tokens`, `cached_input_tokens`; otherwise estimate from prompt + summary character length / 4). Compute:
 
-- `compact_summary_chars` — `len(CONTEXT.{phase}_output)`. If > 3000 chars (≈ 3K-token target), record `compact_handoff_violation: true` and emit a one-line warning to stderr: `WARN: {phase} compact summary exceeded budget ({chars} chars > 3000)`. Do not abort — the violation is recorded for post-run analysis.
+- `compact_summary_chars` — `len(CONTEXT.{phase}_output)`. Convert to tokens the same way as above (`chars / 4`) before comparing: the handoff budget is stated in **tokens** by every agent contract (≤2K for BA/QA/security, ≤3K for development), so a char-count must never be compared against a token threshold directly. If `chars / 4 > 3000` (i.e. > 12000 chars), record `compact_handoff_violation: true` and emit a one-line warning to stderr: `WARN: {phase} compact summary exceeded budget (~{chars/4} tokens > 3000)`. Do not abort — the violation is recorded for post-run analysis.
+
+  This counter is the pipeline's only sensor for model verbosity drift (newer models default to longer responses and narrate progress more often in agentic sessions). A threshold set ~4× too tight fires on every compliant run and destroys that signal.
 - `model` — the model tier declared in the agent's frontmatter (`opus`, `sonnet`, or `haiku`). This is the authoritative value because the PreToolUse hook enforces it at dispatch time. **Do not** read this from the Agent result envelope (it is not exposed there).
-- `cost_usd` — derived from per-tier pricing table (kept inline for transparency):
-  - opus: input $15/MTok, cached input $1.50/MTok, output $75/MTok
+- `cost_usd` — derived from per-tier pricing table (kept inline for transparency). Cached input is 10% of base input across all tiers:
+  - opus: input $5/MTok, cached input $0.50/MTok, output $25/MTok
   - sonnet: input $3/MTok, cached input $0.30/MTok, output $15/MTok
   - haiku: input $1/MTok, cached input $0.10/MTok, output $5/MTok
+
+  These are list prices for the current generation behind each alias. Keep them in sync with `README.md` → "Cost Optimization" — the two tables are the only cost references in the repo and they must not diverge. Estimates here exclude the orchestrator's own token consumption (see `_telemetry.json` note in 3f).
 - For aspect-aware phase fan-out, push one entry **per aspect** into `phases[]` with `phase: "{phase_name}"` and `aspect: "{aspect}"` set; aspect-agnostic phases omit `aspect`.
 
 **3d-2. QA-specific telemetry** — when running the `qa` phase, parse the agent's compact summary for the lines `ITERATIONS_USED: N` (max 3, hard cap from the agent prompt) and `STATUS: complete | incomplete-blocked`. Record:
@@ -609,6 +631,20 @@ Agent({
 - `qa_status: "completed"` when STATUS is `complete`, or `"capped"` when STATUS is `incomplete-blocked`.
 
 Both fields go into the QA phase entry of `phases[]`.
+
+**3d-3. Enforce the workflow cost cap.** If `CONTEXT.max_total_cost_usd` is `null`, skip this step.
+
+Otherwise sum `cost_usd` across `phases[]` so far. If the running total exceeds the cap, **MUST PRINT VERBATIM**:
+
+```
+💸 Cost cap exceeded for workflow '{active_workflow}'
+   Cap: ${max_total_cost_usd}   Spent so far: ${running_total} (through phase {phase_name})
+   Remaining phases: {list}
+```
+
+Then ask the user: **continue** / **stop here**. On *stop*, skip all remaining phases, mark them `status: "skipped-cost-cap"` in telemetry, and go to Step 4 — the work already done is kept, not rolled back. On *continue*, set `CONTEXT.max_total_cost_usd = null` so the prompt does not repeat every phase, and record `cost_cap_overridden: true` in telemetry.
+
+Never abort silently: a cap is a runaway guard, and a half-finished pipeline that vanishes without a word is worse than an expensive one. The check runs *after* a phase completes because per-phase cost is only known then — a cap cannot prevent the phase that breaches it, only the ones after.
 
 **3e. Validate phase output:**
 - BA phase: must contain acceptance criteria or scope bullets.
@@ -666,7 +702,7 @@ Write `docs/plans/{task_slug}/_telemetry.json`:
       "input_tokens": 35000,
       "output_tokens": 3000,
       "cached_input_tokens": 21000,
-      "cost_usd": 0.18,
+      "cost_usd": 0.16,
       "compact_summary_chars": 1840,
       "compact_handoff_violation": false
     },
@@ -681,7 +717,7 @@ Write `docs/plans/{task_slug}/_telemetry.json`:
       "input_tokens": 28000,
       "output_tokens": 2100,
       "cached_input_tokens": 18000,
-      "cost_usd": 0.12,
+      "cost_usd": 0.07,
       "compact_summary_chars": 1450,
       "compact_handoff_violation": false
     }
@@ -696,6 +732,9 @@ Write `docs/plans/{task_slug}/_telemetry.json`:
   "total_output_tokens": 9800,
   "total_cached_input_tokens": 88000,
   "total_cost_usd": 1.42,
+  "cost_scope": "subagent_phases_only",
+  "max_total_cost_usd": null,
+  "cost_cap_overridden": false,
   "cache_hit_ratio": 0.58,
   "deps_preflight": {
     "superpowers": { "status": "available", "missing_skills": [] }
@@ -710,8 +749,11 @@ Compute aggregates from `phases[]`:
 - `total_cached_input_tokens` = sum of phase `cached_input_tokens`.
 - `total_cost_usd` = sum of phase `cost_usd`.
 - `cache_hit_ratio` = `total_cached_input_tokens / max(total_input_tokens, 1)` rounded to 2 decimals.
+- `cost_scope` = always the literal `"subagent_phases_only"`.
 
 > Token counts come from the Agent tool's usage envelope when present. If a phase's result lacks usage data, fall back to char-length / 4 estimation and set `phases[N].usage_source: "estimated"` (default `"reported"`).
+
+> **What `total_cost_usd` does not include.** Only subagent spawns are metered. The orchestrator's own consumption — this skill's body, stack-profile globbing and parsing, workflow resolution and schema validation, and the approval-gate exchanges — runs on the session model and is invisible here. Treat `total_cost_usd` as a floor for the run, not the full bill. The `cost_scope` field exists so downstream consumers (`docs/cost-baseline.md`, `/sdlc:doctor`) cannot silently misread it as a total.
 
 Print the final summary to the user:
 

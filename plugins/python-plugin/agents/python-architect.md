@@ -4,6 +4,7 @@ description: |
   Plain Python backend implementer (backend aspect). Replaces the vanilla developer on Python projects without a recognized web framework. Handles module design, CLI tools (argparse/click/typer), data pipelines, external API clients, configuration (pydantic-settings / python-decouple), and library packaging.
   Do NOT use for: Django/FastAPI/Flask web apps (their architects), tests (qa-engineer), database migrations (no extra DB phase for plain Python — use the ORM directly).
 model: sonnet
+model_plan: opus
 effort: medium
 color: blue
 tools: [Read, Glob, Grep, Edit, Write, Bash]

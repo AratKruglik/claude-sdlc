@@ -3,6 +3,45 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [1.3.0] — marketplace v1.3.0 / all plugins v1.3.0
+
+Model-routing audit. The tiering across all 29 agents was calibrated when Opus cost 5× Sonnet per input token; it now costs 1.67×. Parts of the repo had already been repriced and parts had not, and the two halves disagreed. Full analysis and rationale: `MODEL-ROUTING.md`.
+
+### Added
+
+- **Two-tier development phase.** The phase already ran a planning pass and an implementation pass either side of the human approval gate, but both resolved the same `model:`, so the structure carried no benefit. A new optional frontmatter field **`model_plan:`** is now resolved for the planning pass (falling back to `model:` when absent). All 19 development-phase agents — 18 stack architects plus the vanilla `developer` — declare `model_plan: opus` alongside `model: sonnet`. Database specialists are unaffected; they run in a separate phase with no planning pass.
+  - `pipeline-orchestrator/SKILL.md` step 3b-3 resolves the field; step 3c stamps a `[pass:plan]` / `[pass:implement]` marker into the `Agent()` `description`.
+  - `enforce-agent-model.sh` reads that marker and enforces the matching field. Without it the hook would have rewritten every Opus planning dispatch back down to `sonnet` with no visible symptom.
+- **`MODEL-ROUTING.md`** — the audit itself: defects with file references, routing decisions, what was deliberately left alone, and the `model`/`effort` API asymmetry.
+- **Cost-baseline scaffold** — `/sdlc:doctor` has parsed `<repo>/docs/cost-baseline.md` since it was written, but the file never existed and `docs/` is gitignored, so committing one would not have helped. The scaffold now ships as `plugins/sdlc/templates/cost-baseline.md`, and doctor step 4 seeds the project copy from it when absent (create-if-missing, never an overwrite — the command's only write).
+- **Workflow cost-cap enforcement** (step 3d-3). `caps.max_total_cost_usd` was declared in the schema and two recipes but enforced nowhere. The running total is now checked after each phase and the user is asked whether to continue — never a silent abort.
+- **`frontend-design`** (official Anthropic plugin) added as an optional external dependency and referenced from the seven frontend-capable stack profiles. Raw generation converges on generic AI aesthetics regardless of model tier; guidance fixes that, a bigger model does not.
+- **`/sdlc:doctor` model-routing section** — reports `CLAUDE_CODE_SUBAGENT_MODEL` and the declared tier of every active agent.
+
+### Fixed
+
+- **Telemetry priced Opus at the previous generation's rate.** Step 3d-1 computed `cost_usd` from `opus: $15 in / $1.50 cached / $75 out`, inflating every Opus phase 3×, while `README.md` was already computed at $5/$25 — verified arithmetically across all five rows of that table. Corrected to `$5 / $0.50 / $25`.
+- **`compact_handoff_violation` compared characters against a token threshold.** The check fired above `3000 chars` while labelling itself a "3K-token target", and every agent contract states its budget in tokens (≤2K, ≤3K). The threshold was ~4× too tight, so compliant agents tripped it every run — destroying the pipeline's only sensor for model verbosity drift. Now converts to tokens first.
+- **The stated enforcement guarantee was false.** `README.md` claimed the declared tier is used "regardless of the session-level default model". Claude Code resolves in the order `CLAUDE_CODE_SUBAGENT_MODEL` → per-invocation parameter → frontmatter, so that environment variable overrides both enforcement layers silently. The claim now carries the condition, in both `README.md` and `SKILL.md`.
+- **Hook tier allowlist** accepted only `opus|sonnet|haiku`; the `Agent` tool also accepts `fable`. Added — no agent is assigned to it.
+- **Hotfix cost cap was unreachable.** `$0.60` against a real dev+qa+security run of ~$1.52 would have aborted every hotfix once enforcement existed. Recalibrated as runaway guards: hotfix `$2.50`, docs-only `$0.20`.
+- README model+effort table listed 22 of 29 agents; regenerated from frontmatter, now complete.
+- `batch-pipeline/SKILL.md` carried a second copy of the stale Opus pricing (`$15/$75`) and a `~$1.50` baseline in its mandatory pre-dispatch cost confirmation. It now defers to the orchestrator's table and uses the current `~$2.40` baseline, so batch estimates stop understating a run in one direction while overstating Opus in the other.
+- `business-analyst` and `document-writer` were missing the `Write` tool they need to produce their phase artifacts (carried on this branch from before the audit).
+
+### Changed
+
+- `security-analyst` moved from `effort: high` to `xhigh`. It is the one agent whose failures are silent — no error, no failing test — and it processes a small token volume.
+- Telemetry carries `cost_scope: "subagent_phases_only"`. The orchestrator's own consumption (skill body, profile globbing, workflow resolution, approval-gate exchanges) runs on the session model and cannot be metered from inside the skill. `total_cost_usd` is a floor, not a bill.
+- Cost estimates updated across `README.md` and `ARCHITECTURE.md`: ~$2.40 standard / ~$1.98 intro for a medium feature, against ~$1.84 / ~$1.42 before. The increase is deliberate — the argument is cost per completed task, and one avoided rework cycle exceeds the delta. Opting out is one line: `model_plan: sonnet`, or drop the field.
+- All plugin versions aligned to 1.3.0 with the marketplace.
+
+### Known limitations
+
+- **`effort` cannot be varied per dispatch.** The original design called for the planning pass to run at `effort: xhigh` while implementation stayed at `medium`. Not implementable: `effort` is read from frontmatter only and the `Agent` tool exposes no override, so both passes of one agent necessarily share a value. Development architects stay at `medium`.
+- Complexity-based escalation (Opus for implementation when a task touches auth, payments, or concurrency) is designed but not built — it needs a machine-readable complexity signal from the BA phase plus a schema extension. See `MODEL-ROUTING.md` §8.
+- The Dev-plan and Security-at-`xhigh` cost rows are assumptions, not measurements. Populating `docs/cost-baseline.md` from real runs replaces them.
+
 ## [1.2.1] — marketplace v1.2.1 / sdlc v1.2.1
 
 ### Changed

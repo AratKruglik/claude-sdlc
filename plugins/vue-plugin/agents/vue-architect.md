@@ -4,6 +4,7 @@ description: |
   Vue 3 SPA implementer (frontend aspect). Replaces vanilla `developer`/`node-architect` when `vue` is in dependencies (no `next`, no `react-native`). Knows Composition API, `<script setup>`, Pinia, Vue Router v4, vee-validate + zod, Vitest + @vue/test-utils, common UI libs (Vuetify/Quasar/PrimeVue/Naive UI/Element Plus/shadcn-vue), Vue 2 fallback (Options API, Vuex).
   Do NOT use for: Nuxt (out of scope), React (react-architect), Next.js (nextjs-architect), React Native (rn-architect), backend code (node/nest-architect), tests (qa-engineer), PRs (document-writer).
 model: sonnet
+model_plan: opus
 effort: medium
 color: green
 tools: [Read, Glob, Grep, Edit, Write, Bash]

@@ -75,34 +75,34 @@ sdlc-marketplace/
 │   │   │       └── SKILL.md             ← SINGLE orchestrator (955 lines)
 │   │   ├── agents/
 │   │   │   ├── business-analyst.md      ← opus + effort:high (critical reasoning)
-│   │   │   ├── developer.md             ← sonnet + effort:medium (vanilla fallback)
+│   │   │   ├── developer.md             ← sonnet + model_plan:opus (vanilla fallback)
 │   │   │   ├── qa-engineer.md           ← sonnet + effort:medium (with iteration cap)
-│   │   │   ├── security-analyst.md      ← opus + effort:high (critical reasoning)
+│   │   │   ├── security-analyst.md      ← opus + effort:xhigh (silent-failure risk)
 │   │   │   └── document-writer.md       ← haiku + effort:low (structured output)
 │   │   └── stack.md                     ← vanilla profile (priority: 0)
 │   │
 │   ├── js-foundation/                   ← shared TS/npm skills, no stack profile
 │   │   └── skills/                      ← typescript-patterns, npm-patterns
 │   ├── nodejs-plugin/                   ← Node.js/Express/Fastify (priority: 100)
-│   │   └── agents/node-architect.md     ← sonnet + effort:medium
+│   │   └── agents/node-architect.md     ← sonnet + model_plan:opus
 │   ├── nestjs-plugin/                   ← NestJS backend (priority: 200)
-│   │   └── agents/nest-architect.md     ← sonnet + effort:medium
+│   │   └── agents/nest-architect.md     ← sonnet + model_plan:opus
 │   ├── nextjs-plugin/                   ← Next.js full-stack (priority: 250)
-│   │   └── agents/nextjs-architect.md   ← sonnet + effort:medium
+│   │   └── agents/nextjs-architect.md   ← sonnet + model_plan:opus
 │   ├── react-plugin/                    ← React SPA frontend (priority: 150)
-│   │   └── agents/react-architect.md    ← sonnet + effort:medium
+│   │   └── agents/react-architect.md    ← sonnet + model_plan:opus
 │   ├── vue-plugin/                      ← Vue 3 SPA frontend (priority: 150)
-│   │   └── agents/vue-architect.md      ← sonnet + effort:medium
+│   │   └── agents/vue-architect.md      ← sonnet + model_plan:opus
 │   ├── angular-plugin/                  ← Angular 18-21 frontend (priority: 200)
-│   │   └── agents/angular-architect.md  ← sonnet + effort:medium
+│   │   └── agents/angular-architect.md  ← sonnet + model_plan:opus
 │   ├── react-native-plugin/             ← React Native mobile (priority: 300)
-│   │   └── agents/rn-architect.md       ← sonnet + effort:medium
+│   │   └── agents/rn-architect.md       ← sonnet + model_plan:opus
 │   │
 │   └── laravel-plugin/
 │       ├── .claude-plugin/plugin.json   ← dependencies: sdlc
 │       ├── stack.md                     ← Laravel stack profile (priority: 100)
 │       ├── agents/
-│       │   ├── laravel-architect.md     ← Sonnet, replaces developer for Laravel
+│       │   ├── laravel-architect.md     ← Sonnet impl + Opus plan pass
 │       │   └── artisan-specialist.md    ← Sonnet, for extra phase "database"
 │       ├── skills/
 │       │   ├── laravel-conventions/SKILL.md
@@ -292,35 +292,26 @@ Skip-rules save 30–60% of the cost for minor tasks. Without them, running the 
 
 All 5 agents live in `sdlc/agents/`. The model and `effort` are selected based on the "cost of mistakes" principle — Opus+high is used where errors would compound across the entire pipeline.
 
-### 5.0. Full model+effort Table (14 agents including stack providers)
+### 5.0. Model + effort assignment
 
-| Agent | Plugin | model | effort | Justification |
+The authoritative table covering all 29 agents lives in `README.md` → "Cost Optimization: model + effort", generated from agent frontmatter. It is not duplicated here. The rationale behind the assignment — including why the ratios that justified it changed, and what was deliberately left alone — is in `MODEL-ROUTING.md`.
+
+Core agents and their least-privilege tool sets:
+
+| Agent | model | model_plan | effort | Tools (least-privilege) |
 |---|---|---|---|---|
-| `business-analyst` | sdlc | `opus` | `high` | Requirements error cascades through 5 phases; small token volume, maximum leverage |
-| `security-analyst` | sdlc | `opus` | `high` | Non-obvious vulnerabilities (TOCTOU, JWT confusion) require deep reasoning |
-| `developer` | sdlc | `sonnet` | `medium` | Vanilla fallback — execution based on a clear spec |
-| `qa-engineer` | sdlc | `sonnet` | `medium` | Tests based on clear criteria; hard 3-attempt cap keeps cost down |
-| `document-writer` | sdlc | `haiku` | `low` | Structured output from known facts; Haiku yields ~10× savings vs Opus |
-| `laravel-architect` | laravel | `sonnet` | `medium` | Workhorse: Laravel idioms + Inertia frontend |
-| `artisan-specialist` | laravel | `sonnet` | `low` | Mechanical DB work: types/indexes/factories |
-| `node-architect` | nodejs | `sonnet` | `medium` | Express/Fastify — implementation following clear Node.js idioms |
-| `nest-architect` | nestjs | `sonnet` | `medium` | Convention skills (nest-data-layer, nest-advanced) carry per-domain depth |
-| `nextjs-architect` | nextjs | `sonnet` | `medium` | RSC/Client patterns well-defined by spec and convention skills |
-| `react-architect` | react | `sonnet` | `medium` | React conventions and state/routing skills cover variability |
-| `vue-architect` | vue | `sonnet` | `medium` | Vue 3/2 detection and convention skills cover library choice |
-| `angular-architect` | angular | `sonnet` | `medium` | Angular idioms (standalone, signals, NgRx) in convention skills |
-| `rn-architect` | react-native | `sonnet` | `medium` | Expo/bare, iOS/Android axes — convention skills (rn-platform-specific) |
+| `business-analyst` | **opus** | — | `high` | Read, Glob, Grep, Write, WebSearch, WebFetch |
+| `developer` (vanilla fallback) | **sonnet** | **opus** | `medium` | Read, Glob, Grep, Edit, Write, Bash |
+| `qa-engineer` | **sonnet** | — | `medium` | Read, Glob, Grep, Edit, Write, Bash |
+| `security-analyst` | **opus** | — | `xhigh` | Read, Glob, Grep, Edit, Write, WebSearch, WebFetch |
+| `document-writer` | **haiku** | — | `low` | Read, Glob, Grep, Write, Bash, mcp__github__* |
 
-> **About temperature and effort:**  
-> Claude Code does not support per-subagent `temperature` in frontmatter. Reasoning budget control is managed exclusively via the `effort` field (`low`/`medium`/`high`/`xhigh`/`max`), which overrides the session level. `effort: high` on Opus is the most expensive path; hence only 2 leverage agents.
+Stack architects follow the same shape as `developer`: `sonnet` for implementation, `opus` for the planning pass. Database specialists are `sonnet`/`low` with no planning pass — they run in a separate phase.
 
-| Agent | model | effort | Tools (least-privilege) |
-|---|---|---|---|
-| `business-analyst` | **opus** | `high` | Read, Glob, Grep, WebSearch, WebFetch |
-| `developer` (vanilla fallback) | **sonnet** | `medium` | Read, Glob, Grep, Edit, Write, Bash |
-| `qa-engineer` | **sonnet** | `medium` | Read, Glob, Grep, Edit, Write, Bash |
-| `security-analyst` | **opus** | `high` | Read, Glob, Grep, WebSearch |
-| `document-writer` | **haiku** | `low` | Read, Glob, Grep, Bash, mcp__github__* |
+> **About temperature and effort:**
+> Claude Code does not support per-subagent `temperature` in frontmatter. Reasoning budget is controlled exclusively via `effort` (`low`/`medium`/`high`/`xhigh`/`max`), which overrides the session level.
+>
+> `model` and `effort` are not symmetric levers. `model` can be overridden per dispatch through the `Agent` tool's `model` parameter; `effort` cannot — it is read from frontmatter only. That is why the development phase varies the model between its planning and implementation passes but keeps one `effort` value across both.
 
 ### 5.1. Iteration Cap in QA (Runaway Costs Safeguard)
 
@@ -353,15 +344,22 @@ Without this cap, a single flaky test can burn $5 worth of tokens in a single ru
 
 ### 6.1. Run Budget
 
-Target budget for a medium-complexity feature (e.g., "Stripe billing module"):
+Target budget for a medium-complexity feature (e.g., "Stripe billing module"). Estimates, not measurements — `docs/cost-baseline.md` holds the measured figures once runs are aggregated.
+
+All rows below are **standard list pricing, before prompt-cache savings** — the same basis as the per-phase table in `README.md` → "Estimated cost for a medium feature", so the two documents report the same quantity. The bottom row is that table's total.
 
 | Scenario | Cost/run |
 |---|---|
-| All-Opus (Rolique mandate — cancelled) | $4.05 |
-| Model tiering (opus/sonnet/haiku) | $2.66 |
-| + `effort: high` only for BA/Security | ~$2.80 (slightly more expensive, but justified reasoning) |
-| + prompt caching (60% hit) | $1.90 |
-| + compact handoffs | **~$1.50** ← our goal |
+| Uniform Opus across every phase | ~$3.20 |
+| Model tiering (opus / sonnet / haiku) | ~$1.84 |
+| + two-tier development phase (opus plans, sonnet implements) | ~$2.34 |
+| + `effort: xhigh` on security review | **~$2.40** ← current, matches README |
+
+Two further reductions apply on top and are not stacked into the ladder, because they vary per run rather than per configuration: the Sonnet introductory rate through 2026-08-31 brings the same configuration to **~$1.98**, and prompt caching reduces repeated input further (~60% hit rate on stable prefixes).
+
+The two-tier development phase and the security `effort` bump both move the number *up*. That is intentional and argued in `MODEL-ROUTING.md` §7: the target is cost per completed task, and a rework cycle on a medium feature costs more than the delta. The levers that move it down — skip-rules, the QA iteration cap, compact handoffs, prompt caching — are unchanged and still carry most of the savings.
+
+Note also that the ratio driving all of this shifted: Opus is now ~1.67× Sonnet per input token rather than 5×, which is why uniform-Opus is no longer the catastrophe the original table implied, and why tiering alone is no longer the dominant lever.
 
 ### 6.2. Four Hotspots Addressed by Design
 
@@ -395,16 +393,19 @@ The orchestrator writes to `docs/plans/{slug}/_telemetry.json` after each pipeli
 {
   "stack": "laravel",
   "phases": [
-    { "phase": "ba", "model": "opus", "input_tokens": 35000, "output_tokens": 3000, "cost_usd": 0.25 },
+    { "phase": "ba", "model": "opus", "input_tokens": 35000, "output_tokens": 3000, "cost_usd": 0.16 },
     { "phase": "dev", "model": "sonnet", "input_tokens": 42000, "output_tokens": 8500, "cost_usd": 0.25 }
   ],
   "total_cost_usd": 1.42,
+  "cost_scope": "subagent_phases_only",
   "total_wall_clock_s": 187,
   "skip_rules_applied": ["security:diff<50loc"]
 }
 ```
 
 This tracks the cost-per-feature trend and answers "where are tokens being burned." If costs exceed the budget, telemetry isolates the specific phase.
+
+`cost_scope` is a warning label, not decoration: only subagent spawns are metered. The orchestrator's own consumption — this skill's body, profile globbing and parsing, workflow resolution, approval-gate exchanges — runs on the session model and cannot be measured from inside the skill. `total_cost_usd` is a floor, and the gap against an actual invoice is the orchestrator, not a metering bug.
 
 ---
 

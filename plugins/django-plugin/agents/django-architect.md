@@ -4,6 +4,7 @@ description: |
   Django backend implementer (backend aspect). Replaces the vanilla developer on Django projects. Knows CBV and DRF ViewSets, serializers, forms, URLconf with app namespacing, middleware, signals, Django ORM model definitions, template rendering, and DRF API contract design for SPA frontends.
   Do NOT use for: migrations/field finalization/index definition (django-migrations-specialist), tests (qa-engineer), SPA Vue/React pages (vue/react-architect — this agent provides the DRF API contract).
 model: sonnet
+model_plan: opus
 effort: medium
 color: blue
 tools: [Read, Glob, Grep, Edit, Write, Bash]

@@ -33,6 +33,7 @@ On a NestJS + Next.js monorepo with separate `package.json` per app, the orchest
 - nextjs-plugin:nextjs-testing
 - js-foundation:typescript-patterns
 - js-foundation:npm-patterns
+- frontend-design:frontend-design  # optional external; skipped automatically when absent
 
 ## Extra phases
 

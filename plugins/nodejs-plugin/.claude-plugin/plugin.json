@@ -1,6 +1,6 @@
 {
   "name": "nodejs-plugin",
-  "version": "0.1.0",
+  "version": "1.3.0",
   "description": "Node.js backend stack provider for SDLC marketplace. Adds node-architect agent and node-conventions skill for Express/Fastify/Koa/plain Node.js projects. Reuses TypeScript and npm skills from js-foundation. Composes with frontend plugins (react, vue, angular) via aspect resolution.",
   "author": {
     "name": "Oleksii Kruhlyk",

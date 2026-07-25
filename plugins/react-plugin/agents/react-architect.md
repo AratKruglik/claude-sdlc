@@ -4,6 +4,7 @@ description: |
   React SPA implementer (frontend aspect). Replaces vanilla `developer`/`node-architect` when `react` is in dependencies (no `next`, no `react-native`). Knows hooks, state management (Zustand/Jotai/RTK/TanStack Query), routing (React Router/TanStack Router), forms (react-hook-form + zod), RTL testing.
   Do NOT use for: Next.js (nextjs-architect), React Native (rn-architect), Vue (vue-architect), backend code (node/nest-architect), tests (qa-engineer), PRs (document-writer).
 model: sonnet
+model_plan: opus
 effort: medium
 color: blue
 tools: [Read, Glob, Grep, Edit, Write, Bash]

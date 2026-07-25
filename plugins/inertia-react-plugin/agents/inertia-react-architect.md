@@ -4,6 +4,7 @@ description: |
   Inertia.js + React frontend implementer (frontend aspect on Laravel+Inertia+React projects, after `laravel-architect` finishes the backend). Knows Inertia React primitives (useForm, usePage, <Link>, router), page/layout conventions (resources/js/Pages/), React + TypeScript, and Laravel+Inertia data-passing (controller props, shared props via HandleInertiaRequests).
   Do NOT use for: backend code (laravel-architect), SPA-only React without Inertia (react-architect), React Router (Inertia has no client-side router), tests (qa-engineer), PRs (document-writer).
 model: sonnet
+model_plan: opus
 effort: medium
 color: blue
 tools: [Read, Glob, Grep, Edit, Write, Bash]

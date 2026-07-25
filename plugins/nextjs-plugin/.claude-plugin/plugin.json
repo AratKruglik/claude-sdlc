@@ -1,6 +1,6 @@
 {
   "name": "nextjs-plugin",
-  "version": "0.1.0",
+  "version": "1.3.0",
   "description": "Next.js full-stack React framework stack provider for SDLC marketplace. Multi-aspect ownership (backend + frontend). App Router, Server Components, Server Actions, Route Handlers, ISR/SSG/SSR. Reuses TypeScript and npm skills from nodejs-plugin.",
   "author": {
     "name": "Oleksii Kruhlyk",

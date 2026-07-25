@@ -36,6 +36,7 @@ If both `@inertiajs/vue3` and `@inertiajs/react` are present (vue↔react migrat
 - react-plugin:react-testing
 - js-foundation:typescript-patterns
 - js-foundation:npm-patterns
+- frontend-design:frontend-design  # optional external; skipped automatically when absent
 
 Note: `react-plugin:react-routing` is intentionally excluded — Inertia does not use a client-side React Router. Navigation is server-driven via `<Link>` and `router` from `@inertiajs/react`.
 

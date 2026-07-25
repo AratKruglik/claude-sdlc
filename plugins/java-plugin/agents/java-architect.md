@@ -4,6 +4,7 @@ description: |
   Plain Java implementer. Replaces the vanilla `developer` for the backend aspect on Maven or Gradle projects that do not match a higher-priority Java framework plugin. Knows modern Java (17+) idioms, design patterns, Maven/Gradle build tooling, and JVM testing discipline.
   Do NOT use for: Spring Boot (spring-boot-architect, higher priority), Quarkus/Micronaut (future plugins), frontend/Android, tests (qa-engineer), PRs (document-writer).
 model: sonnet
+model_plan: opus
 effort: medium
 color: blue
 tools: [Read, Glob, Grep, Edit, Write, Bash]

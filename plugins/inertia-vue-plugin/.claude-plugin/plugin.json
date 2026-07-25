@@ -1,6 +1,6 @@
 {
   "name": "inertia-vue-plugin",
-  "version": "0.1.0",
+  "version": "1.3.0",
   "description": "Inertia.js + Vue 3 frontend stack provider for Laravel SDLC marketplace. Detects @inertiajs/vue3 adapter (priority=175, beats generic vue-plugin at 150). Server-driven Inertia pages, useForm, usePage, shared props — no client-side router.",
   "author": {
     "name": "Oleksii Kruhlyk",

@@ -4,6 +4,7 @@ description: |
   Inertia.js + Vue 3 frontend implementer (frontend aspect on Laravel+Inertia+Vue projects, after `laravel-architect` finishes the backend). Knows Inertia primitives (useForm, usePage, <Link>, router), page/layout conventions (resources/js/Pages/, resources/js/Layouts/), Vue 3 Composition API with <script setup>, and Laravel+Inertia data-passing (controller props, shared props via HandleInertiaRequests).
   Do NOT use for: backend code (laravel-architect), SPA-only Vue without Inertia (vue-architect), Vue Router (Inertia has no client-side router), tests (qa-engineer), PRs (document-writer).
 model: sonnet
+model_plan: opus
 effort: medium
 color: green
 tools: [Read, Glob, Grep, Edit, Write, Bash]
