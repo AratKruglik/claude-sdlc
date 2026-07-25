@@ -10,13 +10,18 @@
 set -uo pipefail
 
 # Tier → Agent tool model alias.
-# The Agent tool's `model` parameter accepts ONLY short aliases (sonnet/opus/haiku),
-# never full model IDs — a full ID fails schema validation and the dispatch retries
-# without any model override, silently inheriting the (expensive) session model.
+# The Agent tool's `model` parameter accepts ONLY short aliases, never full model IDs —
+# a full ID fails schema validation and the dispatch retries without any model override,
+# silently inheriting the (expensive) session model. Agent *frontmatter* is more permissive
+# (full IDs and `inherit` are legal there); this allowlist deliberately is not.
+#
+# NOTE: this hook cannot make enforcement absolute. Claude Code resolves a subagent's model
+# in the order CLAUDE_CODE_SUBAGENT_MODEL → per-invocation parameter → frontmatter, so that
+# environment variable overrides the value we write here. `/sdlc:doctor` reports when it is set.
 tier_to_model() {
     case "$1" in
-        opus|sonnet|haiku) echo "$1" ;;
-        *)                 echo "" ;;
+        opus|sonnet|haiku|fable) echo "$1" ;;
+        *)                       echo "" ;;
     esac
 }
 
@@ -36,10 +41,12 @@ if command -v jq >/dev/null 2>&1; then
     tool_name=$(printf '%s' "$payload" | jq -r '.tool_name // empty')
     agent_name=$(printf '%s' "$payload" | jq -r '.tool_input.subagent_type // empty')
     requested_model=$(printf '%s' "$payload" | jq -r '.tool_input.model // empty')
+    description=$(printf '%s' "$payload" | jq -r '.tool_input.description // empty')
 elif command -v python3 >/dev/null 2>&1; then
     tool_name=$(printf '%s' "$payload"      | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('tool_name',''))")
     agent_name=$(printf '%s' "$payload"     | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('tool_input',{}).get('subagent_type',''))")
     requested_model=$(printf '%s' "$payload" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('tool_input',{}).get('model',''))")
+    description=$(printf '%s' "$payload"    | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('tool_input',{}).get('description',''))")
 else
     allow_warn "[model-enforcement] neither jq nor python3 found — model enforcement skipped"
     exit 0
@@ -81,8 +88,27 @@ if [ -z "$md_path" ]; then
 fi
 
 # ── extract model tier from frontmatter ─────────────────────────────────────
+# The development phase runs two passes on different tiers: the planning pass resolves
+# `model_plan:` and the implementation pass resolves `model:`. The hook only sees
+# tool_input, so the orchestrator marks the pass in `description` (see SKILL.md step 3c).
+# Without this branch the hook would rewrite a planning-pass dispatch back down to
+# `model:` and silently undo the tier split.
+field="model"
+case "$description" in
+    *"[pass:plan]"*) field="model_plan" ;;
+esac
+
 # awk counts --- delimiters; f==1 means inside the frontmatter block
-tier=$(awk '/^---$/{f++; next} f==1 && /^model:/{print $2; exit}' "$md_path")
+extract_tier() {
+    awk -v key="^$1:" '/^---$/{f++; next} f==1 && $0 ~ key {print $2; exit}' "$md_path"
+}
+
+tier=$(extract_tier "$field")
+
+# model_plan is optional — fall back to model when the agent does not declare one
+if [ -z "$tier" ] && [ "$field" = "model_plan" ]; then
+    tier=$(extract_tier "model")
+fi
 
 if [ -z "$tier" ]; then
     allow_warn "[model-enforcement] agent '${agent_name}' has no model: in frontmatter — skipping"
@@ -102,8 +128,8 @@ fi
 # ── correction needed ───────────────────────────────────────────────────────
 mkdir -p "$(dirname "$log_path")"
 ts=$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")
-printf '[%s] CORRECTED agent=%s requested=%s enforced=%s\n' \
-    "$ts" "$agent_name" "${requested_model:-absent}" "$declared_model" >> "$log_path"
+printf '[%s] CORRECTED agent=%s field=%s requested=%s enforced=%s\n' \
+    "$ts" "$agent_name" "$field" "${requested_model:-absent}" "$declared_model" >> "$log_path"
 
 # Build corrected output — jq path preferred, python3 fallback
 if command -v jq >/dev/null 2>&1; then

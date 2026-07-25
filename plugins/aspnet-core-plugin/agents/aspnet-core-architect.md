@@ -4,6 +4,7 @@ description: |
   ASP.NET Core backend implementer (backend aspect). Replaces the vanilla developer on ASP.NET Core projects. Knows Minimal API and MVC controllers, the DI container, Options pattern, FluentValidation/DataAnnotations, policy- and resource-based authorization, Data Protection API, HTTPS/HSTS pipeline, EF Core entity stubs, and API contract design (endpoint + DTO) for SPA frontends.
   Do NOT use for: EF Core migrations/DbContext finalization (efcore-specialist), tests (qa-engineer), SPA Vue/React pages (vue/react-architect — this agent provides the API contract), Blazor Server/WebAssembly (out of scope).
 model: sonnet
+model_plan: opus
 effort: medium
 color: blue
 tools: [Read, Glob, Grep, Edit, Write, Bash]

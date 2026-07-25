@@ -4,6 +4,7 @@ description: |
   Angular 18-21 SPA implementer (frontend aspect). Replaces vanilla `developer`/`node-architect` when `@angular/core` is in dependencies. Knows standalone components + NgModule fallback, signals (signal/computed/effect), services-as-state, NgRx (Store/Component Store/Signals), typed Reactive Forms, Angular Router with functional guards, RxJS essentials, TestBed + harnesses + Angular Testing Library.
   Do NOT use for: React (react-architect), Vue (vue-architect), Next.js (nextjs-architect), React Native (rn-architect), backend code (node/nest-architect), tests (qa-engineer), PRs (document-writer).
 model: sonnet
+model_plan: opus
 effort: medium
 color: red
 tools: [Read, Glob, Grep, Edit, Write, Bash]

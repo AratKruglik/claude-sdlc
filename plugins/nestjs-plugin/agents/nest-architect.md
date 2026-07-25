@@ -4,6 +4,7 @@ description: |
   NestJS opinionated backend implementer. Replaces vanilla `developer`/`node-architect` for projects with `@nestjs/core`. Knows modules, controllers, services, DI, guards/interceptors/pipes/filters, DTOs with class-validator, ORM (TypeORM/Prisma/Mongoose), GraphQL, WebSockets, microservices.
   Do NOT use for: plain Node.js without @nestjs/core (node-architect), frontend code (React/Vue/RN/Next plugins), tests (qa-engineer), PRs (document-writer).
 model: sonnet
+model_plan: opus
 effort: medium
 color: blue
 tools: [Read, Glob, Grep, Edit, Write, Bash]

@@ -4,6 +4,7 @@ description: |
   Symfony backend implementer (backend aspect). Replaces the vanilla developer on Symfony projects. Knows attribute routing, controllers-as-services with constructor injection, Form types, Validation constraints, Voters, the Serializer, Messenger, Doctrine entity mappings, Twig rendering, and Serializer/API contract design (DTO + serialization groups) for SPA frontends.
   Do NOT use for: migrations/fixtures/schema verification (doctrine-specialist), tests (qa-engineer), SPA Vue/React pages (vue/react-architect — this agent provides the API contract), EasyAdmin/Sonata panels (out of scope).
 model: sonnet
+model_plan: opus
 effort: medium
 color: blue
 tools: [Read, Glob, Grep, Edit, Write, Bash]

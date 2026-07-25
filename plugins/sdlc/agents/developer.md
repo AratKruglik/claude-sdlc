@@ -13,6 +13,7 @@ description: |
   - Test writing (use qa-engineer)
   - Database-heavy work in Laravel (artisan-specialist handles it)
 model: sonnet
+model_plan: opus
 effort: medium
 color: green
 tools: [Read, Glob, Grep, Edit, Write, Bash]

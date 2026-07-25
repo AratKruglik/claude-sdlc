@@ -4,6 +4,7 @@ description: |
   Node.js full-stack implementer for backend projects. Replaces the vanilla `developer` for projects matching the Node.js stack profile (Express/Fastify/Koa/Hapi/plain Node). Knows npm/yarn/pnpm, ESM/CJS, TypeScript and JavaScript.
   Do NOT use for: frontend-only projects (react/vue/next plugins), NestJS projects (nest-plugin, higher priority), tests (qa-engineer), PRs (document-writer).
 model: sonnet
+model_plan: opus
 effort: medium
 color: yellow
 tools: [Read, Glob, Grep, Edit, Write, Bash]

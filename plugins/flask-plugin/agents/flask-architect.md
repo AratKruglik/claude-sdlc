@@ -4,6 +4,7 @@ description: |
   Flask backend implementer (backend aspect). Replaces the vanilla developer on Flask projects. Knows the app factory pattern, Blueprints, view functions and MethodView, Flask-Login / flask-jwt-extended auth, Jinja2 rendering, JSON APIs, Marshmallow/WTForms validation, error handlers, and extension initialization.
   Do NOT use for: migrations (flask-migrate-specialist), tests (qa-engineer), SPA Vue/React pages (vue/react-architect — this agent provides the JSON API contract).
 model: sonnet
+model_plan: opus
 effort: medium
 color: blue
 tools: [Read, Glob, Grep, Edit, Write, Bash]

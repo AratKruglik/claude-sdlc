@@ -2,7 +2,7 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v1.2.1** — 26 plugins: 1 core + 5 shared libs + 7 JS/TS stacks + 5 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 5 Python stacks. Cost-optimized: model tiering + `effort` per-subagent, **fixed Haiku enforcement for the docs phase**, file-scoped format hooks, shared architect conventions (~1,600 lines of boilerplate deduped), per-aspect QA fan-out on full-stack runs.
+**v1.3.0** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external. Cost-optimized: model tiering + `effort` per-subagent, **two-tier development phase** (Opus plans, Sonnet implements), enforced workflow cost caps, file-scoped format hooks, shared architect conventions (~1,600 lines of boilerplate deduped), per-aspect QA fan-out on full-stack runs. See [MODEL-ROUTING.md](MODEL-ROUTING.md) for the routing audit behind this release.
 
 ---
 
@@ -245,17 +245,21 @@ Recipe files are validated against `schemas/workflow.schema.json` on load. Inval
 
 ## Model Enforcement
 
-Every agent in the SDLC pipeline declares its `model:` tier in frontmatter. The pipeline guarantees that tier is actually used — regardless of the session-level default model.
+Every agent in the SDLC pipeline declares its `model:` tier in frontmatter. The pipeline enforces that tier on dispatch, so a session running on an expensive default model does not drag every phase up with it.
 
 **Two enforcement layers:**
 
 1. **Orchestrator (Layer 1)** — Step 3b-3 in the pipeline explicitly reads the agent's `.md` frontmatter and passes the tier alias in the `Agent()` dispatch call.
 
-2. **PreToolUse hook (Layer 2)** — `plugins/sdlc/hooks/enforce-agent-model.sh` intercepts every `Agent` tool call at the harness level. It reads the agent's declared `model:`, compares it with the requested model, and corrects it via `updatedInput` if they differ. This fires even if the orchestrator misses the step.
+2. **PreToolUse hook (Layer 2)** — `plugins/sdlc/hooks/enforce-agent-model.sh` intercepts every `Agent` tool call at the harness level. It reads the agent's declared tier, compares it with the requested model, and corrects it via `updatedInput` if they differ. This fires even if the orchestrator misses the step.
 
 The hook is registered in `plugins/sdlc/hooks/hooks.json` and activates automatically when the plugin is installed via the marketplace — no manual `settings.json` changes needed.
 
-**Model tiers:** both layers pass the short alias (`opus` / `sonnet` / `haiku`) as-is — the `Agent` tool's `model` parameter accepts only these aliases, and a full pinned model ID would fail validation and silently fall back to the session model. Which concrete model each alias resolves to is decided by the harness, so the marketplace never goes stale on model releases.
+**Model tiers:** both layers pass the short alias (`opus` / `sonnet` / `haiku` / `fable`) as-is — the `Agent` tool's `model` parameter accepts only these aliases, and a full pinned model ID would fail validation and silently fall back to the session model. (Agent *frontmatter* is more permissive and does accept full IDs and `inherit`; the dispatch parameter does not.) Which concrete model each alias resolves to is decided by the harness, so the marketplace never goes stale on model releases.
+
+**Two-tier development phase:** the development phase runs a planning pass and an implementation pass either side of a human approval gate, and they resolve different tiers. The planning pass reads `model_plan:` (Opus by default), the implementation pass reads `model:` (Sonnet). The orchestrator marks the pass in the `Agent()` `description` field so the hook enforces the matching one — see `MODEL-ROUTING.md` §4.1.
+
+> ⚠️ **Enforcement is not absolute.** Claude Code resolves a subagent's model in the order `CLAUDE_CODE_SUBAGENT_MODEL` → per-invocation parameter → frontmatter. That environment variable overrides **both** layers above, and every phase silently runs on whatever it names. An organization `availableModels` allowlist can likewise skip a value in favour of the inherited model. Run `/sdlc:doctor` to see whether either is in play — while an override is active, none of the cost figures below apply.
 
 ---
 
@@ -265,54 +269,74 @@ The hook is registered in `plugins/sdlc/hooks/hooks.json` and activates automati
 
 Claude Code subagent frontmatter supports:
 
-- `model` — `opus` / `sonnet` / `haiku` / full model ID / `inherit`
+- `model` — `opus` / `sonnet` / `haiku` / `fable` / full model ID / `inherit`
 - `effort` — `low` / `medium` / `high` / `xhigh` / `max` — **overrides the session-level reasoning budget**
 
 `temperature` is **not configurable per-subagent** in Claude Code. We control cost exclusively through `model` + `effort`.
 
+Note the asymmetry between the two levers: `model` can be overridden per dispatch (the `Agent` tool takes a `model` parameter), but `effort` cannot — it is read from frontmatter only. An agent invoked twice in one phase therefore shares one `effort` value across both invocations, which is why the development phase varies `model` between its passes but not `effort`. See `MODEL-ROUTING.md` §6.
+
+`model_plan` is this marketplace's own optional field, not a Claude Code one — the orchestrator resolves it for the development planning pass and falls back to `model` when absent.
+
 ### model+effort table for all agents
 
-| Agent | Plugin | model | effort | Rationale |
-|---|---|---|---|---|
-| `business-analyst` | sdlc | `opus` | `high` | Requirement errors cascade through 5 phases; small token volume, maximum leverage |
-| `security-analyst` | sdlc | `opus` | `high` | Non-obvious vulnerabilities (TOCTOU, JWT confusion, SSRF) require deep reasoning |
-| `developer` | sdlc | `sonnet` | `medium` | Vanilla fallback — execution against a clear spec |
-| `qa-engineer` | sdlc | `sonnet` | `medium` | Tests against clear criteria; hard 3-attempt cap keeps cost in check |
-| `document-writer` | sdlc | `haiku` | `low` | Structured output from known facts; ~10× cheaper than Opus |
-| `laravel-architect` | laravel | `sonnet` | `medium` | Laravel idioms + Inertia/Vue |
-| `artisan-specialist` | laravel | `sonnet` | `low` | Mechanical DB work: column types, indexes, factories |
-| `symfony-architect` | symfony | `sonnet` | `medium` | Attribute routing, controllers-as-services, DI, Voters, Serializer, Messenger, Twig |
-| `doctrine-specialist` | symfony | `sonnet` | `low` | Doctrine entity mappings, generated migrations, fixtures, schema verification |
-| `node-architect` | nodejs | `sonnet` | `medium` | Express/Fastify — implementation driven by clear Node.js idioms |
-| `nest-architect` | nestjs | `sonnet` | `medium` | Convention skills carry per-domain depth |
-| `nextjs-architect` | nextjs | `sonnet` | `medium` | RSC/Client patterns well-defined by spec and convention skills |
-| `react-architect` | react | `sonnet` | `medium` | React conventions and state/routing skills |
-| `vue-architect` | vue | `sonnet` | `medium` | Vue 3/2 detection + convention skills |
-| `angular-architect` | angular | `sonnet` | `medium` | Angular standalone/NgModule, signals, NgRx |
-| `inertia-vue-architect` | inertia-vue | `sonnet` | `medium` | Inertia.js + Vue 3 server-driven pages, no client-side router |
-| `inertia-react-architect` | inertia-react | `sonnet` | `medium` | Inertia.js + React server-driven pages, no React Router |
-| `rn-architect` | react-native | `sonnet` | `medium` | Expo/bare + iOS/Android axes |
-| `java-architect` | java | `sonnet` | `medium` | Plain Java — records, domain objects, build tooling |
-| `spring-boot-architect` | spring-boot | `sonnet` | `medium` | Spring Boot — controllers, JPA, migrations, Spring Security |
-| `aspnet-core-architect` | aspnet-core | `sonnet` | `medium` | Minimal API / MVC, DTOs, FluentValidation, DI, authorization, HTTPS/HSTS |
-| `efcore-specialist` | aspnet-core | `sonnet` | `low` | EF Core Fluent API config, column types, indexes, migration generation and verification |
+Development-phase agents carry a second tier in `model_plan` — resolved for the planning pass only, with `model` used for implementation.
 
-> `effort: high` on Opus is the most expensive combination. That's why only 2 leverage agents use it (BA and Security) — where reasoning quality directly impacts every downstream phase.
+| Agent | Plugin | model | model_plan | effort | Rationale |
+|---|---|---|---|---|---|
+| `business-analyst` | sdlc | `opus` | — | `high` | Requirement errors cascade through every later phase; small token volume, maximum leverage |
+| `security-analyst` | sdlc | `opus` | — | `xhigh` | Non-obvious vulnerabilities (TOCTOU, JWT confusion, SSRF) need deep reasoning, and a miss here is silent — no error, no failing test |
+| `developer` | sdlc | `sonnet` | `opus` | `medium` | Vanilla fallback — Opus plans, Sonnet executes against the approved plan |
+| `qa-engineer` | sdlc | `sonnet` | — | `medium` | Tests against clear criteria; hard 3-attempt cap keeps cost in check |
+| `document-writer` | sdlc | `haiku` | — | `low` | Structured output from known facts; ~5x cheaper than Opus |
+| `angular-architect` | angular | `sonnet` | `opus` | `medium` | Angular standalone/NgModule, signals, NgRx |
+| `aspnet-core-architect` | aspnet-core | `sonnet` | `opus` | `medium` | Minimal API / MVC, DTOs, FluentValidation, DI, authorization, HTTPS/HSTS |
+| `django-architect` | django | `sonnet` | `opus` | `medium` | Django views, DRF ViewSets/serializers, URLconf, models |
+| `fastapi-architect` | fastapi | `sonnet` | `opus` | `medium` | APIRouter, Pydantic v2, Depends, async SQLAlchemy, OAuth2/JWT |
+| `flask-architect` | flask | `sonnet` | `opus` | `medium` | App factory, Blueprints, Flask-Login/JWT, Marshmallow/WTForms |
+| `inertia-react-architect` | inertia-react | `sonnet` | `opus` | `medium` | Inertia.js + React server-driven pages, no React Router |
+| `inertia-vue-architect` | inertia-vue | `sonnet` | `opus` | `medium` | Inertia.js + Vue 3 server-driven pages, no client-side router |
+| `java-architect` | java | `sonnet` | `opus` | `medium` | Plain Java — records, domain objects, build tooling |
+| `laravel-architect` | laravel | `sonnet` | `opus` | `medium` | Laravel idioms + Inertia props contract |
+| `nest-architect` | nestjs | `sonnet` | `opus` | `medium` | Convention skills carry per-domain depth |
+| `nextjs-architect` | nextjs | `sonnet` | `opus` | `medium` | RSC/Client patterns well-defined by spec and convention skills |
+| `node-architect` | nodejs | `sonnet` | `opus` | `medium` | Express/Fastify — implementation driven by clear Node.js idioms |
+| `python-architect` | python | `sonnet` | `opus` | `medium` | Plain Python — CLI tools, pipelines, API clients |
+| `react-architect` | react | `sonnet` | `opus` | `medium` | React conventions and state/routing skills |
+| `rn-architect` | react-native | `sonnet` | `opus` | `medium` | Expo/bare + iOS/Android axes |
+| `spring-boot-architect` | spring-boot | `sonnet` | `opus` | `medium` | Spring Boot — controllers, JPA, migrations, Spring Security |
+| `symfony-architect` | symfony | `sonnet` | `opus` | `medium` | Attribute routing, controllers-as-services, DI, Voters, Serializer, Messenger, Twig |
+| `vue-architect` | vue | `sonnet` | `opus` | `medium` | Vue 3/2 detection + convention skills |
+| `efcore-specialist` | aspnet-core | `sonnet` | — | `low` | EF Core Fluent API config, indexes, migration generation and verification |
+| `django-migrations-specialist` | django | `sonnet` | — | `low` | Model fields/Meta indexes, makemigrations/sqlmigrate/migrate, migrate --check |
+| `alembic-specialist` | fastapi | `sonnet` | — | `low` | SQLAlchemy 2.0 mapped classes, autogenerated Alembic revisions, upgrade + verify |
+| `flask-migrate-specialist` | flask | `sonnet` | — | `low` | Flask-Migrate revision, upgrade, schema check |
+| `artisan-specialist` | laravel | `sonnet` | — | `low` | Mechanical DB work: column types, indexes, factories |
+| `doctrine-specialist` | symfony | `sonnet` | — | `low` | Doctrine entity mappings, generated migrations, fixtures, schema verification |
+
+> High `effort` on Opus is the most expensive combination, so only the two leverage agents use it — BA and Security, where reasoning quality propagates into every later phase. Security sits one rung higher (`xhigh`) because its failures are the only ones the pipeline cannot detect on its own.
 
 ### Estimated cost for a medium feature
 
-Assumes a medium feature (~445K total input tokens across the pipeline, per [Requirements](#requirements)), split roughly by phase workload below. Sonnet 5 pricing includes an introductory discount through 2026-08-31 ($2/$10 per MTok in/out vs. the $3/$15 standard rate) — both are shown since most runs during the discount window will land closer to the lower figure.
+Assumes a medium feature, split roughly by phase workload below. Sonnet pricing includes an introductory discount through 2026-08-31 ($2/$10 per MTok in/out vs. the $3/$15 standard rate) — both are shown since most runs during the discount window will land closer to the lower figure.
 
 | Phase | Agent | Model | Est. input / output tokens | Cost (standard) | Cost (intro, thru 2026-08-31) |
 |---|---|---|---|---|---|
 | BA | business-analyst | opus/high | 40K / 3K | ~$0.28 | ~$0.28 |
-| Dev | stack architect | sonnet/medium | 250K / 8K | ~$0.87 | ~$0.58 |
+| Dev — plan | stack architect | opus | 80K / 4K | ~$0.50 | ~$0.50 |
+| Dev — implement | stack architect | sonnet/medium | 250K / 8K | ~$0.87 | ~$0.58 |
 | QA | qa-engineer | sonnet/medium (≤3 attempts) | 100K / 5K | ~$0.38 | ~$0.25 |
-| Security | security-analyst | opus/high | 40K / 3K | ~$0.28 | ~$0.28 |
+| Security | security-analyst | opus/xhigh | 40K / 6K | ~$0.35 | ~$0.35 |
 | Docs | document-writer | haiku/low | 15K / 2K | ~$0.03 | ~$0.03 |
-| **Total** | | | **445K / 21K** | **~$1.84** | **~$1.42** |
+| **Total** | | | **525K / 28K** | **~$2.40** | **~$1.98** |
 
-Opus and Haiku pricing is unchanged from prior model generations, so only the Sonnet-tier phases (Dev, QA) shift with the Sonnet 5 introductory rate. Actual cost varies with codebase size, diff scope, and QA retry count — treat this as an order-of-magnitude estimate, not a quote.
+Per-MTok list prices used above: opus $5 in / $0.50 cached / $25 out; sonnet $3 / $0.30 / $15; haiku $1 / $0.10 / $5.
+
+Two rows carry real uncertainty. The **Dev plan pass** has no measured token volume yet — 80K/4K is an assumption. **Security at `xhigh`** bills thinking tokens at the output rate, and how much `xhigh` adds has not been measured here; the row assumes output roughly doubles. Both are replaced by real numbers once `docs/cost-baseline.md` is populated.
+
+This is roughly 30% above the previous single-tier estimate, and the trade is deliberate: the argument is cost per *completed* task, not per run. A development pass that starts from a weak plan gets redone and drags QA and security with it, which costs more than the delta. To opt out on any agent, set `model_plan: sonnet` or drop the field — that agent reverts to single-tier behaviour with no other changes.
+
+Actual cost varies with codebase size, diff scope, and QA retry count — treat this as an order-of-magnitude estimate, not a quote. It also excludes the orchestrator's own token use; see `docs/cost-baseline.md`.
 
 ### Additional cost levers
 
@@ -320,6 +344,8 @@ Opus and Haiku pricing is unchanged from prior model generations, so only the So
 - **QA hard cap:** max 3 attempts to fix failing tests, then STOP.
 - **Compact handoffs:** each agent returns a ≤2–3K-token summary.
 - **Prompt caching:** stable system prompts (no timestamps, slugs, or dynamic content) → ~60% cache hit rate on Sonnet.
+- **Workflow cost caps:** `caps.max_total_cost_usd` in a recipe halts the run (with confirmation) once the running total crosses it. Set as a runaway guard, not a routine blocker.
+- **Fewer spawns beat cheaper spawns.** The dominant cost driver is the per-phase subagent spawn, so removing an unnecessary phase saves more than re-tiering one. Skip-rules are the strongest lever here; adding a cheap agent to feed an expensive one usually loses.
 
 ---
 

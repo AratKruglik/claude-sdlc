@@ -1,6 +1,6 @@
 {
   "name": "angular-plugin",
-  "version": "0.1.0",
+  "version": "1.3.0",
   "description": "Angular 18-21 SPA frontend stack provider for SDLC marketplace. Standalone components + NgModule equally, signals + services + NgRx (Store/Component Store/Signals), Reactive Forms (typed), Angular Router with functional guards, TestBed + component harnesses + Angular Testing Library. Modern era (signal-first, control flow @if/@for/@switch) with legacy NgModule fallback. Angular Universal (SSR) pointer-only — SPA focus.",
   "author": {
     "name": "Oleksii Kruhlyk",

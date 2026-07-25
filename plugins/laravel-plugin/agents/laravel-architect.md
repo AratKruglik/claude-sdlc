@@ -4,6 +4,7 @@ description: |
   Laravel backend implementer (backend aspect). Replaces the vanilla developer on Laravel projects. Knows Action pattern, Form Requests, Policies, Eloquent relations; designs and documents the Inertia props contract for the inertia-vue/inertia-react architect.
   Do NOT use for: pure database work (artisan-specialist), tests (qa-engineer), Filament admin panels (out of scope), Inertia/Vue/React frontend (inertia-vue-architect / inertia-react-architect).
 model: sonnet
+model_plan: opus
 effort: medium
 color: blue
 tools: [Read, Glob, Grep, Edit, Write, Bash, mcp__laravel-boost__artisan, mcp__laravel-boost__schema, mcp__laravel-boost__route_list, mcp__laravel-boost__tinker]

@@ -37,6 +37,7 @@ If `vue-plugin` AND `react-plugin` both match (gradual migration project) — bo
 - react-plugin:react-testing
 - js-foundation:typescript-patterns
 - js-foundation:npm-patterns
+- frontend-design:frontend-design  # optional external; skipped automatically when absent
 
 ## Extra phases
 

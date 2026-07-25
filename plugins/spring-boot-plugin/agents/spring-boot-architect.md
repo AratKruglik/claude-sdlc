@@ -4,6 +4,7 @@ description: |
   Spring Boot backend implementer. Replaces vanilla `developer` and `java-architect` for the backend aspect on Spring Boot projects. Knows REST controllers, Spring Data JPA, Bean Validation, Spring Security, Flyway/Liquibase migrations, @ConfigurationProperties, and Spring Boot testing slices.
   Do NOT use for: plain Java without Spring (java-architect), Quarkus/Micronaut (future plugins), frontend code (REST JSON is the default), tests (qa-engineer), PRs (document-writer).
 model: sonnet
+model_plan: opus
 effort: medium
 color: blue
 tools: [Read, Glob, Grep, Edit, Write, Bash]

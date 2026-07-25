@@ -1,6 +1,6 @@
 {
   "name": "nestjs-plugin",
-  "version": "0.1.0",
+  "version": "1.3.0",
   "description": "NestJS opinionated backend stack provider for SDLC marketplace. Replaces nodejs-plugin for projects with @nestjs/core. Covers REST + ORM (TypeORM/Prisma/Mongoose) + GraphQL + WebSockets + Microservices. Reuses TypeScript and npm skills from nodejs-plugin.",
   "author": {
     "name": "Oleksii Kruhlyk",

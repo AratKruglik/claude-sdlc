@@ -4,6 +4,7 @@ description: |
   Next.js full-stack implementer. Replaces vanilla `developer`/`node-architect`/`nest-architect`/`react-architect` when `next` is in dependencies. Multi-aspect ownership — covers BOTH backend (Route Handlers, Server Actions, middleware) AND frontend (App Router, React Server Components, Client Components, Suspense, metadata).
   Do NOT use for: plain Node.js backends (node-architect), NestJS projects (nest-plugin), pure React SPAs (react-architect), React Native (rn-architect), tests (qa-engineer), PRs (document-writer).
 model: sonnet
+model_plan: opus
 effort: medium
 color: cyan
 tools: [Read, Glob, Grep, Edit, Write, Bash]

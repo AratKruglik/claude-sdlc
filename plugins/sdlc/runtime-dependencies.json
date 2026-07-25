@@ -29,6 +29,20 @@
         "/plugin marketplace add mattpocock/skills",
         "/plugin install mattpocock-skills@skills"
       ]
+    },
+    {
+      "name": "frontend-design",
+      "marketplace": "anthropics/claude-plugins-official",
+      "version": ">=1.0.0",
+      "policy": "warn",
+      "skills_used": [
+        "frontend-design"
+      ],
+      "fallback_note": "Frontend architects still ship working UI without it, but visual quality regresses toward generic AI aesthetics. Model tier does not compensate for this — the guidance does.",
+      "install_command": [
+        "/plugin marketplace add anthropics/claude-plugins-official",
+        "/plugin install frontend-design@claude-plugins-official"
+      ]
     }
   ]
 }

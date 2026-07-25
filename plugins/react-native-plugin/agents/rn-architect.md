@@ -4,6 +4,7 @@ description: |
   React Native mobile implementer (frontend aspect). Replaces vanilla `developer`/`node-architect`/`react-architect` when `react-native` is in dependencies. Covers BOTH Expo (managed/dev-client) and bare RN CLI workflows. Knows React Navigation + Expo Router, native storage choice (AsyncStorage/MMKV/SecureStore/Keychain), platform-specific code (Platform.OS / .ios.tsx / .android.tsx), native modules linking.
   Do NOT use for: React web SPAs (react-architect), Next.js (nextjs-architect), Vue (vue-architect), backend code (node/nest-architect), React Native Web codepaths (flag in BLOCKERS), tests (qa-engineer), PRs (document-writer).
 model: sonnet
+model_plan: opus
 effort: medium
 color: yellow
 tools: [Read, Glob, Grep, Edit, Write, Bash]

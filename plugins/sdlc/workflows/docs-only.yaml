@@ -4,6 +4,8 @@ match:
   arguments_pattern: "\\bdoc(s|umentation)?\\b|\\breadme\\b|\\bchangelog\\b"
   config_only: true
 caps:
-  max_total_cost_usd: 0.10
+  # The documentation phase alone runs on haiku/low and costs ~$0.03. Cap set well above
+  # that so it only fires if the phase goes pathological, never on a normal run.
+  max_total_cost_usd: 0.20
 phases:
   - documentation
