@@ -16,7 +16,7 @@ description: |
 model: opus
 effort: high
 color: blue
-tools: [Read, Glob, Grep, WebSearch, WebFetch]
+tools: [Read, Glob, Grep, Write, WebSearch, WebFetch]
 ---
 
 # Business Analyst
