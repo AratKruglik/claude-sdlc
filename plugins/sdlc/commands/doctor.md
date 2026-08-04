@@ -30,7 +30,28 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
 
    This step reads the environment and agent files only — it changes nothing.
 
-6. **Render output.** Default = human-readable table. With `--json` flag, emit a single valid JSON object to stdout and exit.
+6. **Check for local-agent shadowing and a stale run marker.**
+
+   - **Shadowing.** `Glob <repo>/.claude/agents/*.md` and `~/.claude/agents/*.md`. For
+     each file whose basename (minus `.md`) matches the bare name of any agent in the
+     active stack profile's `agents_per_phase` (e.g. a local `developer.md` alongside
+     the profile's `laravel-architect`/`developer` fallback, or `qa.md`/`tester.md`
+     next to `qa-engineer`), report it as a collision — that name would win the
+     model's agent-selection over the qualified plugin agent if the orchestrator ever
+     dispatched an unqualified `subagent_type`. See `pipeline-orchestrator/SKILL.md`
+     Step 3c for the qualified-dispatch fix and Step 2 for the run-marker enforcement
+     this collision is normally caught by.
+   - **Stale run marker.** Check `<repo>/.claude/.sdlc-run-active.json`. If present,
+     read `started_at` and compare to now. If older than 6 hours (the same threshold
+     `enforce-agent-model.sh` uses to treat a marker as inactive), report it as stale —
+     it is inert for enforcement purposes but indicates a crashed or force-quit
+     `/sdlc:start` run; suggest `rm .claude/.sdlc-run-active.json`. If younger than 6
+     hours, report it as an apparently active run (informational — doctor does not
+     treat this as an error).
+
+   This step reads the filesystem only — it changes nothing.
+
+7. **Render output.** Default = human-readable table. With `--json` flag, emit a single valid JSON object to stdout and exit.
 
 ## Human output format
 
@@ -71,12 +92,23 @@ Model routing:
     security-analyst    opus
     document-writer     haiku
 
+Local-agent shadowing:
+  ⚠️  .claude/agents/developer.md shadows profile agent 'laravel-architect' (as fallback role 'developer')
+  ⚠️  .claude/agents/qa.md shadows profile agent 'qa-engineer'
+  (dispatch already qualifies subagent_type as "{plugin}:{agent}" — these are informational
+   unless something dispatches the bare name)
+
+Run marker:
+  ✅ no .claude/.sdlc-run-active.json present
+
 Heads-up:
   ❌ 1 blocking dependency missing — /sdlc:start would abort.
      Run the install commands above, then retry.
 ```
 
 When `CLAUDE_CODE_SUBAGENT_MODEL` is unset (or `inherit`), print `✅ no routing override` in place of the warning.
+
+When no local-agent name collides with the active profile, print `✅ no local-agent shadowing detected` in place of the warning list. When a run marker exists and is fresh (< 6h), print `🏃 run marker active (task_slug={task_slug}, started {N}m ago) — a pipeline appears to be running`. When it exists and is stale (≥ 6h), print `⚠️  stale run marker (started {N}h ago, task_slug={task_slug}) — likely a crashed run. Remove with: rm .claude/.sdlc-run-active.json`.
 
 If a section is absent (no baseline file, no missing deps, etc.) say so explicitly with one line — never silently omit a section.
 
@@ -125,15 +157,28 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
       "document-writer": { "model": "haiku" }
     }
   },
+  "local_agent_shadowing": [
+    { "path": ".claude/agents/developer.md", "shadows": "laravel-architect", "profile_role": "developer" },
+    { "path": ".claude/agents/qa.md", "shadows": "qa-engineer", "profile_role": "qa" }
+  ],
+  "run_marker": {
+    "present": false,
+    "stale": null,
+    "task_slug": null,
+    "started_at": null,
+    "age_seconds": null
+  },
   "would_abort_pipeline": true
 }
 ```
+
+`local_agent_shadowing` is `[]` when no collision exists. `run_marker.stale` is `null` when `present` is `false`; otherwise `true` when `age_seconds >= 21600` (6h, matching `enforce-agent-model.sh`'s `MARKER_MAX_AGE_SECONDS`), else `false`.
 
 `would_abort_pipeline` is `true` iff any dependency with `policy=block` is missing. `model_routing.override_active` is `true` iff `CLAUDE_CODE_SUBAGENT_MODEL` is set to something other than `inherit`; `subagent_model_override` is `null` when unset.
 
 ## Hard rules
 
-- **Effectively read-only.** Do NOT install plugins, run pipelines, or modify any existing file. The single exception is seeding `docs/cost-baseline.md` from the shipped template when that file does not exist (step 4) — a create-if-absent scaffold, never an overwrite.
+- **Effectively read-only.** Do NOT install plugins, run pipelines, or modify any existing file. The single exception is seeding `docs/cost-baseline.md` from the shipped template when that file does not exist (step 4) — a create-if-absent scaffold, never an overwrite. Step 6 (shadowing check, run-marker staleness) never deletes the marker itself — it only reports and suggests the `rm` command; the operator runs it.
 - **Do not enforce policy.** A missing `block` dep here is just reported, not actioned.
 - **Reuse, don't reimplement.** The dependency-status algorithm is described in `pipeline-orchestrator/SKILL.md` Step 0a-2 / 0a-3. If those steps change, this command's behavior must follow — this command is documentation that delegates to those steps, not a parallel implementation.
 - **Exit code semantics with `--json`:** exit 0 normally; exit 1 only if the runtime-dependencies.json file itself is malformed JSON (parse error). Missing-but-blocking deps still exit 0 — report them in the JSON and let the caller decide.

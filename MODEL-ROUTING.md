@@ -152,6 +152,51 @@ Metering it properly is not possible from inside the skill.
 caveat repeated in `docs/cost-baseline.md`, so the number cannot be silently misread as a
 total.
 
+### D8 — Off-roster project-local agents could silently replace a phase agent ✅ fixed
+
+Observed live: a project shipping its own `.claude/agents/{tester,reviewer,...}.md` had two
+pipeline phases dispatch `tester` and `reviewer` instead of `qa-engineer` and
+`security-analyst`. Neither name is declared by any plugin in this marketplace — the
+orchestrator improvised, because nothing enforced that `subagent_type` must come from
+`EFFECTIVE_PROFILE.agents_per_phase`. The hook's `.md not found — skipping model check`
+warning was not the bug; it was the only signal that this had happened, since the two
+dispatches also dropped the `description: "Phase N/total: ..."` contract (ruling out a
+description-pattern gate) and used `run_in_background: true` (skipping Step 3d artifact
+validation and 3d-1 telemetry for both phases).
+
+**Fixed:**
+
+- The orchestrator writes a run marker (`.claude/.sdlc-run-active.json`, Step 2) listing the
+  resolved agent roster for the run, and deletes it at Step 5 / on abort.
+- `enforce-agent-model.sh` denies `subagent_type`s that resolve to a **project- or
+  user-local** agent (`.claude/agents/*.md` or `~/.claude/agents/*.md`) not present in that
+  roster, while a marker is active. Plugin agents and built-ins (`general-purpose`,
+  `Explore`, ...) are untouched — the deny is scoped to local agents only, since architects
+  legitimately spawn built-ins via `superpowers:requesting-code-review` and
+  `superpowers:subagent-driven-development`.
+- A deliberate override is available: `agent_overrides` in `.claude/sdlc.local.yaml` adds a
+  project-local agent to the roster for a named phase.
+- Step 3c now dispatches `subagent_type` qualified as `{plugin_name}:{agent_name}` (e.g.
+  `sdlc:qa-engineer`), closing the name collision between a plugin's bare agent name and a
+  same-named project-local agent, and restates that `description` must follow the
+  `Phase N/total: {phase_name}{pass_marker}` contract exactly. Claude Code's own docs
+  confirm the collision is real, not hypothetical: *"Project and user `.claude/agents/`
+  definitions override same-named plugin agents"* — a bare `developer` dispatch in a
+  project with `.claude/agents/developer.md` resolves to the local file, full stop.
+  Because of this, the hook's local-agent probe fires **only for unqualified
+  dispatches** — a qualified `plugin:agent` name cannot resolve to a local file, so
+  checking it against local agents would produce false-positive denies of legitimate
+  plugin agents whose bare name happens to collide (verified: `sdlc:developer` allowed
+  even with a colliding local `developer.md` present). Step 3c also drops the
+  "retry with the bare name on error" fallback that an earlier draft of this fix had —
+  a bare-name retry after a qualified-dispatch error would reintroduce the exact
+  collision this fix closes, since the roster's qualified entry (`sdlc:developer`)
+  must not be read as authorizing the bare form.
+- `/sdlc:doctor` reports local-agent/profile name collisions and a stale (>6h) run marker.
+
+See `pipeline-orchestrator/SKILL.md` Step 2, Step 3c, and Hard Rules; `enforce-agent-model.sh`
+for the deny rule; `doctor.md` Step 6.
+
 ---
 
 ## 4. Routing changes
