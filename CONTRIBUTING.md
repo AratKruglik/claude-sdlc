@@ -95,13 +95,23 @@ npx ajv validate \
 
 ## Role naming convention
 
-Claude Code's `Agent` tool accepts only **bare agent names** — there is no `plugin:agent` namespacing. To keep core and stack plugins coexisting cleanly, reserve names by tier:
+Claude Code's `Agent` tool DOES support `plugin:agent` namespacing, and the orchestrator
+dispatches every phase agent qualified that way (e.g. `sdlc:qa-engineer`,
+`laravel-plugin:laravel-architect` — see `pipeline-orchestrator/SKILL.md` Step 3c).
+Qualifying the dispatch does not, by itself, make a bare name safe to reuse: a project's
+own `.claude/agents/{name}.md` is resolved by the *same* bare basename, so a stack plugin
+agent named `developer` or `qa` still collides in name with any project-local agent the
+user happens to have under that name — that collision is exactly what let a project-local
+`tester`/`reviewer` roster silently shadow this pipeline's `qa-engineer`/`security-analyst`
+in a real incident. **Prefer distinctive, plugin-scoped agent names** (`laravel-architect`,
+`fastapi-architect`, `artisan-specialist`) over generic ones (`developer`, `tester`, `qa`,
+`dba`, `frontend`) — this repo's own stack plugins already follow this convention (see
+any `plugins/*/agents/*.md`). Reserve the generic names only for the core `sdlc` plugin's
+own agents (`business-analyst`, `developer`, `qa-engineer`, `security-analyst`,
+`document-writer` — the vanilla fallback used when no stack plugin overrides a phase).
 
-- **Core plugin (`sdlc`) reserves:** `orchestrator`, `ba`, `reviewer`, `security-scanner`, `docs-writer`, `debugger`, `devil`. Stack plugins MUST NOT ship agents with these names.
-- **Stack plugins reserve generic role names:** `developer`, `tester`, `qa`, `dba`, `frontend`. Use exactly these names so the orchestrator's dispatch works unmodified across stacks.
-- **One stack plugin per project.** If two stack plugins both expose `developer`, the orchestrator will prompt the user rather than silently pick one. Users are expected to enable a single stack plugin per project.
-
-If your stack needs an extra role that no other plugin has ("erp-ledger-specialist", "ssr-renderer"), pick a distinctive name that is unlikely to collide, and document it in your stack's README.
+If two active profiles declare the same agent name for the same phase, the orchestrator
+prompts the user rather than silently picking one.
 
 ## Universal vs stack-specific — quick reference
 

@@ -3,6 +3,48 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [1.3.1] — sdlc plugin v1.3.1
+
+Fixes an off-roster dispatch bug: a project-local `.claude/agents/{tester,reviewer,...}.md`
+roster could silently replace a pipeline phase's declared agent (`qa-engineer`,
+`security-analyst`, ...), bypassing model-tier enforcement, artifact validation, and
+telemetry entirely. Full analysis: `MODEL-ROUTING.md` §3, D8.
+
+### Added
+
+- **Pipeline run marker** (`.claude/.sdlc-run-active.json`) — written at Step 2 with the
+  resolved agent roster for the run, deleted at Step 5 / on abort. Kept out of version
+  control via a `.git/info/exclude` entry.
+- **`agent_overrides`** key in `.claude/sdlc.local.yaml` — a sanctioned way to deliberately
+  dispatch a project-local agent for a given phase.
+- **`/sdlc:doctor`** now reports local-agent/profile-agent name collisions and a stale
+  (>6h) run marker.
+
+### Fixed
+
+- **`enforce-agent-model.sh` now denies off-roster project- or user-local agents**
+  (`.claude/agents/*.md`, `~/.claude/agents/*.md`) while a pipeline run marker is active.
+  Plugin agents and built-ins (`general-purpose`, `Explore`, ...) are unaffected — the deny
+  is scoped to local agents only. The denial carries both a `permissionDecisionReason`
+  (read by Claude, so it can re-dispatch the correct agent) and a `systemMessage` (read by
+  the user, so the shadowing isn't invisible).
+- **`subagent_type` is now qualified as `{plugin_name}:{agent_name}`** at dispatch (Step
+  3c), closing the name collision between a plugin's bare agent name and a same-named
+  project-local agent.
+- **`enforce-agent-model.sh` resolved a nondeterministic agent `.md`** when two versions of
+  the same plugin were installed side by side (`sdlc/1.2.1/` and `sdlc/1.3.0/`) — `find |
+  head -1` had no ordering guarantee. Now version-sorted, newest wins.
+- **`hooks.json`'s fallback resolution path was dead** (`~/.claude/plugins/cache/sdlc`
+  never matches the versioned installed layout, `~/.claude/plugins/cache/{marketplace}/
+  sdlc/{version}/`). Replaced with a version-sorted glob over the real layout.
+- **`allow_warn`'s JSON interpolation of caller-supplied `agent_name`** could produce
+  malformed JSON if the name contained a quote or backslash. Now built with `jq` when
+  available.
+- **`CONTRIBUTING.md`'s role-naming guidance was inverted** — it recommended generic,
+  collision-prone agent names (`developer`, `tester`, `qa`) and claimed `subagent_type`
+  cannot be namespaced, both no longer true. Corrected to recommend distinctive,
+  plugin-scoped names.
+
 ## [1.3.0] — marketplace v1.3.0 / all plugins v1.3.0
 
 Model-routing audit. The tiering across all 29 agents was calibrated when Opus cost 5× Sonnet per input token; it now costs 1.67×. Parts of the repo had already been repriced and parts had not, and the two halves disagreed. Full analysis and rationale: `MODEL-ROUTING.md`.

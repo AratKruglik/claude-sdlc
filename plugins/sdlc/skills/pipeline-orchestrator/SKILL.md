@@ -381,6 +381,7 @@ If present — `Read` and parse it. Recognized top-level keys:
 | `extra_phase_prompts` | object (phase → string) | **APPENDS** to `phase_prompts_injection` for that phase (additive — don't lose plugin guidance). |
 | `skip_phases` | array of strings | Phase names to remove from the canonical order in 1c. |
 | `convention_skills_extra` | array of strings | APPENDS to `convention_skills`. |
+| `agent_overrides` | object (phase → agent name) | Deliberately dispatch a different agent for that phase — e.g. a project-local `.claude/agents/{name}.md`. **REPLACES** `EFFECTIVE_PROFILE.agents_per_phase[phase]` for that phase and is added to the Step 2 run-marker `roster`, so the `enforce-agent-model.sh` PreToolUse hook allows it. Without this key, a project-local agent is off-roster for the run and the hook denies it — see Step 2 and Step 3c. |
 
 **Example `sdlc.local.yaml`:**
 
@@ -464,6 +465,28 @@ downstream steps. Phase names and their semantics are unchanged.
 1. Generate `task_slug` from `$ARGUMENTS`: lowercase, alphanumerics + dashes, max 40 chars.
 2. Create directory `docs/plans/{task_slug}/` if it does not exist.
 3. Create `docs/plans/{task_slug}/_brief.md` with the original `$ARGUMENTS`.
+4. **Write the run marker** — this is what lets the `enforce-agent-model.sh` PreToolUse
+   hook tell a legitimate phase-agent dispatch from an off-roster project-local agent
+   (e.g. a `.claude/agents/tester.md` that happens to look like a better fit than
+   `qa-engineer`). Order matters — exclude before write:
+   1. If `.git/info/exclude` exists and does not already contain the line
+      `.claude/.sdlc-run-active.json`, append it (idempotent; a no-op if the project
+      already ignores `.claude/` wholesale). This keeps the marker out of any commit
+      the document-writer phase creates, without touching the project's own `.gitignore`.
+   2. Compute `roster` = every agent named in `EFFECTIVE_PROFILE.agents_per_phase`
+      (flattened across aspect-aware phases) plus every value in `agent_overrides`
+      from `sdlc.local.yaml` (Step 1b), each qualified as `{plugin_name}:{agent_name}`.
+   3. Write `.claude/.sdlc-run-active.json`:
+      ```json
+      {
+        "task_slug": "{task_slug}",
+        "started_at": "{ISO 8601 UTC timestamp}",
+        "roster": ["sdlc:business-analyst", "sdlc:qa-engineer", "..."],
+        "phase_agents": { "{phase_name}": "{qualified_agent}", "...": "..." }
+      }
+      ```
+   4. This file is project-local (not `~/.claude/`) so `/sdlc:batch`'s parallel
+      worktree-isolated pipelines each get their own marker without colliding.
 
 This directory is the **single source of truth** for inter-phase communication. Agents read prior phase outputs from here, not from your context window.
 
@@ -600,14 +623,39 @@ For aspect-aware fan-out, the canonical order remains: `database → backend →
 
 ```
 Agent({
-  subagent_type: "{agent_from_profile}",
+  subagent_type: "{plugin_name}:{agent_from_profile}",
   model: "{model_tier_resolved_in_3b-3}",   // short alias only: "opus" | "sonnet" | "haiku" | "fable"
   description: "Phase {N}/{total}: {phase_name}{pass_marker}",
   prompt: <the prompt built in 3b>
 })
 ```
 
-`{pass_marker}` is empty for every phase except development, where it is ` [pass:plan]` or ` [pass:implement]` per 3b-special. **The marker is a contract with `enforce-agent-model.sh`, not decoration** — the hook only sees `tool_input`, so `description` is the sole channel telling it which frontmatter field to enforce. Drop the marker on a planning pass and the hook rewrites the model back to `model:`, silently undoing the tier split.
+**Always qualify `subagent_type`** with the name of the plugin that declared the agent
+in its `stack.md` (e.g. `sdlc:qa-engineer`, `laravel-plugin:laravel-architect`) — the
+bare form (`qa-engineer`, `developer`) collides by name with any project-local
+`.claude/agents/{name}.md` the project happens to ship. `enforce-agent-model.sh` already
+strips the prefix before resolving the `.md` file, so this is purely additive.
+
+**Never retry with the bare name if the qualified dispatch errors.** The hook only
+treats an *unqualified* `subagent_type` as eligible for the local-agent probe — a
+qualified one is, by construction, never a project-local agent, so it skips that check
+entirely. Falling back to the bare name on error reopens exactly the collision this fix
+closes: in a project with `.claude/agents/developer.md`, a bare `developer` retry
+resolves to that local file while `roster_contains`'s bare-suffix match
+(`"sdlc:developer".endswith(":developer")`) makes it look roster-legitimate, silently
+running the wrong agent. If a qualified dispatch errors (rare — e.g. an older Claude
+Code build without `plugin:agent` support), treat it as a phase failure per *Failure
+modes and recovery* (retry / skip / abort with the user) rather than papering over it
+with an unqualified retry.
+
+`description` is not decoration — the hook only sees `tool_input`, so it is the sole
+channel telling `enforce-agent-model.sh` (a) which frontmatter field to enforce and
+(b) which phase this dispatch belongs to, for its off-roster deny message. It **MUST**
+be exactly `Phase {N}/{total}: {phase_name}{pass_marker}` — a free-form description
+(e.g. "Regression test verification for X") breaks both. `{pass_marker}` is empty for
+every phase except development, where it is ` [pass:plan]` or ` [pass:implement]` per
+3b-special. Drop the marker on a planning pass and the hook rewrites the model back to
+`model:`, silently undoing the tier split.
 
 **3d. Save the COMPACT summary** returned by the agent to `CONTEXT.{phase}_output`. Verify the agent also wrote the detailed file to `docs/plans/{task_slug}/0X-{phase}.md` (use `Glob` to check). If the file is missing, ask the agent again to write it before proceeding.
 
@@ -785,6 +833,11 @@ Post-pipeline checks:
 
 PR: {pr_url_if_created}
 ```
+
+**Delete the run marker** (`.claude/.sdlc-run-active.json`, written in Step 2) once
+telemetry is written and the summary is printed — a pipeline is no longer "active" once
+the operator has the final report, and its off-roster-agent deny rule must not outlive
+the run it was scoped to.
 
 ---
 
@@ -990,6 +1043,14 @@ You **never**:
 - Skip phases except per Step 0c skip-rules.
 - Continue past a failed phase validation without user input.
 - Modify files inside `~/.claude/plugins/cache/**`.
+- Dispatch an agent that is not named in `EFFECTIVE_PROFILE.agents_per_phase` (or added
+  via `agent_overrides` in `sdlc.local.yaml`) — not even if a project-local agent (e.g.
+  `.claude/agents/tester.md`) looks like a better fit for the phase than the profile's
+  declared agent. This is what the Step 2 run marker and the `enforce-agent-model.sh`
+  deny rule enforce; the orchestrator must not route around it by improvising a name.
+- Dispatch a phase agent with `run_in_background`. Every phase in Step 3 is synchronous
+  by design (see "Execution model" above) — a backgrounded dispatch skips the Step 3d
+  artifact-file validation and the Step 3d-1 telemetry capture for that phase entirely.
 
 You **always**:
 - Use file paths under `docs/plans/{task_slug}/` for inter-phase data.
@@ -1022,3 +1083,4 @@ Hard rules:
 | Post-pipeline check fails | Report; do not retry. The user decides next steps. |
 | `mcp__skills__list_skills` unavailable | Use FS fallback: check `~/.claude/plugins/cache/{plugin}/skills/{skill}/SKILL.md` exists. |
 | Token budget exceeded | Halt at next phase boundary. Report partial telemetry. |
+| Pipeline aborted (Halt above, or user chooses **abort** at the Step 3b-special approval gate) | Delete the run marker (`.claude/.sdlc-run-active.json`, Step 2) before stopping, same as the Step 5 cleanup — otherwise its off-roster-agent deny rule stays active for up to 6h after a run that no longer exists. |
