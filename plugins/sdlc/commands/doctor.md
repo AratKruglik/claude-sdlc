@@ -51,7 +51,20 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
 
    This step reads the filesystem only — it changes nothing.
 
-7. **Render output.** Default = human-readable table. With `--json` flag, emit a single valid JSON object to stdout and exit.
+7. **Check the git branching model.** Run `${CLAUDE_PLUGIN_ROOT}/scripts/detect-git-flow.sh` (falling back to `<repo>/plugins/sdlc/scripts/detect-git-flow.sh` in a development checkout) and report what `/sdlc:start` would decide. Always run it **fresh** — never read the cache for this report. A doctor that echoes a stale cache cannot diagnose a stale cache.
+
+   Report:
+
+   - **Effective source** — whether an explicit `git:` block in `<project>/.claude/sdlc.local.yaml` overrides detection, and which keys it sets. An override means the detected values below are informational only.
+   - **Detected model** — model, confidence, and the `sources[]` provenance.
+   - **Branches** — default branch, develop branch (or "—"), any `release/*` branches.
+   - **Naming convention** — separator, word separator, ticket pattern, and the observed prefix histogram.
+   - **Documented conventions** — which of the files in `references/GIT-FLOW.md` Step B exist and whether any states a branch convention. Read them; do not assume.
+   - **Cache state** — `<project>/.claude/.sdlc-git-flow.json`: absent, fresh (younger than 30 days and `user_confirmed`), unconfirmed, or stale. When it is present and its `model` disagrees with the fresh detection, flag it — that is a repo whose branching model changed under a cached answer.
+
+   This step reads the filesystem and runs read-only git plumbing. It creates no branch and writes no cache.
+
+8. **Render output.** Default = human-readable table. With `--json` flag, emit a single valid JSON object to stdout and exit.
 
 ## Human output format
 
@@ -101,12 +114,29 @@ Local-agent shadowing:
 Run marker:
   ✅ no .claude/.sdlc-run-active.json present
 
+Git flow:
+  source: detection (no `git:` block in .claude/sdlc.local.yaml)
+  🎯 model: github-flow (confidence=high) — topology:no-develop-branch, topology:prefix-histogram
+  branches: default=main, develop=—, release=—
+  convention: {prefix}/{kebab-slug}  separator=/  word_separator=-  ticket=—
+    observed prefixes: feature=7, fix=4  (singletons discarded)
+  documented conventions: CONTRIBUTING.md (no branch statement), CLAUDE.md (absent)
+  cache: .claude/.sdlc-git-flow.json absent — next /sdlc:start will detect and ask
+  would branch: feature/<slug> from main → PR base main
+
 Heads-up:
   ❌ 1 blocking dependency missing — /sdlc:start would abort.
      Run the install commands above, then retry.
 ```
 
 When `CLAUDE_CODE_SUBAGENT_MODEL` is unset (or `inherit`), print `✅ no routing override` in place of the warning.
+
+In the Git flow section, flag these conditions instead of the plain `🎯` line when they apply:
+
+- `⚠️  config overrides detection: model={model} (keys: {list})` — the `git:` block wins, so the detected values are informational.
+- `⚠️  cache disagrees with fresh detection: cached={cached_model}, detected={detected_model} — run /sdlc:start --redetect-git-flow`
+- `⚠️  rules/topology conflict: {one line}` — a documented convention that the branch topology does not corroborate.
+- `⚠️  model=unknown — no commits or branches; /sdlc:start will not create a branch`
 
 When no local-agent name collides with the active profile, print `✅ no local-agent shadowing detected` in place of the warning list. When a run marker exists and is fresh (< 6h), print `🏃 run marker active (task_slug={task_slug}, started {N}m ago) — a pipeline appears to be running`. When it exists and is stale (≥ 6h), print `⚠️  stale run marker (started {N}h ago, task_slug={task_slug}) — likely a crashed run. Remove with: rm .claude/.sdlc-run-active.json`.
 
@@ -168,9 +198,43 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
     "started_at": null,
     "age_seconds": null
   },
+  "git_flow": {
+    "source": "detection",
+    "config_override_keys": [],
+    "detected": {
+      "model": "github-flow",
+      "confidence": "high",
+      "sources": ["topology:no-develop-branch", "topology:prefix-histogram"],
+      "default_branch": "main",
+      "develop_branch": null,
+      "release_branches": [],
+      "prefix_style": "conventional",
+      "prefix_histogram": { "feature": 7, "fix": 4 },
+      "naming": {
+        "separator": "/",
+        "word_separator": "-",
+        "ticket_pattern": null,
+        "ticket_position": null,
+        "observed_max_length": 42
+      }
+    },
+    "documented_conventions": [
+      { "path": "CONTRIBUTING.md", "states_convention": false }
+    ],
+    "topology_conflict": null,
+    "cache": {
+      "present": false,
+      "user_confirmed": null,
+      "stale": null,
+      "disagrees_with_detection": null,
+      "detected_at": null
+    }
+  },
   "would_abort_pipeline": true
 }
 ```
+
+`git_flow.source` is `"config"` when a `git:` block exists in `.claude/sdlc.local.yaml` (with the overridden keys listed in `config_override_keys`), otherwise `"detection"`. `git_flow.detected` is the verbatim `detect-git-flow.sh` output, always freshly computed. Every `cache.*` field is `null` when `cache.present` is `false`.
 
 `local_agent_shadowing` is `[]` when no collision exists. `run_marker.stale` is `null` when `present` is `false`; otherwise `true` when `age_seconds >= 21600` (6h, matching `enforce-agent-model.sh`'s `MARKER_MAX_AGE_SECONDS`), else `false`.
 
@@ -178,7 +242,7 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
 
 ## Hard rules
 
-- **Effectively read-only.** Do NOT install plugins, run pipelines, or modify any existing file. The single exception is seeding `docs/cost-baseline.md` from the shipped template when that file does not exist (step 4) — a create-if-absent scaffold, never an overwrite. Step 6 (shadowing check, run-marker staleness) never deletes the marker itself — it only reports and suggests the `rm` command; the operator runs it.
+- **Effectively read-only.** Do NOT install plugins, run pipelines, or modify any existing file. The single exception is seeding `docs/cost-baseline.md` from the shipped template when that file does not exist (step 4) — a create-if-absent scaffold, never an overwrite. Step 6 (shadowing check, run-marker staleness) never deletes the marker itself — it only reports and suggests the `rm` command; the operator runs it. Step 7 never creates a branch, never fetches, and never writes the git-flow cache.
 - **Do not enforce policy.** A missing `block` dep here is just reported, not actioned.
 - **Reuse, don't reimplement.** The dependency-status algorithm is described in `pipeline-orchestrator/SKILL.md` Step 0a-2 / 0a-3. If those steps change, this command's behavior must follow — this command is documentation that delegates to those steps, not a parallel implementation.
 - **Exit code semantics with `--json`:** exit 0 normally; exit 1 only if the runtime-dependencies.json file itself is malformed JSON (parse error). Missing-but-blocking deps still exit 0 — report them in the JSON and let the caller decide.
@@ -189,3 +253,4 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
 - Before kicking off a long pipeline run — confirm `/sdlc:start` won't abort at Step 0a.
 - In CI / automation — `/sdlc:doctor --json` gives a machine-checkable health report.
 - When a cost regression is suspected — compare current `cost_baseline` against historical values.
+- After a project changes its branching model (adds or drops `develop`) — confirm the cached detection has not gone stale, and see which base branch PRs would target.

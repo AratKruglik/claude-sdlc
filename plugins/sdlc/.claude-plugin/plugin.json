@@ -1,7 +1,7 @@
 {
   "name": "sdlc",
-  "version": "1.3.1",
-  "description": "Universal SDLC orchestrator with stack provider auto-discovery. Owns the pipeline; framework plugins register themselves via stack.md profiles. Includes 5 cost-tiered default agents (BA Opus, Dev Sonnet, QA Sonnet with iteration cap, Sec Opus, Docs Haiku). Slash command: /sdlc:start \"<feature>\".",
+  "version": "1.4.0",
+  "description": "Universal SDLC orchestrator with stack provider auto-discovery. Owns the pipeline; framework plugins register themselves via stack.md profiles. Git-flow aware: detects the project's branching model and branch-naming convention, classifies the task type, proposes a branch, and targets the PR at the right base. Includes 5 cost-tiered default agents (BA Opus, Dev Sonnet, QA Sonnet with iteration cap, Sec Opus, Docs Haiku). Slash command: /sdlc:start \"<feature>\".",
   "author": {
     "name": "Oleksii Kruhlyk",
     "url": "https://github.com/AratKruglik"
@@ -12,6 +12,7 @@
     "sdlc",
     "orchestrator",
     "pipeline",
+    "git-flow",
     "ai-assisted-engineering"
   ]
 }
