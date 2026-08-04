@@ -266,6 +266,41 @@ If `--stack=NAME` was used, all aspect winners come from that single profile (co
 
 This print is a contract with the user. If you skip it, the user has no way to verify which profiles activated. If you find yourself about to call an agent without having printed this — STOP and print it first.
 
+#### 0b-git — Git branching model, task type, and branch setup
+
+Determine how this project branches, classify what kind of task this is, and put the run on an
+appropriate branch. Follow the algorithm in `references/GIT-FLOW.md` (Steps A–G) — locate it at
+`${CLAUDE_PLUGIN_ROOT}/references/GIT-FLOW.md`, falling back to
+`<repo>/plugins/sdlc/references/GIT-FLOW.md` in a development checkout.
+
+Summary:
+
+1. **Resolve** (GIT-FLOW Step A): `git:` block in `.claude/sdlc.local.yaml` → the
+   `.claude/.sdlc-git-flow.json` cache → live detection via
+   `scripts/detect-git-flow.sh` plus the documented-convention scan (Step B). Because Step 1b
+   parses `sdlc.local.yaml` only later, this step reads that file itself for the `git:` key
+   alone.
+2. **Classify** the task type from `$ARGUMENTS` (Step C) — deterministic keyword table with a
+   fixed precedence order, or an explicit `--type=NAME`.
+3. **Apply** the type → branch policy (Step D) and synthesize the branch name (Step E).
+4. **Gate** (Step F): print the 🌿 block, ask create / continue / rename / change type /
+   abort, then `git checkout -b` on approval. Headless mode skips the prompt and reports the
+   decision on stderr.
+5. **Cache** the result (Step G), excluded from version control the same way Step 2 excludes
+   the run marker.
+
+Outputs consumed downstream: `CONTEXT.base_branch` (Step 0c diff signals),
+`CONTEXT.task_type` (Step 1c recipe selection), and `CONTEXT.pr_base_branch`,
+`CONTEXT.task_type`, `CONTEXT.requires_back_merge` (Step 3b-1 per-call trailer → the
+documentation phase). Full list in GIT-FLOW Step F-5.
+
+This step runs **before Step 2**: the branch must exist before `docs/plans/{task_slug}/` and
+the run marker are written, so the pipeline's own artifacts land on the task branch rather than
+on whatever branch happened to be checked out.
+
+If the user chooses **abort** at the gate, stop here. Nothing has been written yet — no
+artifacts, no run marker — so there is nothing to clean up.
+
 ### Step 0c — Skip-rule analysis (cost optimization)
 
 Before phase execution, determine if any phases can be skipped to save tokens. Rules are conservative: when in doubt, run the phase.
@@ -274,10 +309,16 @@ Before phase execution, determine if any phases can be skipped to save tokens. R
 
 Run once and reuse across all rules:
 
+`BASE` is `CONTEXT.base_branch` from Step 0b-git — **not** a hardcoded `origin/main`. On a
+git-flow project a feature branch's base is `develop`, so measuring against `main` would count
+every commit released since the last merge-back as part of this task's diff and make every
+signal below wrong.
+
 ```bash
-git diff --shortstat origin/main...HEAD                # → SHORTSTAT
-git diff --name-only origin/main...HEAD                # → CHANGED_FILES
-git diff --numstat origin/main...HEAD | awk '{i+=$1; d+=$2} END{print i, d}'  # → ADDED, DELETED LOC
+git diff --shortstat {BASE}...HEAD                # → SHORTSTAT
+git diff --name-only {BASE}...HEAD                # → CHANGED_FILES
+git diff --numstat {BASE}...HEAD | awk '{i+=$1; d+=$2} END{print i, d}'  # → ADDED, DELETED LOC
+git rev-list --count {BASE}..HEAD                 # → COMMITS_AHEAD
 ```
 
 Derive:
@@ -285,9 +326,33 @@ Derive:
 - `LOC_TOUCHED = ADDED + DELETED`
 - `HAS_MIGRATIONS = any path in CHANGED_FILES matches /(database\/migrations|/migrations\/)/`
 - `CONFIG_ONLY = every path in CHANGED_FILES matches /\.(env|env\..+|ya?ml|json|toml|ini)$/i`
-- `WHITESPACE_ONLY = SHORTSTAT line equals "" OR `git diff --shortstat -w origin/main...HEAD` produces zero "insertions/deletions" while non-`-w` produced > 0`
+- `WHITESPACE_ONLY = SHORTSTAT line equals "" OR `git diff --shortstat -w {BASE}...HEAD` produces zero "insertions/deletions" while non-`-w` produced > 0`
 
-If `git` errors (no remote main, detached HEAD, etc.) — log a one-line warning, set all signals to safe defaults (`LOC_TOUCHED=999999`, `HAS_MIGRATIONS=true`, `CONFIG_ONLY=false`, `WHITESPACE_ONLY=false`) so no skip fires. Conservative when uncertain.
+If `git` errors (no such base ref, detached HEAD, etc.) — log a one-line warning, set all signals to safe defaults (`LOC_TOUCHED=999999`, `HAS_MIGRATIONS=true`, `CONFIG_ONLY=false`, `WHITESPACE_ONLY=false`) so no skip fires. Conservative when uncertain.
+
+**Nothing to measure — `COMMITS_AHEAD == 0` OR `CHANGED_FILES` is empty.** Every signal above is
+*retrospective*: it measures work that already exists. When there is no diff, the raw values
+invert the intent of every rule below — `SHORTSTAT` is empty so `WHITESPACE_ONLY` reads true,
+`CONFIG_ONLY` is vacuously true over an empty file set ("every path matches" holds for zero
+paths), and `LOC_TOUCHED` is 0. Left alone, that skips business analysis, QA **and** security.
+
+Both halves of the condition are load-bearing:
+
+- `COMMITS_AHEAD == 0` — Step 0b-git just created the branch. This is now the most common way
+  to start a run, so the trimmed pipeline would become the default.
+- `CHANGED_FILES` is empty **with** commits present — e.g. a commit reverted later in the same
+  branch. `COMMITS_AHEAD` is 2, so the commit count alone does not catch this.
+
+In either case take the same conservative path as a `git` error — the safe defaults above, no
+rule fires — and set `CONTEXT.diff_scope = "prospective"` with the reason. Otherwise set
+`CONTEXT.diff_scope = "retrospective"`.
+
+Gate on the **diff**, not on the commit count: an empty diff is the thing that makes every
+signal meaningless, and it has more than one cause.
+
+`diff_scope` also gates recipe matching: a `loc_touched_max` / `loc_touched_min` constraint in
+a workflow recipe counts as **not satisfied** when `diff_scope == "prospective"` (see
+`RESOLVER.md` Step 1), so an unmeasurable diff cannot satisfy a ceiling by being empty.
 
 #### 0c-2. Skip-rules table (Phase 3, ordered)
 
@@ -381,6 +446,7 @@ If present — `Read` and parse it. Recognized top-level keys:
 | `extra_phase_prompts` | object (phase → string) | **APPENDS** to `phase_prompts_injection` for that phase (additive — don't lose plugin guidance). |
 | `skip_phases` | array of strings | Phase names to remove from the canonical order in 1c. |
 | `convention_skills_extra` | array of strings | APPENDS to `convention_skills`. |
+| `git` | object | **Already consumed by Step 0b-git** — recognized here so it is not reported as an unknown key. Do not re-apply it; the branch decision is settled by now. Shape documented in `references/GIT-FLOW.md` Step A-1. |
 | `agent_overrides` | object (phase → agent name) | Deliberately dispatch a different agent for that phase — e.g. a project-local `.claude/agents/{name}.md`. **REPLACES** `EFFECTIVE_PROFILE.agents_per_phase[phase]` for that phase and is added to the Step 2 run-marker `roster`, so the `enforce-agent-model.sh` PreToolUse hook allows it. Without this key, a project-local agent is off-roster for the run and the hook denies it — see Step 2 and Step 3c. |
 
 **Example `sdlc.local.yaml`:**
@@ -540,6 +606,11 @@ When a per-call command override specifies a runner (e.g. php_runner: php), use 
 task_slug: {task_slug}
 aspect: {aspect or "none"}
 narrative_language: {CONTEXT.narrative_language}
+task_type: {CONTEXT.task_type}
+branch: {CONTEXT.branch_name}
+base_branch: {CONTEXT.base_branch}
+pr_base_branch: {CONTEXT.pr_base_branch}
+requires_back_merge: {CONTEXT.requires_back_merge or "none"}
 detailed_output_path: docs/plans/{task_slug}/0X-{phase}{-aspect_suffix}.md
 inputs_available:
   - docs/plans/{task_slug}/_brief.md
@@ -736,6 +807,23 @@ Write `docs/plans/{task_slug}/_telemetry.json`:
   "profile_source": "laravel-plugin/stack.md",
   "narrative_language": "uk",
   "headless_mode": false,
+  "git_flow": {
+    "model": "git-flow",
+    "confidence": "high",
+    "source": "cache",
+    "sources": ["topology:develop-branch", "config:gitflow.*"],
+    "task_type": "hotfix",
+    "task_type_confidence": "high",
+    "branch_name": "hotfix/null-pointer-in-payment-handler",
+    "branch_action": "created",
+    "base_branch": "main",
+    "pr_base_branch": "main",
+    "requires_back_merge": "develop",
+    "topology_conflict": null,
+    "diff_scope": "prospective"
+  },
+  "active_workflow": "hotfix",
+  "workflow_selection_reason": "task_type=hotfix",
   "started_at": "<ISO timestamp>",
   "completed_at": "<ISO timestamp>",
   "wall_clock_seconds": 187,
@@ -809,6 +897,8 @@ Print the final summary to the user:
 ✅ SDLC pipeline completed for "{task_slug}"
 
 Stack:           {stack} (priority {priority})
+Branch:          {branch_name} ({branch_action}, from {base_branch}) → PR base {pr_base_branch}
+Task type:       {task_type} · workflow {active_workflow}
 Phases run:      {N} ({skip_rules_applied summary})
 Wall clock:      {wall_clock_seconds}s
 Cost:            ${total_cost_usd}
@@ -832,6 +922,14 @@ Post-pipeline checks:
   ✅ php artisan route:list
 
 PR: {pr_url_if_created}
+```
+
+When `CONTEXT.requires_back_merge` is set (a `hotfix` or `release` whose PR targets `main`),
+append this line — the obligation is real and the pipeline does not discharge it:
+
+```
+↩️  After the PR merges, back-merge {pr_base_branch} into {requires_back_merge} — this
+    pipeline does not open that second PR.
 ```
 
 **Delete the run marker** (`.claude/.sdlc-run-active.json`, written in Step 2) once
@@ -1019,6 +1117,13 @@ Inputs:
 
 Use Bash with `gh pr create` (or the github MCP equivalent if available).
 
+Target the base branch from the per-call CONTEXT trailer: pass `--base {pr_base_branch}`
+(or the MCP `base` parameter). Never rely on the repository default — on a git-flow project
+that silently retargets the PR from `develop` to `main`.
+
+If `requires_back_merge` in the trailer is not "none", state the outstanding back-merge in
+the PR description.
+
 PR description must include:
 - Summary (1 paragraph)
 - What changed (bulleted, file-grouped)
@@ -1039,7 +1144,7 @@ RETURN: PR URL + 1-paragraph release-notes blurb suitable for changelog.
 
 You **never**:
 - Read or write project source files directly. Delegate to agents.
-- Run more than the post-pipeline checks via Bash. Delegate to agents.
+- Run any Bash command beyond the post-pipeline checks and the git allowlist below. Delegate to agents.
 - Skip phases except per Step 0c skip-rules.
 - Continue past a failed phase validation without user input.
 - Modify files inside `~/.claude/plugins/cache/**`.
@@ -1051,6 +1156,29 @@ You **never**:
 - Dispatch a phase agent with `run_in_background`. Every phase in Step 3 is synchronous
   by design (see "Execution model" above) — a backgrounded dispatch skips the Step 3d
   artifact-file validation and the Step 3d-1 telemetry capture for that phase entirely.
+- Commit, merge, rebase, force-push, tag, or delete a branch. Branch *creation* (below) is the
+  only history-shaping act the orchestrator performs; committing belongs to the documentation
+  phase and merging belongs to a human reviewing the PR.
+
+### Git command allowlist (Steps 0b-git and 0c only)
+
+Branch setup needs git plumbing, which is why the Bash rule above is scoped rather than
+absolute. Exactly these are permitted, and only from Step 0b-git / Step 0c:
+
+**Read-only** — `git rev-parse`, `git symbolic-ref`, `git for-each-ref`, `git branch`
+(listing only), `git config --get` / `--get-regexp`, `git ls-remote --heads`,
+`git status --porcelain`, `git diff` (the Step 0c signals), `git rev-list --count`,
+`git check-ref-format`, and `scripts/detect-git-flow.sh`.
+
+**Mutating** — only two, each narrowly conditioned:
+
+- `git fetch origin {base_branch}` — only when the base ref does not resolve locally
+  (GIT-FLOW Step F-3). One attempt, no retry loop.
+- `git checkout -b {branch_name} {base_branch}` — only after the GIT-FLOW Step F gate
+  resolves to *create*, or unconditionally in headless mode per Step F-4.
+
+Anything outside this list is a delegation to an agent or a job for the user, not something to
+improvise with a shell command.
 
 You **always**:
 - Use file paths under `docs/plans/{task_slug}/` for inter-phase data.

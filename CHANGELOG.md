@@ -3,6 +3,77 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [1.4.0] — sdlc plugin v1.4.0
+
+Makes the pipeline git-flow aware. Until now it had no branch logic at all: `/sdlc:start` ran
+on whatever branch happened to be checked out, and `gh pr create` was never given a `--base`,
+so on a git-flow project every PR silently landed against `main`. The pipeline now detects the
+project's branching model **and its actual naming convention**, classifies the task type, puts
+the run on an appropriate branch, and targets the PR at the correct base.
+
+### Added
+
+- **Branching-model detection** — `plugins/sdlc/scripts/detect-git-flow.sh`, a read-only shell
+  script that emits one JSON object: `git-flow` vs `github-flow`, confidence and provenance,
+  default/develop/release branches, and the naming convention learned from the repo's own
+  branches (separator, word separator, ticket-key pattern, prefix histogram). Shipped with
+  `test-detect-git-flow.sh` (15 fixture repos, 46 assertions). Prefixes seen only **once** are
+  discarded as noise — a typo in branch history must not become a learned convention.
+- **Documented-convention scan** — `CLAUDE.md`, `.claude/rules/*.md`, `CONTRIBUTING.md`,
+  `.cursorrules`, PR templates. An explicitly documented rule **outranks** the branch
+  histogram, and a rules/topology conflict is surfaced rather than silently resolved.
+- **Task-type classification** — deterministic keyword table with a fixed precedence order
+  (`hotfix > release > bugfix > fix > refactor > docs > chore > feature`), overridable with
+  `--type=NAME`. Drives the branch prefix, the merge target, and the workflow recipe.
+- **Merge-target policy** — `feature`/`fix` → `develop`; `bugfix`/`hotfix` → the active
+  `release/*` or `main`; `release` → `main`. github-flow collapses every row to the default
+  branch. A `hotfix`/`release` PR carries a "requires back-merge to develop" note (opening that
+  second PR remains out of scope).
+- **Interactive branch gate** — prints the model, convention, task type and proposed branch,
+  then offers create / continue / rename / change type / abort. "Continue" is withheld on a
+  base branch, which would otherwise produce a `main → main` PR.
+- **`git:` block in `.claude/sdlc.local.yaml`** — authoritative override for model, branches,
+  naming and per-type policy, plus `auto_create_branch: false` for CI.
+- **Detection cache** `.claude/.sdlc-git-flow.json` — trusted for 30 days once confirmed,
+  busted by `--redetect-git-flow`, always bypassed by `/sdlc:doctor`. Excluded from version
+  control via `.git/info/exclude`, like the run marker.
+- **`/sdlc:doctor`** reports the effective model, its provenance, the learned convention, the
+  branch a run would create, and whether the cache disagrees with fresh detection.
+- **`references/GIT-FLOW.md`** — the full algorithm, kept out of the orchestrator skill body
+  the same way `workflows/RESOLVER.md` is.
+
+### Fixed
+
+- **Skip-rules measured the diff against a hardcoded `origin/main`.** On a git-flow project a
+  feature branch's base is `develop`, so `LOC_TOUCHED` counted everything released since the
+  last merge-back and every skip-rule decision built on it was wrong. The base is now the
+  detected `base_branch`.
+- **Prospective runs no longer trigger every skip-rule.** A freshly created branch has an empty
+  diff, which read as `WHITESPACE_ONLY`, vacuously `CONFIG_ONLY`, and `LOC_TOUCHED = 0` —
+  skipping business analysis, QA *and* security, and satisfying every recipe's
+  `loc_touched_max` ceiling. `COMMITS_AHEAD == 0` now takes the same conservative path as a git
+  error (no rule fires) and marks `diff_scope: "prospective"`, under which a `loc_touched_*`
+  constraint counts as unsatisfied. An unmeasurable diff is unknown, not small.
+- **Workflow auto-selection is now implemented.** `README.md` promised the orchestrator checked
+  each recipe's `match` rules; `RESOLVER.md` only honoured `--workflow=NAME`, leaving the
+  `match:` blocks in `bugfix`/`hotfix`/`refactor`/`docs-only` as dead code. Selection order is
+  now flag → config → task type → match scan → default, with the deciding rule printed and
+  recorded in telemetry. An inferred-but-missing recipe warns and falls through; an explicitly
+  named missing recipe still halts.
+- **The documentation phase now commits and pushes the task branch** before opening the PR, and
+  reports a null PR with a clear reason when the branch has no commits against its base —
+  previously `gh pr create` would fail with a bare "no commits between".
+- **README's recipe cost caps contradicted the recipe files** (`$0.60`/`$0.10` versus the
+  actual `$2.50`/`$0.20`), and its header line still advertised v1.3.0 after 1.3.1 shipped.
+
+### Known limitations
+
+- `/sdlc:batch` worktree branches are named by the `Agent` tool, so they do not follow the
+  learned convention. Their PR base is still correct, since it derives from the task type.
+- Back-merging `hotfix/*` / `release/*` into `develop` is reported, not automated.
+- Issue-tracker metadata (Jira issue type) is deliberately not a classification signal —
+  typing must stay reproducible from `$ARGUMENTS` alone.
+
 ## [1.3.1] — sdlc plugin v1.3.1
 
 Fixes an off-roster dispatch bug: a project-local `.claude/agents/{tester,reviewer,...}.md`

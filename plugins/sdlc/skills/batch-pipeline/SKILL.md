@@ -45,6 +45,27 @@ the target branch, which is outside this skill's scope.
 
 ---
 
+## Known limitation: batch branches ignore the learned naming convention
+
+`pipeline-orchestrator` Step 0b-git detects the project's branch-naming convention and
+proposes a branch per task (see `references/GIT-FLOW.md`). Batch runs do **not** get that
+branch: isolation comes from the `Agent` tool's `isolation: "worktree"` parameter, and the
+tool names the worktree's branch itself. The orchestrator inside each dispatched agent
+therefore starts on a branch it did not choose, sees a non-base branch, and continues on it
+rather than creating a second one.
+
+Consequences to disclose when they matter:
+
+- Batch branch names do not follow the project's `feature/`-style convention.
+- The **PR base branch is still correct** — `pr_base_branch` is derived from the task type and
+  the detected model, not from the branch name, so a git-flow project's batch PRs still target
+  `develop` (or `main` for a hotfix).
+- Each worktree branches from the current base at dispatch time, as already described in
+  Step 2's chaining caveat.
+
+Renaming a tool-created worktree branch to match the convention is not attempted: the branch
+is what the tool tracks for cleanup, and renaming it mid-run risks orphaning the worktree.
+
 ## Algorithm
 
 ### Step 1 — Per-task scope pass
@@ -136,7 +157,7 @@ confirmation, do not create worktrees, do not dispatch agents.
 per task — do NOT create worktrees manually via `git worktree add` and do NOT
 rely on prose telling the agent "your cwd is X". A spawned agent does not
 inherit a working directory from instructions in its prompt; `pipeline-orchestrator`
-uses relative paths (`docs/plans/{task_slug}/`) and `git diff origin/main...HEAD`
+uses relative paths (`docs/plans/{task_slug}/`) and `git diff {base_branch}...HEAD`
 internally, so without real cwd isolation every parallel task would write into
 the same `docs/plans/` and operate on the same git index — collisions
 guaranteed. `isolation: "worktree"` guarantees a real, separate checkout per
@@ -194,13 +215,20 @@ this single task, exactly as /sdlc:start would. Stack override: {forced_stack
 or "auto-detect"}.
 
 BATCH MODE OVERRIDE: you are running unattended as part of a batch dispatch.
-There is no user available to answer the development-phase approval gate
-(pipeline-orchestrator Step 3b-special). Skip waiting for approve/request-changes/
-abort: after Pass 1 (planning), review the plan yourself against the BA spec
-for obvious gaps or risk, then proceed directly to Pass 2 (implementation) as
-if it had been approved. Record in your compact summary that auto-approval was
-used, so the human reviewing the resulting PR knows no one but the agent
-itself reviewed the plan.
+There is no user available to answer either of the pipeline's interactive gates,
+so treat both as auto-resolved:
+
+1. Development-phase approval gate (pipeline-orchestrator Step 3b-special). Skip
+   waiting for approve/request-changes/abort: after Pass 1 (planning), review the
+   plan yourself against the BA spec for obvious gaps or risk, then proceed
+   directly to Pass 2 (implementation) as if it had been approved. Record in your
+   compact summary that auto-approval was used, so the human reviewing the
+   resulting PR knows no one but the agent itself reviewed the plan.
+2. Branch gate (Step 0b-git / GIT-FLOW.md Step F). Do NOT ask and do NOT create a
+   branch: you already run in a dedicated worktree on a branch the Agent tool
+   created, so a second branch would be wrong. Still run detection — the model,
+   task type and especially `pr_base_branch` decide where your PR is targeted —
+   then continue on the current branch with branch_action = "continued".
 
 Run the full pipeline to completion (BA → Dev → QA → Security → Docs) and end
 with an opened PR. Return a COMPACT summary (≤1K tokens):
@@ -210,6 +238,7 @@ with an opened PR. Return a COMPACT summary (≤1K tokens):
 - total_cost_usd from the pipeline's own telemetry
 - any phase that failed or was skipped
 - confirmation that the dev-plan gate was self-approved (batch mode)
+- branch and PR base branch used
 ```
 
 🚨 **MUST PRINT VERBATIM** before dispatching each group:

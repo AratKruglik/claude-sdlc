@@ -2,7 +2,7 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v1.3.0** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external. Cost-optimized: model tiering + `effort` per-subagent, **two-tier development phase** (Opus plans, Sonnet implements), enforced workflow cost caps, file-scoped format hooks, shared architect conventions (~1,600 lines of boilerplate deduped), per-aspect QA fan-out on full-stack runs. See [MODEL-ROUTING.md](MODEL-ROUTING.md) for the routing audit behind this release.
+**v1.4.0** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external. **Git-flow aware:** the pipeline detects your branching model *and your existing naming convention*, classifies the task type, proposes a branch, and targets the PR at the right base — see [Git Flow Awareness](#git-flow-awareness). Workflow auto-selection is now implemented. Cost-optimized: model tiering + `effort` per-subagent, **two-tier development phase** (Opus plans, Sonnet implements), enforced workflow cost caps, file-scoped format hooks, shared architect conventions (~1,600 lines of boilerplate deduped), per-aspect QA fan-out on full-stack runs. See [MODEL-ROUTING.md](MODEL-ROUTING.md) for the routing audit behind the cost model.
 
 ---
 
@@ -148,6 +148,8 @@ Some technologies are supersets of others. Next.js is React + a server. NestJS i
 
 ### Standard 5-phase pipeline
 
+Before Phase 1, the orchestrator detects the stack profile and the [git branching model](#git-flow-awareness), classifies the task type, and asks you to confirm the branch.
+
 ```
 Phase 1: BA → business-analyst (opus/high)
           ↓ output: docs/plans/{slug}/01-business-analysis.md
@@ -190,8 +192,18 @@ Aspects are dispatched in canonical order: `database → backend → frontend �
 | `/sdlc:start "feature"` | Run the full 5-phase pipeline |
 | `/sdlc:batch "task1" "task2"` | Run pipelines in parallel for multiple tasks (isolated worktrees) |
 | `/sdlc:list-stacks` | Show detected stack profiles and their priorities |
-| `/sdlc:doctor` | Preflight check: dependency check, stack detection, cost baseline |
+| `/sdlc:doctor` | Preflight check: dependencies, stack detection, git branching model, cost baseline |
 | `/sdlc:security-init` | Materialize security-patterns.yaml for the security-guidance plugin |
+
+### `/sdlc:start` flags
+
+| Flag | Effect |
+|---|---|
+| `--stack=NAME` | Force a stack profile instead of auto-detecting |
+| `--type=NAME` | Force the task type (`feature`, `fix`, `bugfix`, `hotfix`, `release`, `refactor`, `docs`, `chore`) instead of classifying it from the description |
+| `--workflow=NAME` | Force a workflow recipe instead of auto-selecting |
+| `--redetect-git-flow` | Ignore the cached branching-model detection and detect again |
+| `--force-preflight` | Ignore the cached dependency preflight |
 
 ---
 
@@ -204,10 +216,14 @@ A **workflow recipe** is a YAML file that declares which pipeline phases to run.
 | Recipe | Phases | Auto-selects when |
 |---|---|---|
 | `default` | BA → Dev → QA → Security → Docs | any task |
-| `bugfix` | Dev → QA → Security → Docs | arguments contain `fix`, `bug`, `issue`; ≤500 LOC |
-| `hotfix` | Dev → QA → Security → Docs | arguments contain `hotfix`, `urgent`, `emergency`; ≤200 LOC; $0.60 cost cap |
-| `refactor` | Dev → QA → Security → Docs | arguments contain `refactor`, `cleanup`, `extract` |
-| `docs-only` | Docs | arguments contain `docs`, `readme`, `changelog`; $0.10 cost cap |
+| `bugfix` | Dev → QA → Security → Docs | task type is `fix` or `bugfix`; ≤500 LOC |
+| `hotfix` | Dev → QA → Security → Docs | task type is `hotfix`; ≤200 LOC; $2.50 cost cap |
+| `refactor` | Dev → QA → Security → Docs | task type is `refactor` |
+| `docs-only` | Docs | task type is `docs`; config-only diff; $0.20 cost cap |
+
+Cost caps are **runaway guards, not budgets** — each sits roughly 2× above what a normal run of
+that recipe costs, so it fires on pathology (a QA retry storm, an oversized diff) and never on
+healthy work. The authoritative values live in the recipe YAML files; this table follows them.
 
 ### Using a specific recipe
 
@@ -218,7 +234,17 @@ A **workflow recipe** is a YAML file that declares which pipeline phases to run.
 
 ### Auto-selection
 
-If no `--workflow` flag is given, the orchestrator checks each recipe's `match` rules against your `$ARGUMENTS` in priority order. First match wins; `default` always matches as the fallback.
+With no `--workflow` flag, the orchestrator resolves the recipe in this order — first rule that yields an existing recipe wins:
+
+1. **`--workflow=NAME`** — an explicit choice is never second-guessed.
+2. **`active_workflow`** in `.claude/sdlc.local.yaml`.
+3. **Task type** — the same classification that picks your branch prefix (see [Git Flow Awareness](#git-flow-awareness)). `fix`/`bugfix` → `bugfix`, `hotfix` → `hotfix`, `refactor` → `refactor`, `docs` → `docs-only`, everything else → `default`. The mapped recipe is used only if its own `match` constraints also hold, so a 600-LOC change described as a "fix" falls through instead of getting `bugfix`'s trimmed pipeline.
+4. **`match` scan** over recipes no task type maps to, in alphabetical order by name.
+5. **`default`.**
+
+The deciding rule is printed with the resolved plan and recorded in telemetry as `workflow_selection_reason`, so a surprising phase list is always traceable to one rule.
+
+One subtlety worth knowing: a `loc_touched_max` constraint is treated as **unsatisfied** on a branch with no commits yet. An empty diff measures 0 LOC, which would otherwise satisfy every ceiling in the recipe set and hand a brand-new feature the `hotfix` pipeline. An unmeasurable diff is unknown, not small.
 
 ### Custom recipes
 
@@ -240,6 +266,93 @@ caps:
 ```
 
 Recipe files are validated against `schemas/workflow.schema.json` on load. Invalid recipes halt with an error listing each violation.
+
+---
+
+## Git Flow Awareness
+
+Before any phase runs, the pipeline works out how your project branches, what kind of task you asked for, and which branch the work belongs on. It then asks before touching anything.
+
+```text
+🌿 Git flow
+   Model:       git-flow (confidence: high — topology:develop-branch, config:gitflow.*)
+   Convention:  {prefix}/{TICKET}-{kebab-slug}  (learned from 23 branches)
+   Task type:   hotfix (keyword match)
+   Current:     main (base branch — a task branch is required)
+   Proposed:    hotfix/PAY-412-null-pointer-in-handler
+   Branch from: origin/main
+   PR base:     main
+   ↩️  Requires back-merge to develop after the PR merges
+```
+
+Your choices: **create** / **continue on the current branch** / **rename** / **change type** / **abort**.
+
+### What it detects
+
+| Model | Detected when | Where branches go |
+|---|---|---|
+| `git-flow` | a `develop`/`dev` branch exists, or `git flow init` left `gitflow.*` config | per the type matrix below |
+| `github-flow` | no develop branch — one long-lived branch | everything branches from and targets the default branch |
+| `custom` | you declared it in `sdlc.local.yaml` | per your own `type_policy` |
+
+Detection sources, in order of authority:
+
+1. **An explicit `git:` block** in `.claude/sdlc.local.yaml` — a decision, not a guess. Short-circuits everything below.
+2. **Your documented conventions** — `CLAUDE.md`, `.claude/rules/*.md`, `CONTRIBUTING.md`, `.cursorrules`, PR templates. A written rule outranks branch history; a rule that contradicts the topology is surfaced, not silently resolved.
+3. **Your branch history** — `plugins/sdlc/scripts/detect-git-flow.sh` reads the repo's own branches and learns the separator (`/` vs `-`), the word separator (`-` vs `_`), any ticket-key pattern, and the prefix vocabulary you actually use.
+
+**It follows your conventions rather than imposing ours.** Three consequences worth knowing:
+
+- A prefix seen only **once** is discarded as noise — a typo in branch history must never become a learned convention.
+- If your repo has never used prefixes, you get a bare slug, not an invented `feature/`.
+- If your repo says `fix/` where the table below says `bugfix/`, you get `fix/`.
+
+### Task type → branch and merge target
+
+The task type is classified from your description with a deterministic keyword table and a fixed precedence order (`hotfix > release > bugfix > fix > refactor > docs > chore > feature`); `--type=NAME` overrides it. Under `git-flow`:
+
+| Task type | Branch | From | PR base |
+|---|---|---|---|
+| `feature` | `feature/…` | develop | develop |
+| `fix` | `fix/…` | develop | develop |
+| `bugfix` | `bugfix/…` | active `release/*` else main | same |
+| `hotfix` | `hotfix/…` | active `release/*` else main | same |
+| `release` | `release/…` | develop | main |
+| `refactor` / `docs` / `chore` | as observed | develop | develop |
+
+`fix` merges to `develop`; `bugfix` and `hotfix` do not. That asymmetry is the point of the model — `fix` is ordinary corrective work riding the next release, while `bugfix` and `hotfix` target something already shipped. For `hotfix` and `release`, the outstanding back-merge into `develop` is written into the PR body and repeated in the final summary; **opening that second PR is not automated.**
+
+### Configuration
+
+Everything is overridable in `.claude/sdlc.local.yaml`. Only `model` is required; absent keys fall through to detection.
+
+```yaml
+git:
+  model: git-flow
+  develop_branch: develop
+  auto_create_branch: true       # false → never create a branch, only report
+  naming:
+    word_separator: "-"
+    ticket_pattern: "^[A-Z][A-Z0-9]{1,9}-[0-9]+$"
+    ticket_position: after-prefix
+    max_length: 60
+  type_policy:                   # partial override — unlisted types keep the defaults above
+    bugfix: { prefix: bugfix, from: main, pr_base: main }
+```
+
+The detection result is cached in `.claude/.sdlc-git-flow.json` (excluded from version control automatically) and trusted for 30 days once you have confirmed it. `--redetect-git-flow` re-detects; `/sdlc:doctor` always detects fresh and flags a cache that disagrees with reality.
+
+### In headless mode
+
+`SDLC_NONINTERACTIVE=true` has no user to ask, so the gate does not prompt: the detected model and task type are used as-is, a branch is created when the current branch is a base branch, and one summary line goes to stderr. Low-confidence detection falls back to github-flow off the default branch. Set `auto_create_branch: false` to keep CI on whatever branch it checked out.
+
+### Known limitations
+
+- **`/sdlc:batch`** worktree branches are named by the `Agent` tool, so they do not follow the learned convention. Their PR base is still correct — it derives from the task type, not the branch name.
+- **Back-merges** are reported, never opened.
+- **Issue-tracker metadata** (a Jira issue's type) is deliberately not a classification signal, so typing stays reproducible from the description alone.
+
+Full algorithm: [`plugins/sdlc/references/GIT-FLOW.md`](plugins/sdlc/references/GIT-FLOW.md).
 
 ---
 
@@ -422,7 +535,22 @@ skip_phases:
 
 extra_phase_prompts:
   development: "Follow our internal-styleguide.md"
+
+git:
+  model: git-flow
+  develop_branch: develop
 ```
+
+| Key | Merge semantics |
+|---|---|
+| `post_pipeline_checks` | **replaces** the plugin's list (`[]` disables checks) |
+| `phase_command_overrides` | adds or replaces individual keys |
+| `extra_phase_prompts` | **appends** to the plugin's phase guidance |
+| `skip_phases` | removes phases from the resolved order |
+| `convention_skills_extra` | appends to `convention_skills` |
+| `agent_overrides` | replaces the agent for a phase, and adds it to the run roster |
+| `active_workflow` | forces a workflow recipe |
+| `git` | authoritative branching-model config — see [Git Flow Awareness](#git-flow-awareness) |
 
 ---
 
