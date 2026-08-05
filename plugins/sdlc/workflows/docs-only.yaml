@@ -1,7 +1,6 @@
 name: docs-only
 description: Documentation updates only — skip all implementation and review phases.
 match:
-  arguments_pattern: "\\bdoc(s|umentation)?\\b|\\breadme\\b|\\bchangelog\\b"
   config_only: true
 caps:
   # The documentation phase alone runs on haiku/low and costs ~$0.03. Cap set well above

@@ -138,22 +138,27 @@ precedence-ordered — never "ask the model what it thinks the task is".
 
 ### C-2. Keyword table
 
-Match case-insensitively against `$ARGUMENTS` (the cleaned description). This table is the
-**authoritative source for task typing**; the `match.arguments_pattern` fields in
-`workflows/*.yaml` remain authoritative for *recipe* matching. The overlap is intentional —
-recipe selection consumes `task_type` first (`RESOLVER.md` Step 1) and only falls back to its
-own patterns for recipes with no type mapping.
+Match case-insensitively against `$ARGUMENTS` (the cleaned description). The **authoritative
+source for task typing** is the data file `references/task-type-patterns.json` — Read and
+compile it, do not re-derive patterns from prose. Each entry there is a complete, ready-to-use
+ECMAScript regex source string; compile with the file's `flags` (`iu`) and test directly, no
+assembly step.
 
-| task_type | Pattern |
-|---|---|
-| `hotfix` | `\bhotfix\b`, `\burgent\b`, `\bemergency\b`, `\bprod(uction)?\s+(fix\|issue\|incident)\b`, `\bincident\b`, `\bP0\b`, `\bSEV-?[01]\b`, `\bтерміново\b`, `\bаварі` |
-| `release` | `\brelease\b`, `\bcut\s+(a\s+)?release\b`, `\bversion\s+bump\b`, `\bреліз` |
-| `bugfix` | `\bbugfix\b`, `\bregression\b`, `\bbroken\s+in\s+(prod\|release)\b` |
-| `fix` | `\bfix(es\|ed\|ing)?\b`, `\bbug\b`, `\bissue\b`, `\bdefect\b`, `\bcrash\b`, `\bпофіксити\b`, `\bвиправ` |
-| `refactor` | `\brefactor\b`, `\bclean\s*up\b`, `\brestructur\w*\b`, `\bextract\b`, `\brename\b`, `\bрефактор` |
-| `docs` | `\bdoc(s\|umentation)?\b`, `\breadme\b`, `\bchangelog\b`, `\bдокумент` |
-| `chore` | `\bchore\b`, `\bbump\s+dep\w*\b`, `\bupgrade\s+\w+\s+to\b`, `\bci\b`, `\blint\b` |
-| `feature` | `\badd\b`, `\bimplement\b`, `\bcreate\b`, `\bsupport\s+for\b`, `\bnew\b`, `\bдодати\b`, `\bреалізувати\b` |
+**`\b` is banned from this table and from that file.** ECMAScript `\w` is `[A-Za-z0-9_]`, so
+`\b` never asserts a boundary next to a Cyrillic character — with or without the `u` flag. A
+pattern like `\bрефактор\b` silently never matches anything, in any input, forever; that bug
+shipped invisibly for months because nothing exercises Ukrainian input in CI. Use the
+`u`-flag Unicode property escapes documented in the JSON file's `boundary` block instead:
+`(?<![\p{L}\p{N}])` on the left, `(?![\p{L}\p{N}])` on the right — applied selectively, since
+Ukrainian inflection means several stems (e.g. `рефактор`, matching рефакторинг/рефакторити)
+intentionally omit the right-side assertion. `plugins/sdlc/scripts/test-task-typing.sh` fails
+the whole suite if any pattern in the JSON file contains a literal `\b` — treat a failure there
+as a regression, not a flaky test.
+
+This table's relationship to recipe matching changed from the original design: workflow
+recipes (`workflows/*.yaml`) no longer carry their own `arguments_pattern` — this table is now
+the *only* keyword classifier in the pipeline. See `RESOLVER.md` Step 1b for why a second,
+narrower keyword check on top of this one used to silently veto a correct classification.
 
 ### C-3. Precedence on multiple matches
 

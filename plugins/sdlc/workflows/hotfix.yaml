@@ -1,7 +1,6 @@
 name: hotfix
 description: Emergency production fix — skip BA, minimal footprint, capped cost.
 match:
-  arguments_pattern: "\\bhotfix\\b|\\burgent\\b|\\bemergency\\b|\\bprod(uction)?\\s+fix\\b"
   loc_touched_max: 200
 caps:
   # Runaway guard, not a routine blocker. A hotfix runs dev (opus plan pass + sonnet
