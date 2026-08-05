@@ -3,6 +3,50 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [1.4.1] — marketplace v1.4.1 / sdlc plugin v1.4.1
+
+Fixes three related defects in task-type classification and recipe selection introduced by
+1.4.0's git-flow work, discovered when a Ukrainian-language `/sdlc:start` description failed
+to select the `refactor` recipe and fell all the way back to the full 5-phase `default`
+pipeline.
+
+### Fixed
+
+- **Every Cyrillic keyword in task-type classification was permanently dead.** ECMAScript
+  `\w` is `[A-Za-z0-9_]`, so `\b` never asserts a boundary next to a non-Latin character —
+  with or without the `u` flag. `GIT-FLOW.md` Step C-2's Ukrainian patterns (`\bрефактор\b`,
+  `\bтерміново\b`, `\bвиправ`, ...) never matched anything, in any input, since the feature
+  shipped. The table now lives in `plugins/sdlc/references/task-type-patterns.json` as
+  complete, ready-to-compile regex sources using Unicode property escapes
+  (`(?<![\p{L}\p{N}])` / `(?![\p{L}\p{N}])`) instead of `\b`, and gained several previously
+  missing Ukrainian stems (`bugfix`, `chore`, and broader `feature` coverage).
+- **`arguments_pattern` on a `task_type`-mapped recipe could silently veto a correct
+  classification.** `RESOLVER.md` Step 1 rule 3 re-checked a recipe's own (narrower, English
+  -only) `arguments_pattern` after the authoritative classifier had already named a
+  `task_type` — so even a fixed Ukrainian classification could still be discarded by
+  `refactor.yaml`'s Latin-only regex. `arguments_pattern` is no longer read by rule 3; every
+  built-in recipe's `match` block now carries only measurable signal constraints
+  (`loc_touched_max`, `config_only`), and is removed entirely from `refactor.yaml`, which had
+  nothing else. New Step 1b in `RESOLVER.md` documents the split: a constraint *selects* in
+  rule 4, it only *vetoes* in rule 3.
+- **`bugfix`, `hotfix`, and `docs-only` were unreachable on a freshly created branch.**
+  `loc_touched_max` and `config_only` never evaluate to true while `diff_scope ==
+  "prospective"` (correct for rule 4, where an unmeasurable diff must not select a recipe) —
+  but rule 3 was applying the same all-fail treatment to an already-`task_type`-confirmed
+  recipe, on what Step 0c calls "the most common way to start a run". Rule 3 now treats an
+  unmeasured signal constraint as not applicable rather than failed.
+- Added `plugins/sdlc/scripts/test-task-typing.sh` — compiles every pattern in
+  `task-type-patterns.json` and asserts classification outcomes (Ukrainian, English, false
+  -positive guards, precedence), plus a standing sanity check that no pattern regresses to a
+  literal `\b`.
+
+### Known limitation (not fixed here)
+
+- The `typo-fix` skip-rule (`pipeline-orchestrator/SKILL.md` Step 0c-2, rule 1) matches
+  `$ARGUMENTS` with its own English-only, start-anchored regex and has the same language
+  blind spot. It gates BA-skipping for trivial typo fixes, not recipe selection — left for a
+  follow-up.
+
 ## [1.4.0] — sdlc plugin v1.4.0
 
 Makes the pipeline git-flow aware. Until now it had no branch logic at all: `/sdlc:start` ran

@@ -25,7 +25,7 @@
       "properties": {
         "arguments_pattern": {
           "type": "string",
-          "description": "ECMAScript regex matched case-insensitively against $ARGUMENTS."
+          "description": "ECMAScript regex source, compiled with flags 'iu', tested against $ARGUMENTS. Consulted only by RESOLVER.md Step 1 rule 4 (match scan for recipes with no task_type mapping) — never by rule 3 (task_type-mapped recipes), where it would silently override the authoritative classification in GIT-FLOW.md Step C. Do not use \\b: ECMAScript \\w is [A-Za-z0-9_], so \\b never asserts a boundary next to non-Latin characters, with or without the 'u' flag. Use (?<![\\p{L}\\p{N}]) / (?![\\p{L}\\p{N}]) instead — see plugins/sdlc/references/task-type-patterns.json for the boundary convention and worked examples."
         },
         "loc_touched_max": {
           "type": "integer",

@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "description": "Authoritative keyword table for task-type classification (GIT-FLOW.md Step C-2). Every pattern is a complete, ready-to-compile ECMAScript regex source string — no expansion step. Compile each with `flags` and test against $ARGUMENTS with String.prototype.test(). `boundary` documents the two building blocks baked into the patterns below; it is not itself consumed programmatically.",
+  "flags": "iu",
+  "boundary": {
+    "left": "(?<![\\p{L}\\p{N}])",
+    "right": "(?![\\p{L}\\p{N}])",
+    "note": "Plain \\b is banned here: ECMAScript \\w is [A-Za-z0-9_], so \\b never asserts a boundary next to a Cyrillic character, with or without the u flag. These Unicode property escapes are the replacement and work for both scripts. Right boundary is applied to whole, non-inflecting tokens (English roots, Ukrainian adverbs); left-boundary-only stems are used deliberately where Ukrainian inflection must still match (e.g. рефактор catches рефакторинг, рефакторити, рефакторингу, ...).",
+    "requires_flag": "u"
+  },
+  "precedence": ["hotfix", "release", "bugfix", "fix", "refactor", "docs", "chore", "feature"],
+  "types": {
+    "hotfix": {
+      "patterns": [
+        "(?<![\\p{L}\\p{N}])hotfix(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])urgent\\w*",
+        "(?<![\\p{L}\\p{N}])emergency(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])prod(uction)?\\s+(fix|issue|incident)(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])incident(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])P0(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])SEV-?[01](?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])терміново(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])аварі"
+      ]
+    },
+    "release": {
+      "patterns": [
+        "(?<![\\p{L}\\p{N}])release(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])cut\\s+(a\\s+)?release(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])version\\s+bump(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])реліз"
+      ]
+    },
+    "bugfix": {
+      "patterns": [
+        "(?<![\\p{L}\\p{N}])bugfix(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])regression(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])broken\\s+in\\s+(prod|release)(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])регрес",
+        "(?<![\\p{L}\\p{N}])зламан\\w*\\s+(в|у)\\s+(прод\\w*|реліз\\w*)"
+      ]
+    },
+    "fix": {
+      "patterns": [
+        "(?<![\\p{L}\\p{N}])fix(es|ed|ing)?(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])bug(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])issue(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])defect(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])crash(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])пофікс",
+        "(?<![\\p{L}\\p{N}])виправ",
+        "(?<![\\p{L}\\p{N}])баг(а|у|ом|и|ів)?(?![\\p{L}\\p{N}])"
+      ]
+    },
+    "refactor": {
+      "patterns": [
+        "(?<![\\p{L}\\p{N}])refactor\\w*",
+        "(?<![\\p{L}\\p{N}])clean\\s*up(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])restructur\\w*",
+        "(?<![\\p{L}\\p{N}])extract(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])rename(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])рефактор"
+      ]
+    },
+    "docs": {
+      "patterns": [
+        "(?<![\\p{L}\\p{N}])doc(s|umentation)?(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])readme(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])changelog(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])документ"
+      ]
+    },
+    "chore": {
+      "patterns": [
+        "(?<![\\p{L}\\p{N}])chore(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])bump\\s+dep\\w*",
+        "(?<![\\p{L}\\p{N}])upgrade\\s+\\w+\\s+to(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])ci(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])lint(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])залежност",
+        "(?<![\\p{L}\\p{N}])лінт"
+      ]
+    },
+    "feature": {
+      "patterns": [
+        "(?<![\\p{L}\\p{N}])add(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])implement\\w*",
+        "(?<![\\p{L}\\p{N}])create(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])support\\s+for(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])new(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])дода(ти|й|вати|вання|ємо|мо|ла|ло|ли|в)",
+        "(?<![\\p{L}\\p{N}])реалізу",
+        "(?<![\\p{L}\\p{N}])створ",
+        "(?<![\\p{L}\\p{N}])нов(ий|а|е|і)(?![\\p{L}\\p{N}])"
+      ]
+    }
+  }
+}

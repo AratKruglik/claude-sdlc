@@ -16,7 +16,8 @@ explainable, since it decides which phases run.
 2. **Project config.** `EFFECTIVE_PROFILE.active_workflow` from `sdlc.local.yaml`.
    Reason: `config`.
 3. **Task type.** Map `CONTEXT.task_type` (set by orchestrator Step 0b-git, per this plugin's
-   `references/GIT-FLOW.md` Step C) through `TASK_TYPE_TO_WORKFLOW`:
+   `references/GIT-FLOW.md` Step C, classified against `references/task-type-patterns.json`)
+   through `TASK_TYPE_TO_WORKFLOW`:
 
    | task_type | recipe |
    |---|---|
@@ -26,13 +27,14 @@ explainable, since it decides which phases run.
    | `docs` | `docs-only` |
    | `feature`, `release`, `chore` | `default` |
 
-   The mapped recipe is used only when the file exists **and** its own `match` constraints
-   hold (see Step 1a). A 600-LOC change described as a "fix" therefore falls through to rule
-   5 rather than getting `bugfix`'s trimmed pipeline. Reason: `task_type={type}`.
+   The mapped recipe is used only when the file exists **and** its *signal* `match` constraints
+   hold (see Step 1a/1b — `arguments_pattern` is not one of them here). A 600-LOC change
+   described as a "fix" therefore falls through to rule 5 rather than getting `bugfix`'s
+   trimmed pipeline. Reason: `task_type={type}`.
 4. **Match scan.** For recipes that no task type maps to, evaluate each recipe's `match`
-   block (Step 1a) in **alphabetical order by `name`** — a fixed order so the same inputs
-   always select the same recipe. First satisfied recipe wins.
-   Reason: `match:{name}`.
+   block (Step 1a, all constraints including `arguments_pattern`) in **alphabetical order by
+   `name`** — a fixed order so the same inputs always select the same recipe. First satisfied
+   recipe wins. Reason: `match:{name}`.
 5. **Fallback.** `WORKFLOW_NAME = "default"`. Reason: `fallback`.
 
 ### Step 1a: Evaluating a `match` block
@@ -42,7 +44,7 @@ is not a constraint. Signals come from orchestrator Step 0c.
 
 | Constraint | Satisfied when |
 |---|---|
-| `arguments_pattern` | the ECMAScript regex matches `$ARGUMENTS` case-insensitively |
+| `arguments_pattern` | (rule 4 only — see Step 1b) the ECMAScript regex, compiled with flags `iu`, matches `$ARGUMENTS`. As in `task-type-patterns.json`, write it with `(?<![\p{L}\p{N}])`/`(?![\p{L}\p{N}])`, never `\b` — `\b` cannot assert a boundary next to a non-Latin character. |
 | `loc_touched_max` | `diff_scope == "retrospective"` AND `LOC_TOUCHED <= value` |
 | `loc_touched_min` | `diff_scope == "retrospective"` AND `LOC_TOUCHED >= value` |
 | `has_migrations` | `HAS_MIGRATIONS == value` |
@@ -51,6 +53,30 @@ is not a constraint. Signals come from orchestrator Step 0c.
 **A `loc_touched_*` constraint is never satisfied while `diff_scope == "prospective"`.** On a
 freshly created branch `LOC_TOUCHED` is 0, which would satisfy every ceiling in the recipe set
 and hand a brand-new feature the `hotfix` pipeline. An unmeasurable diff is unknown, not small.
+
+### Step 1b: A constraint selects in rule 4; it only vetoes in rule 3
+
+Rule 3 and rule 4 both evaluate `match`, but they are not the same kind of check, and treating
+them as interchangeable is what broke this resolver twice:
+
+- **Rule 4 evaluates to select.** No recipe has been chosen yet; a constraint that cannot be
+  computed must count as unsatisfied, because letting an unmeasurable input satisfy a
+  constraint is how a brand-new feature branch ends up on the `hotfix` pipeline (see the
+  `loc_touched_*`/`prospective` note in Step 1a).
+- **Rule 3 evaluates to veto.** `task_type` has already named a recipe from the authoritative
+  classifier in `GIT-FLOW.md` Step C. The only job left for `match` here is to catch a
+  contradiction between that type and the **measured** diff — a 600-LOC change mislabeled
+  "fix". A constraint that cannot be measured has nothing to contradict and must not fire.
+  Concretely: `loc_touched_max: 500` on `bugfix.yaml` does not disqualify `bugfix` on a
+  freshly created branch just because `LOC_TOUCHED` reads 0 under `diff_scope ==
+  "prospective"` — that reading is unknown, not a pass or a fail, and rule 3 treats it as
+  "constraint not applicable" rather than "constraint failed". The same holds for
+  `has_migrations` and `config_only` while `CONFIG_ONLY`/`HAS_MIGRATIONS` are still the Step
+  0c-1 safe defaults rather than measured values.
+- **`arguments_pattern` is never evaluated under rule 3.** Recipes no longer declare it (see
+  the workflow YAML files) precisely because it duplicated — and could silently override —
+  the `task_type` classification that rule 3 exists to trust. It remains meaningful only in
+  rule 4's match scan, where no `task_type` mapping exists yet to defer to.
 
 Search path for the resolved name (in order, first match wins):
 
