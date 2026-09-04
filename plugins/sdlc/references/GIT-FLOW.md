@@ -333,11 +333,19 @@ When all four hold, run:
 git flow {subcommand} start {topic}
 ```
 
-where `{topic}` is the Step E slug **without** the prefix, separator, or ticket segment —
-`git flow` supplies `gitflow.prefix.{subcommand}` itself, and inserting one manually would
-double it (`feature/feature-foo-bar`). If `naming.ticket_pattern` matched, append the ticket
-to `{topic}` the same way Step E would (`ticket_position` still applies); `git flow` has no
-opinion on ticket placement, it only owns the type prefix.
+`{topic}` is built from the Step E slug in two stages:
+
+1. Start from the Step E name **without** the prefix or separator — `git flow` supplies
+   `gitflow.prefix.{subcommand}` itself, and passing one manually would double it
+   (`feature/feature-foo-bar`).
+2. If `naming.ticket_pattern` matched, add the ticket back per `ticket_position`
+   (`after-prefix` → leading `{topic}`, since the prefix itself is now external to
+   `{topic}`; `leading` → also leading, unchanged). `git flow` has no opinion on ticket
+   placement — it only owns the type prefix — so the ticket is `{topic}`'s job either way.
+
+So `{topic}` is never bare — it is "slug" alone when there is no ticket, or
+"ticket{word_separator}slug" when there is one; only the prefix and its separator are ever
+omitted.
 
 Record `CONTEXT.branch_creation_method = "git-flow-cli"` and `CONTEXT.branch_name` from
 `git rev-parse --abbrev-ref HEAD` after the command succeeds (the CLI's own prefix may not
@@ -386,11 +394,16 @@ When `HEADLESS == true` (`SDLC_NONINTERACTIVE`, resolved at Step 0a-1) there is 
 channel, so the gate does not ask:
 
 - Print nothing to stdout. Write one line to stderr:
-  `GIT-FLOW: model={model} confidence={confidence} type={task_type} branch={branch_name} base={base_branch} pr_base={pr_base_branch} action={branch_action}`
+  `GIT-FLOW: model={model} confidence={confidence} type={task_type} branch={branch_name} base={base_branch} pr_base={pr_base_branch} action={branch_action} creation={branch_creation_method}`
 - `confidence == "low"` or `model == "unknown"` → fall back to github-flow off
-  `default_branch`, and add `fallback=low-confidence` to that stderr line.
-- `current_branch_is_base == true` → create the branch. Otherwise → continue on the current
-  branch (a CI job that already checked out a task branch must not get a second one).
+  `default_branch`, and add `fallback=low-confidence` to that stderr line. Note this also
+  forces `branch_creation_method = "checkout-b"` — F-2a's first condition requires
+  `model == "git-flow"`.
+- `current_branch_is_base == true` → create the branch, per F-2a (same conditions apply in
+  headless mode — a missing `git flow` binary or an uninitialized repo still falls back to
+  `checkout -b` silently, just to stderr instead of the interactive gate). Otherwise →
+  continue on the current branch (a CI job that already checked out a task branch must not
+  get a second one).
 - `git.auto_create_branch: false` in config → never create; `branch_action = "declined"`.
 
 ### F-5. Outputs

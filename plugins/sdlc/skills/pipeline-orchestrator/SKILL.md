@@ -195,6 +195,39 @@ Use `Glob ~/.claude/plugins/cache/**/security-guidance/.claude-plugin/plugin.jso
 
 ### Step 0b — Detect stack profile
 
+If `$ARGUMENTS` includes `--stack=NAME`, skip both the cache and the full scan below entirely:
+restrict candidates to profiles whose `stack` matches `NAME` (still located via the Glob in the
+full-scan path, since a forced stack still has to be read from *some* `stack.md`) and treat it
+as the sole match for 0b-aspects.
+
+Otherwise, resolve via a cache fast-path, same shape as Step 0a's dependency preflight —
+`scripts/detect-stack.py` is the exact same algorithm as the full scan below (it exists so a
+`SessionStart` hook can precompute this once per session for free; see
+`hooks/session-start-stack-cache.sh`), and this step is just choosing whether to read its
+cached output or re-run the algorithm inline.
+
+**Fast-path (cache hit):**
+
+1. If `$ARGUMENTS` includes `--redetect-stack`, skip to the full scan below.
+2. Compute the cache path: `sha1(realpath(project_root))[:16] + ".json"` under
+   `~/.claude/.sdlc-stack-cache/`. `Read` it (1 tool call).
+3. Trust it when **all** hold: `schema_version == 1`; `repo` field matches
+   `realpath(project_root)`; `detected_at` is younger than 6h (matching the run-marker
+   staleness window elsewhere in this pipeline); `aspect_ties` is `{}` (a recorded tie must
+   still reach the operator — see step 4).
+4. If `aspect_ties` is non-empty, do **not** silently pick a winner — this is the one
+   correctness trap in trusting a precomputed cache. HALT exactly as the inline algorithm
+   would: `Aspect '{aspect}' has tie between {names}. Use --stack=NAME to disambiguate.`
+5. Otherwise, load `primary_profile` and `active_profiles` directly from the cache into
+   `PRIMARY_PROFILE` / `ACTIVE_PROFILES`. Print `🔧 Stack detection: cached (session start
+   hook, {age}m old)`. Skip to the 0b-aspects print. Done.
+6. Cache absent, stale, schema mismatch, repo mismatch, or unreadable → fall through to the
+   full scan. This is a supported, silent fallback — the hook not having run yet (first
+   session after install, or a non-interactive harness that skips hooks) is normal, not an
+   error.
+
+**Full scan (cache miss):**
+
 Use `Glob` to find all stack profiles:
 
 ```
@@ -211,7 +244,10 @@ For each `stack.md`:
    - `file_contains: { path, pattern }` → `Read` the file, run regex.
 4. Score by `priority` (higher wins).
 
-If `$ARGUMENTS` includes `--stack=NAME`, restrict candidates to profiles whose `stack` matches `NAME` and skip auto-detect.
+This is the same logic `scripts/detect-stack.py` runs non-interactively; running it inline here
+(rather than shelling out) is deliberate — a cache miss on `--stack=NAME` or a fresh repo is
+already the exception path, and keeping one obviously-correct inline algorithm as the source of
+truth is worth more than a second dependency on Python being present for every session.
 
 #### 0b-aspects — Per-aspect winner resolution
 

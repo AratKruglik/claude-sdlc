@@ -37,6 +37,36 @@ edition) instead of always shelling out to raw `git checkout -b`.
   prefix-only config (not initialized) vs. fully initialized (`branch.master` +
   `branch.develop` set).
 
+Also adds session-scoped caching for stack-profile detection, to cut the token cost of
+`/sdlc:start` and `/sdlc:doctor` re-running the same Glob+Read+parse pass over every
+installed plugin's `stack.md` on every invocation.
+
+- **`scripts/detect-stack.py`** — a read-only reimplementation of `pipeline-orchestrator/
+  SKILL.md` Step 0b and Step 0b-aspects (profile matching, per-aspect winner resolution,
+  aspect-tie detection) as a standalone script. Never raises on a malformed `stack.md`; skips
+  it and records a `parse_errors` entry instead.
+- **`hooks/session-start-stack-cache.sh`** — a new `SessionStart` hook, registered in
+  `hooks/hooks.json` alongside the existing `PreToolUse` model-enforcement hook. Runs
+  `detect-stack.py --write-cache` on `startup`/`resume`/`clear` (skips `compact`/`fork`,
+  where the repo can't have changed) and writes the result to
+  `~/.claude/.sdlc-stack-cache/{sha1(repo-path)[:16]}.json`. Prints nothing — a
+  `SessionStart` hook fires on every session on the machine, so any stdout here would be a
+  token cost paid unconditionally to save tokens conditionally.
+- **`pipeline-orchestrator/SKILL.md` Step 0b** gained a cache fast-path (mirroring Step 0a's
+  "Fast-path / Full scan / Cache invalidation" structure): a fresh, repo-matching cache with
+  no recorded `aspect_ties` is adopted directly, skipping the Glob+Read+parse pass. A
+  recorded aspect tie still HALTs the gate exactly as the inline algorithm would — the cache
+  is never allowed to silently resolve a tie the full scan would have surfaced. New
+  `--redetect-stack` flag (mirrors `--redetect-git-flow`) forces a full scan.
+- **`/sdlc:doctor`** now runs `detect-stack.py` for its own stack-profile check (reusing the
+  one algorithm instead of a second hand-rolled copy) and additionally reports the session
+  cache's presence, age, and whether it agrees with the fresh detection — kept deliberately
+  separate from the "always fresh" fresh-scan result, same principle as its existing
+  git-flow-cache-disagreement check.
+- `test-detect-stack.sh` — 23 assertions covering vanilla/Laravel/full-stack detection, a
+  fabricated aspect tie (must be recorded, never silently resolved), a malformed `stack.md`,
+  an empty plugins root, and `--write-cache`.
+
 ## [1.4.1] — marketplace v1.4.1 / sdlc plugin v1.4.1
 
 Fixes three related defects in task-type classification and recipe selection introduced by

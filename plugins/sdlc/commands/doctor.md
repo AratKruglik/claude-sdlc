@@ -17,7 +17,11 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
 
 2. **Run the same preflight algorithm as Step 0a in `pipeline-orchestrator/SKILL.md`** (Step 0a-2 through 0a-3 — enumerate available skills via `mcp__skills__list_skills` with FS fallback to `~/.claude/plugins/cache/{plugin}/skills/{skill}/SKILL.md`, then compute per-dependency status). DO NOT enforce policy in `/sdlc:doctor` — `block` does NOT exit here. Just collect status.
 
-3. **Locate active stack profiles.** Reuse Step 0b logic from the orchestrator: `Glob ~/.claude/plugins/cache/**/stack.md`, parse frontmatter, evaluate detect rules against the current project. Identify the primary profile that would be selected.
+3. **Locate active stack profiles.** Doctor always computes this **fresh** — same discipline as its git-flow check below ("a doctor that echoes a stale cache cannot diagnose a stale cache"): run `scripts/detect-stack.py --repo .` (resolve the path the same three-way way as every other script: `${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.py`, then the installed cache copy, then `<repo>/plugins/sdlc/scripts/detect-stack.py` in a development checkout). This is the exact same algorithm `pipeline-orchestrator/SKILL.md` Step 0b runs — reusing the script instead of re-deriving the Glob+Read+parse sequence by hand keeps this command from silently drifting out of sync with it.
+
+   If `python3` is unavailable, fall back to the inline algorithm (Glob `~/.claude/plugins/cache/**/stack.md`, parse frontmatter, evaluate detect rules) — the same fallback Step 0b's full scan uses.
+
+   Separately, check whether `~/.claude/.sdlc-stack-cache/{sha1(realpath(cwd))[:16]}.json` exists (the file the `SessionStart` hook writes) and report its age. If it disagrees with the fresh detection above (different `primary_profile.stack`, or different `aspect_ties`), flag it exactly like the git-flow cache-disagreement check — that is a repo whose installed-plugin set or detectable files changed since the hook last ran. Doctor reports the disagreement; it does not decide which one `/sdlc:start` will trust (Step 0b's own trust rules do that).
 
 4. **Read cost baseline.** Try `<repo>/docs/cost-baseline.md`. If it has a fenced JSON block tagged `summary` (e.g. ```` ```json summary ````) parse and extract `avg_cost_per_medium_run_usd`, `p90_cost_per_medium_run_usd`, `cache_hit_ratio`, `runs_aggregated`.
 
@@ -87,6 +91,9 @@ Dependencies (from runtime-dependencies.json):
 Stack profiles:
   🎯 active: laravel (priority=100, from laravel-plugin/stack.md)
   also installed: vanilla (priority=0)
+  session cache: fresh (written 4m ago by SessionStart hook) — /sdlc:start will use it
+  (or: session cache: absent — /sdlc:start will run a full scan)
+  (or: ⚠️  session cache disagrees with fresh detection: cached=vanilla, detected=laravel — run /sdlc:start --redetect-stack)
 
 Cost baseline (docs/cost-baseline.md, last updated 2026-05-04, 22 runs):
   avg medium-run: $1.62
@@ -169,7 +176,13 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
   "stack": {
     "active_profile": "laravel",
     "primary_priority": 100,
-    "all_installed": ["vanilla", "laravel"]
+    "all_installed": ["vanilla", "laravel"],
+    "session_cache": {
+      "present": true,
+      "age_seconds": 240,
+      "cached_primary": "laravel",
+      "agrees_with_fresh_detection": true
+    }
   },
   "cost_baseline": {
     "available": true,
@@ -240,6 +253,8 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
   "would_abort_pipeline": true
 }
 ```
+
+`stack.session_cache.present` is `false` (with `age_seconds`, `cached_primary`, and `agrees_with_fresh_detection` all `null`) when `~/.claude/.sdlc-stack-cache/{hash}.json` does not exist — this is the normal state before the `SessionStart` hook has run once, or when it is disabled. `active_profile`/`primary_priority`/`all_installed` always reflect the **fresh** scan, never the cache.
 
 `git_flow.source` is `"config"` when a `git:` block exists in `.claude/sdlc.local.yaml` (with the overridden keys listed in `config_override_keys`), otherwise `"detection"`. `git_flow.detected` is the verbatim `detect-git-flow.sh` output, always freshly computed. Every `cache.*` field is `null` when `cache.present` is `false`. `git_flow.branch_creation_method` mirrors `references/GIT-FLOW.md` Step F-2a: `"git-flow-cli"` only when `detected.model == "git-flow"` and both `detected.git_flow_cli_available` and `detected.git_flow_initialized` are `true`, else `"checkout-b"` — this field does not account for the task-type restriction in F-2a-4 (bugfix/fix/refactor/docs/chore always use `checkout-b` even when the other three conditions hold), since doctor has no task description to classify.
 

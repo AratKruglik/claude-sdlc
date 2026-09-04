@@ -372,6 +372,18 @@ The hook is registered in `plugins/sdlc/hooks/hooks.json` and activates automati
 
 **Two-tier development phase:** the development phase runs a planning pass and an implementation pass either side of a human approval gate, and they resolve different tiers. The planning pass reads `model_plan:` (Opus by default), the implementation pass reads `model:` (Sonnet). The orchestrator marks the pass in the `Agent()` `description` field so the hook enforces the matching one — see `MODEL-ROUTING.md` §4.1.
 
+---
+
+## Stack-Detection Caching
+
+Stack-profile detection (Step 0b in `pipeline-orchestrator/SKILL.md`) matches every installed plugin's `stack.md` against the current project — a Glob-then-Read-then-parse pass over every plugin, repeated on every `/sdlc:start` and `/sdlc:doctor` invocation.
+
+A `SessionStart` hook — `plugins/sdlc/hooks/session-start-stack-cache.sh` — precomputes this once per session, for free, and writes the result to `~/.claude/.sdlc-stack-cache/{hash-of-repo-path}.json`. It fires on `startup`, `resume`, and `clear` (not `compact`/`fork`, where the repo hasn't changed), runs `scripts/detect-stack.py`, and exits silently — it never prints anything, since a `SessionStart` hook fires for every session on the machine, including ones with nothing to do with this plugin.
+
+`/sdlc:start` Step 0b reads this cache when it is fresh (< 6h old, matching the repo it detected for) and skips the full scan entirely. A recorded aspect tie in the cache still halts the gate and asks for `--stack=NAME` — the cache never silently resolves a tie the inline algorithm wouldn't. `--redetect-stack` forces a full scan. `/sdlc:doctor` always computes fresh (same "a doctor that echoes a stale cache cannot diagnose a stale cache" principle as its git-flow check) but reports the cache's age and whether it agrees.
+
+This hook is also registered in `hooks.json` and activates automatically on install — no manual `settings.json` changes needed.
+
 > ⚠️ **Enforcement is not absolute.** Claude Code resolves a subagent's model in the order `CLAUDE_CODE_SUBAGENT_MODEL` → per-invocation parameter → frontmatter. That environment variable overrides **both** layers above, and every phase silently runs on whatever it names. An organization `availableModels` allowlist can likewise skip a value in favour of the inherited model. Run `/sdlc:doctor` to see whether either is in play — while an override is active, none of the cost figures below apply.
 
 ---

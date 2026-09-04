@@ -11,6 +11,18 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start-stack-cache.sh\" ]; then exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start-stack-cache.sh\"; fi; f=$(ls -d \"${HOME}/.claude/plugins/cache\"/*/sdlc/*/hooks/session-start-stack-cache.sh 2>/dev/null | { sort -Vr 2>/dev/null || sort -r; } | head -1); if [ -n \"$f\" ]; then exec bash \"$f\"; fi; f=\"${PWD}/plugins/sdlc/hooks/session-start-stack-cache.sh\"; if [ -f \"$f\" ]; then exec bash \"$f\"; fi; exit 0'",
+            "description": "Precompute and cache stack-profile detection (pipeline-orchestrator Step 0b) at session start so /sdlc:start and /sdlc:doctor can skip the Glob+Read+parse pass. Silent, side-effect-only, fails open. No matcher: the script itself filters out 'compact'/'fork' sources.",
+            "timeout": 20
+          }
+        ]
+      }
     ]
   }
 }

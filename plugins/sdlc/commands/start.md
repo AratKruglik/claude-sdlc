@@ -1,6 +1,6 @@
 ---
 description: Run the full SDLC pipeline (BA → Dev → QA → Security → Docs) for a feature, with auto-detection of the framework stack and git branching model.
-argument-hint: "<feature description> [--stack=NAME] [--type=NAME] [--workflow=NAME] [--redetect-git-flow]"
+argument-hint: "<feature description> [--stack=NAME] [--type=NAME] [--workflow=NAME] [--redetect-git-flow] [--redetect-stack]"
 ---
 
 # /sdlc:start
@@ -36,6 +36,7 @@ Extract and strip these flags from the description, remembering each value:
 | `--type=NAME` | `forced_task_type` | skips task-type classification (`feature`, `fix`, `bugfix`, `hotfix`, `release`, `refactor`, `docs`, `chore`) |
 | `--workflow=NAME` | `forced_workflow` | skips workflow auto-selection |
 | `--redetect-git-flow` | `redetect_git_flow` | ignores the cached branching-model detection |
+| `--redetect-stack` | `redetect_stack` | ignores the `SessionStart`-hook-written stack-detection cache |
 | `--force-preflight` | `force_preflight` | ignores the cached dependency preflight |
 
 Print verbatim:
@@ -73,7 +74,7 @@ If any phase fails fatally (e.g. agent crashes, post-validation impossible to sa
 (For your reference — the skill itself contains the authoritative algorithm.)
 
 1. **Step 0a** — dependency preflight (reads `runtime-dependencies.json`, checks superpowers etc.).
-2. **Step 0b** — stack detection via Glob `~/.claude/plugins/cache/**/stack.md`. Picks highest-priority match. Prints `🎯 Active stack profiles: ...` (MANDATORY).
+2. **Step 0b** — stack detection. Reads the `SessionStart`-hook-written cache (`~/.claude/.sdlc-stack-cache/`) when fresh; otherwise falls back to a full scan via Glob `~/.claude/plugins/cache/**/stack.md`. Picks highest-priority match per aspect. Prints `🎯 Active stack profiles: ...` (MANDATORY).
 3. **Step 0b-git** — branching-model detection, task-type classification, and the branch gate. Prints `🌿 Git flow: ...` (MANDATORY). See `references/GIT-FLOW.md`.
 4. **Step 0c** — skip-rules for trivial changes, measured against the detected base branch.
 5. **Step 1-2** — parse profile, select the workflow recipe, generate `task_slug`, create `docs/plans/{task_slug}/`.
