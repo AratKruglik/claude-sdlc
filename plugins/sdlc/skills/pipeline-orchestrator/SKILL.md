@@ -816,6 +816,7 @@ Write `docs/plans/{task_slug}/_telemetry.json`:
     "task_type_confidence": "high",
     "branch_name": "hotfix/null-pointer-in-payment-handler",
     "branch_action": "created",
+    "branch_creation_method": "git-flow-cli",
     "base_branch": "main",
     "pr_base_branch": "main",
     "requires_back_merge": "develop",
@@ -1168,14 +1169,21 @@ absolute. Exactly these are permitted, and only from Step 0b-git / Step 0c:
 **Read-only** — `git rev-parse`, `git symbolic-ref`, `git for-each-ref`, `git branch`
 (listing only), `git config --get` / `--get-regexp`, `git ls-remote --heads`,
 `git status --porcelain`, `git diff` (the Step 0c signals), `git rev-list --count`,
-`git check-ref-format`, and `scripts/detect-git-flow.sh`.
+`git check-ref-format`, `git flow version` (the F-2a CLI-availability probe), and
+`scripts/detect-git-flow.sh`.
 
-**Mutating** — only two, each narrowly conditioned:
+**Mutating** — only three, each narrowly conditioned:
 
 - `git fetch origin {base_branch}` — only when the base ref does not resolve locally
   (GIT-FLOW Step F-3). One attempt, no retry loop.
 - `git checkout -b {branch_name} {base_branch}` — only after the GIT-FLOW Step F gate
-  resolves to *create*, or unconditionally in headless mode per Step F-4.
+  resolves to *create*, and only when GIT-FLOW Step F-2a's git-flow-CLI conditions do
+  *not* all hold. Unconditional in headless mode per Step F-4 when F-2a does not apply.
+- `git flow {feature|release|hotfix} start {topic}` — only after the GIT-FLOW Step F gate
+  resolves to *create* **and** every GIT-FLOW Step F-2a condition holds (git-flow model,
+  CLI installed, repo initialized via `git flow init`, task_type in the native-subcommand
+  table). Never `git flow init`, `git flow {subcommand} finish`, or any other subcommand —
+  the orchestrator only starts branches, it never finishes or inits git-flow itself.
 
 Anything outside this list is a delegation to an agent or a job for the user, not something to
 improvise with a shell command.

@@ -3,6 +3,40 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [1.5.0] — marketplace v1.5.0 / sdlc plugin v1.5.0
+
+Branch *creation* on a git-flow project can now go through the real `git flow` CLI (AVH
+edition) instead of always shelling out to raw `git checkout -b`.
+
+### Added
+
+- **`git flow <subcommand> start` branch creation** (`references/GIT-FLOW.md` new Step
+  F-2a). Used only when all hold: the detected model is `git-flow`, the `git flow` binary is
+  installed, the repo has actually run `git flow init` (`gitflow.branch.master` and
+  `gitflow.branch.develop` are both set — a bare `gitflow.prefix.*` key does not count), and
+  the task type maps to a native subcommand (`feature`, `release`, `hotfix`). `bugfix`,
+  `fix`, `refactor`, `docs`, and `chore` intentionally keep using `checkout -b`: AVH
+  git-flow's own `bugfix` subcommand bases off `develop`, which contradicts this pipeline's
+  `{REL}` else `{MAIN}` policy for that type (`GIT-FLOW.md` Step D-1).
+- `detect-git-flow.sh` now reports two new read-only fields, `git_flow_cli_available` and
+  `git_flow_initialized`, alongside the existing topology signals. Neither installs the
+  binary nor runs `git flow init` — the detector stays observation-only per its existing
+  contract.
+- When the git-flow CLI path does not apply (binary missing, not initialized, or a
+  non-native task type), the pipeline **silently** falls back to `checkout -b` — this is the
+  pre-existing behavior, not a degraded mode, so it does not interrupt the Step F gate with a
+  warning.
+- `/sdlc:doctor` reports the branch-creation method that would be used and flags the two
+  actionable cases: git-flow detected but the CLI is missing, or detected but not
+  initialized.
+- `plugins/sdlc/skills/pipeline-orchestrator/SKILL.md`'s git command allowlist gained `git
+  flow version` (read-only CLI probe) and `git flow {feature|release|hotfix} start {topic}`
+  (mutating, conditioned on Step F-2a) — the orchestrator never runs `git flow init` or
+  `git flow ... finish` itself.
+- Two new fixture cases in `test-detect-git-flow.sh` (48 → 53 assertions) covering
+  prefix-only config (not initialized) vs. fully initialized (`branch.master` +
+  `branch.develop` set).
+
 ## [1.4.1] — marketplace v1.4.1 / sdlc plugin v1.4.1
 
 Fixes three related defects in task-type classification and recipe selection introduced by

@@ -61,6 +61,7 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
    - **Naming convention** — separator, word separator, ticket pattern, and the observed prefix histogram.
    - **Documented conventions** — which of the files in `references/GIT-FLOW.md` Step B exist and whether any states a branch convention. Read them; do not assume.
    - **Cache state** — `<project>/.claude/.sdlc-git-flow.json`: absent, fresh (younger than 30 days and `user_confirmed`), unconfirmed, or stale. When it is present and its `model` disagrees with the fresh detection, flag it — that is a repo whose branching model changed under a cached answer.
+   - **Branch creation method** — per `references/GIT-FLOW.md` Step F-2a: `git flow {subcommand} start` when the model is `git-flow` and `git_flow_cli_available` and `git_flow_initialized` both hold, else raw `git checkout -b`. When the model is `git-flow` but the CLI is unavailable or uninitialized, say so — that is the one case where the operator can change the outcome (install `git flow`, or run `git flow init`) by acting outside the pipeline.
 
    This step reads the filesystem and runs read-only git plumbing. It creates no branch and writes no cache.
 
@@ -123,6 +124,7 @@ Git flow:
   documented conventions: CONTRIBUTING.md (no branch statement), CLAUDE.md (absent)
   cache: .claude/.sdlc-git-flow.json absent — next /sdlc:start will detect and ask
   would branch: feature/<slug> from main → PR base main
+  creation method: git checkout -b (model=github-flow — git-flow CLI path does not apply)
 
 Heads-up:
   ❌ 1 blocking dependency missing — /sdlc:start would abort.
@@ -137,6 +139,8 @@ In the Git flow section, flag these conditions instead of the plain `🎯` line 
 - `⚠️  cache disagrees with fresh detection: cached={cached_model}, detected={detected_model} — run /sdlc:start --redetect-git-flow`
 - `⚠️  rules/topology conflict: {one line}` — a documented convention that the branch topology does not corroborate.
 - `⚠️  model=unknown — no commits or branches; /sdlc:start will not create a branch`
+- `⚠️  model=git-flow but git-flow CLI unavailable — falling back to git checkout -b. Install git-flow (AVH edition) to use "git flow {subcommand} start".`
+- `⚠️  model=git-flow but repo not initialized (no gitflow.branch.master/develop) — falling back to git checkout -b. Run "git flow init" to use the CLI path.`
 
 When no local-agent name collides with the active profile, print `✅ no local-agent shadowing detected` in place of the warning list. When a run marker exists and is fresh (< 6h), print `🏃 run marker active (task_slug={task_slug}, started {N}m ago) — a pipeline appears to be running`. When it exists and is stale (≥ 6h), print `⚠️  stale run marker (started {N}h ago, task_slug={task_slug}) — likely a crashed run. Remove with: rm .claude/.sdlc-run-active.json`.
 
@@ -216,8 +220,11 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
         "ticket_pattern": null,
         "ticket_position": null,
         "observed_max_length": 42
-      }
+      },
+      "git_flow_cli_available": false,
+      "git_flow_initialized": false
     },
+    "branch_creation_method": "checkout-b",
     "documented_conventions": [
       { "path": "CONTRIBUTING.md", "states_convention": false }
     ],
@@ -234,7 +241,7 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
 }
 ```
 
-`git_flow.source` is `"config"` when a `git:` block exists in `.claude/sdlc.local.yaml` (with the overridden keys listed in `config_override_keys`), otherwise `"detection"`. `git_flow.detected` is the verbatim `detect-git-flow.sh` output, always freshly computed. Every `cache.*` field is `null` when `cache.present` is `false`.
+`git_flow.source` is `"config"` when a `git:` block exists in `.claude/sdlc.local.yaml` (with the overridden keys listed in `config_override_keys`), otherwise `"detection"`. `git_flow.detected` is the verbatim `detect-git-flow.sh` output, always freshly computed. Every `cache.*` field is `null` when `cache.present` is `false`. `git_flow.branch_creation_method` mirrors `references/GIT-FLOW.md` Step F-2a: `"git-flow-cli"` only when `detected.model == "git-flow"` and both `detected.git_flow_cli_available` and `detected.git_flow_initialized` are `true`, else `"checkout-b"` — this field does not account for the task-type restriction in F-2a-4 (bugfix/fix/refactor/docs/chore always use `checkout-b` even when the other three conditions hold), since doctor has no task description to classify.
 
 `local_agent_shadowing` is `[]` when no collision exists. `run_marker.stale` is `null` when `present` is `false`; otherwise `true` when `age_seconds >= 21600` (6h, matching `enforce-agent-model.sh`'s `MARKER_MAX_AGE_SECONDS`), else `false`.
 

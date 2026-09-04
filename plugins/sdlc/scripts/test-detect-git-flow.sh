@@ -199,6 +199,31 @@ OUT=$(run_detect "$REPO")
 assert_field "case15 dev alias detected" '.develop_branch' "dev" "$OUT"
 assert_field "case15 model" '.model' "git-flow" "$OUT"
 
+# ── Case 16: git-flow CLI fields — not initialized (gitflow.prefix.* only, no branch.*) ──
+REPO=$(fresh_repo "gitflow-prefix-only" main develop feature/a feature/b)
+git -C "$REPO" config gitflow.prefix.feature "feature/" >/dev/null 2>&1
+OUT=$(run_detect "$REPO")
+assert_field "case16 model" '.model' "git-flow" "$OUT"
+assert_field "case16 not initialized (prefix only)" '.git_flow_initialized' "false" "$OUT"
+
+# ── Case 17: git-flow CLI fields — fully initialized (branch.master + branch.develop set) ──
+REPO=$(fresh_repo "gitflow-initialized" main develop feature/a feature/b)
+git -C "$REPO" config gitflow.branch.master main >/dev/null 2>&1
+git -C "$REPO" config gitflow.branch.develop develop >/dev/null 2>&1
+OUT=$(run_detect "$REPO")
+assert_field "case17 model" '.model' "git-flow" "$OUT"
+assert_field "case17 initialized" '.git_flow_initialized' "true" "$OUT"
+# git_flow_cli_available reflects whatever is on the machine running the test — just assert
+# it is a valid boolean rather than pinning true/false, since the CLI may not be installed.
+GIT_FLOW_CLI_FIELD=$(printf '%s' "$OUT" | jq -r '.git_flow_cli_available' 2>/dev/null)
+if [ "$GIT_FLOW_CLI_FIELD" = "true" ] || [ "$GIT_FLOW_CLI_FIELD" = "false" ]; then
+    pass_count=$((pass_count + 1))
+    printf 'PASS  %-64s .git_flow_cli_available = %s\n' "case17 cli availability is boolean" "$GIT_FLOW_CLI_FIELD"
+else
+    fail_count=$((fail_count + 1))
+    printf 'FAIL  %-64s .git_flow_cli_available: expected true/false, got %q\n' "case17 cli availability is boolean" "$GIT_FLOW_CLI_FIELD"
+fi
+
 echo
 echo "=== ${pass_count} passed, ${fail_count} failed ==="
 [ "$fail_count" -eq 0 ]

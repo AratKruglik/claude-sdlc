@@ -54,7 +54,8 @@ json_str() {
 emit_unknown() {
     printf '{"schema_version":1,"model":"unknown","confidence":"low","reason":"%s",' "$(json_str "$1")"
     printf '"default_branch":null,"develop_branch":null,"current_branch":null,'
-    printf '"prefix_style":"none","prefix_histogram":{},"branches_analyzed":0}\n'
+    printf '"prefix_style":"none","prefix_histogram":{},"branches_analyzed":0,'
+    printf '"git_flow_cli_available":false,"git_flow_initialized":false}\n'
     exit 0
 }
 
@@ -126,6 +127,24 @@ fi
 GITFLOW_CONFIG_COUNT=$(git config --get-regexp '^gitflow\.' 2>/dev/null | grep -c '[^[:space:]]' || true)
 
 RELEASE_BRANCHES=$(printf '%s\n' "$BRANCHES" | grep -E '^(release|releases)/' || true)
+
+# ---------------------------------------------------------------------------
+# git-flow CLI (AVH edition) availability — read-only probe, never installs or inits
+# ---------------------------------------------------------------------------
+
+GIT_FLOW_CLI_AVAILABLE="false"
+command -v git-flow >/dev/null 2>&1 && GIT_FLOW_CLI_AVAILABLE="true"
+if [ "$GIT_FLOW_CLI_AVAILABLE" = "false" ]; then
+    git flow version >/dev/null 2>&1 && GIT_FLOW_CLI_AVAILABLE="true"
+fi
+
+# `git flow init` writes gitflow.branch.master / gitflow.branch.develop, distinct from the
+# gitflow.prefix.* keys a prefix-only config might carry.
+GIT_FLOW_INITIALIZED="false"
+if [ -n "$(git config --get gitflow.branch.master 2>/dev/null)" ] \
+    && [ -n "$(git config --get gitflow.branch.develop 2>/dev/null)" ]; then
+    GIT_FLOW_INITIALIZED="true"
+fi
 
 # ---------------------------------------------------------------------------
 # Naming convention
@@ -333,6 +352,8 @@ cat <<JSON
   "current_branch": ${current_json},
   "current_branch_is_base": ${CURRENT_IS_BASE},
   "dirty_file_count": ${DIRTY_COUNT},
-  "branches_analyzed": ${BRANCH_COUNT}
+  "branches_analyzed": ${BRANCH_COUNT},
+  "git_flow_cli_available": ${GIT_FLOW_CLI_AVAILABLE},
+  "git_flow_initialized": ${GIT_FLOW_INITIALIZED}
 }
 JSON

@@ -84,6 +84,7 @@ The script emits one JSON object and **never exits non-zero**. Parse:
 | `prefix_histogram` | observed prefixes with counts ≥2 |
 | `naming.*` | separator, word separator, ticket pattern/position; `observed_max_length` is diagnostic only — never a limit (see Step E) |
 | `current_branch`, `current_branch_is_base`, `dirty_file_count` | Step F gate |
+| `git_flow_cli_available`, `git_flow_initialized` | Step F-2a — whether `git flow <subcommand> start` can be used for branch creation |
 
 `model: "unknown"` (no commits, no branches, not a repo) → treat as `github-flow`, confidence
 `low`, and never create a branch: there is no base to branch from.
@@ -275,6 +276,7 @@ The table's prefix column is a *default*, not a mandate:
    Proposed:    {branch_name}
    Branch from: {base_branch}
    PR base:     {pr_base_branch}
+   Creation:    {"git flow {subcommand} start" if F-2a applies, else "git checkout -b"}
 ```
 
 Add these lines only when they apply:
@@ -291,11 +293,72 @@ Ask the user, then act:
 
 | Choice | Effect |
 |---|---|
-| **create** | `git checkout -b {branch_name} {base_branch}`. `branch_action = "created"` |
+| **create** | Create the branch per F-2a below. `branch_action = "created"` |
 | **continue** | Stay on `current_branch`. `branch_action = "continued"` |
-| **rename** | Take the user's name verbatim (validate with `git check-ref-format --branch`), then create |
+| **rename** | Take the user's name verbatim (validate with `git check-ref-format --branch`), then create per F-2a |
 | **change type** | Take a task_type from the Step C set, re-run D and E, re-print this block |
 | **abort** | Stop the pipeline before Step 2. Nothing has been written yet |
+
+### F-2a. How "create" creates the branch
+
+Two mechanisms exist. Which one runs is decided here, deterministically — never by asking
+the user to pick a mechanism (only the branch itself is their decision):
+
+**`git flow <subcommand> start {topic}`** — used only when **all** of the following hold:
+
+1. `git_flow_model == "git-flow"` (F-2a is a git-flow-only feature; the CLI has no
+   equivalent for github-flow or custom models, and there is nothing to gain by shelling
+   out to it there).
+2. `git_flow_cli_available == true` (from `detect-git-flow.sh`).
+3. `git_flow_initialized == true` — the repo has actually run `git flow init`
+   (`gitflow.branch.master` and `gitflow.branch.develop` are both set), not merely a
+   `gitflow.prefix.*` key or a `develop` branch that happens to exist.
+4. `task_type` maps to a **native** git-flow subcommand per this table:
+
+   | task_type | subcommand | git-flow's own base | matches Step D-1? |
+   |---|---|---|---|
+   | `feature` | `feature` | `develop` | yes |
+   | `release` | `release` | `develop`, merges to `master`+`develop` | yes |
+   | `hotfix` | `hotfix` | `master` | yes |
+
+   `bugfix`, `fix`, `refactor`, `docs`, and `chore` are deliberately **excluded** even
+   though AVH git-flow ships a `bugfix` subcommand: it bases off `develop`, which
+   contradicts Step D-1's `{REL}` else `{MAIN}` policy for `bugfix`. Running the real CLI
+   for a type whose base it gets wrong would be worse than not using it. These types
+   always use raw `checkout -b`.
+
+When all four hold, run:
+
+```bash
+git flow {subcommand} start {topic}
+```
+
+where `{topic}` is the Step E slug **without** the prefix, separator, or ticket segment —
+`git flow` supplies `gitflow.prefix.{subcommand}` itself, and inserting one manually would
+double it (`feature/feature-foo-bar`). If `naming.ticket_pattern` matched, append the ticket
+to `{topic}` the same way Step E would (`ticket_position` still applies); `git flow` has no
+opinion on ticket placement, it only owns the type prefix.
+
+Record `CONTEXT.branch_creation_method = "git-flow-cli"` and `CONTEXT.branch_name` from
+`git rev-parse --abbrev-ref HEAD` after the command succeeds (the CLI's own prefix may not
+byte-for-byte match Step E's `{prefix}{separator}` if the project's `gitflow.prefix.*` was
+configured with something Step D-4 didn't observe from branch history — trust the CLI's
+result over the Step E prediction when they diverge, and note the divergence in telemetry).
+
+If the command exits non-zero (e.g. a branch with that name already exists, or `release`/
+`hotfix` refuses because one is already in progress), surface the error and fall back to raw
+`checkout -b` (per F-3) for this run rather than retrying the CLI — `git flow` reports its
+own reason on stderr and the operator needs to see it, not a silent alternate path.
+
+**Raw `git checkout -b {branch_name} {base_branch}`** — used for everything else: any
+model other than `git-flow`, `git_flow_cli_available == false`, `git_flow_initialized ==
+false`, or a task_type outside the F-2a-4 table. This is a **silent** fallback — it is the
+long-standing default behavior, not a degraded mode, and does not need to interrupt the
+gate with a warning. Record `CONTEXT.branch_creation_method = "checkout-b"`.
+
+This orchestrator never runs `git flow init` itself (Hard rules — no init side effects
+belong in a branch-creation step) and never installs the `git flow` binary. A project that
+wants the CLI path enables it by running `git flow init` once, out of band.
 
 Defaults, and the one hard restriction:
 
@@ -308,6 +371,9 @@ Defaults, and the one hard restriction:
 - Otherwise → default to **create**.
 
 ### F-3. Fetching a missing base ref
+
+Applies to the `checkout -b` path only — `git flow {subcommand} start` resolves its own base
+from `gitflow.branch.*` and needs no pre-verification here.
 
 Before `checkout -b`, verify the base ref resolves: `git rev-parse --verify {base_branch}`.
 If it does not, and a remote-tracking equivalent might exist, run exactly one
@@ -332,9 +398,9 @@ channel, so the gate does not ask:
 Set, for the rest of the run:
 
 `CONTEXT.git_flow_model`, `git_flow_confidence`, `git_flow_source`, `git_flow_sources[]`,
-`task_type`, `task_type_confidence`, `branch_name`, `branch_action`, `base_branch`,
-`pr_base_branch`, `naming_convention`, `requires_back_merge` (or null),
-`topology_conflict` (or null).
+`task_type`, `task_type_confidence`, `branch_name`, `branch_action`, `branch_creation_method`
+(`"git-flow-cli"` or `"checkout-b"`, per F-2a), `base_branch`, `pr_base_branch`,
+`naming_convention`, `requires_back_merge` (or null), `topology_conflict` (or null).
 
 `base_branch` is consumed by Step 0c's diff signals; `task_type` by `RESOLVER.md` Step 1;
 `pr_base_branch`, `task_type` and `requires_back_merge` reach the documentation phase through
@@ -418,6 +484,9 @@ prefix_style:      conventional
 naming:            separator=/, word_separator=-, ticket_pattern=null
 → model=github-flow, confidence=high
 ```
+
+(`git_flow_cli_available` and `git_flow_initialized` are irrelevant here regardless of their
+value — F-2a's first condition already excludes any non-`git-flow` model.)
 
 So for `/sdlc:start "Add /healthz endpoint"` from `main`: task_type `feature`, branch
 `feature/add-healthz-endpoint`, base `main`, PR base `main`.
