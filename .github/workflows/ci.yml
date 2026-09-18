@@ -9,6 +9,8 @@ permissions:
   contents: read
 
 env:
+  # Pinned so that a stricter upstream `--strict` cannot turn an unrelated PR red.
+  CLAUDE_CODE_VERSION: 2.1.276
   YQ_VERSION: v4.53.6
 
 jobs:
@@ -94,7 +96,7 @@ jobs:
           node-version: '22'
 
       - name: Install Claude Code
-        run: npm install -g @anthropic-ai/claude-code
+        run: npm install -g @anthropic-ai/claude-code@${{ env.CLAUDE_CODE_VERSION }}
 
       - name: Validate every plugin
         run: |
