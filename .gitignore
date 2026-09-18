@@ -8,3 +8,4 @@ build
 memory_assets
 .ai
 docs
+__pycache__
