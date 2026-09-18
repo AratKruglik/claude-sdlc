@@ -34,6 +34,18 @@ A run is **resumable**: Step 2 writes a state file (`.claude/.sdlc-run-active.js
 - Current project working directory.
 - Installed plugins under `~/.claude/plugins/cache/**`.
 - `<project>/.claude/.sdlc-run-active.json` — the state file of an in-progress run, if any (Step R / Step 2).
+- Plugin options (see below), delivered by Claude Code as `CLAUDE_PLUGIN_OPTION_*` environment variables.
+
+### Plugin options (`userConfig`)
+
+Declared in the plugin manifest; the user sets them when enabling the plugin. Every option reaches this skill and the hooks as an environment variable named `CLAUDE_PLUGIN_OPTION_<KEY>` (key uppercased). An explicit project or environment setting always wins over the option:
+
+| Option | Env var | Default | Read at | Overridden by |
+|---|---|---|---|---|
+| `noninteractive` | `CLAUDE_PLUGIN_OPTION_NONINTERACTIVE` | `false` | Step 0a-1 | `SDLC_NONINTERACTIVE` (env) |
+| `default_cost_cap_usd` | `CLAUDE_PLUGIN_OPTION_DEFAULT_COST_CAP_USD` | `0` (off) | Step 1c | `caps.max_total_cost_usd` in the recipe |
+| `stack_cache_ttl_hours` | `CLAUDE_PLUGIN_OPTION_STACK_CACHE_TTL_HOURS` | `6` | Step 0b | `--redetect-stack` |
+| `post_check_fix_attempts` | `CLAUDE_PLUGIN_OPTION_POST_CHECK_FIX_ATTEMPTS` | `0` | Step 4 | `post_check_fix_attempts` in `sdlc.local.yaml` |
 
 ---
 
@@ -143,12 +155,12 @@ Aggregate runtime dependencies from **every installed plugin's `runtime-dependen
 
 **Algorithm (with cache fast-path):**
 
-The preflight result is cached in `~/.claude/.sdlc-deps-preflight.json` to avoid repeating 11+ tool calls on every `/sdlc:start` invocation.
+The preflight result is cached in `${CLAUDE_PLUGIN_DATA}/deps-preflight.json` (the plugin data directory Claude Code provides; fall back to `~/.claude/.sdlc-deps-preflight.json` when the variable is unset, e.g. a dev checkout) to avoid repeating 11+ tool calls on every `/sdlc:start` invocation.
 
 **Fast-path (cache hit):**
 
 1. If `$ARGUMENTS` contains `--force-preflight`, skip to full scan below.
-2. Read `~/.claude/.sdlc-deps-preflight.json` (1 tool call).
+2. Read `${CLAUDE_PLUGIN_DATA}/deps-preflight.json` (1 tool call).
 3. If the file exists AND `all_satisfied == true`:
    - Load `results` into `CONTEXT` (set `CONTEXT.{plugin}_unavailable = true` for any `"missing"` entries).
    - Print: `🔧 Dependency preflight: cached (all satisfied)`
@@ -166,7 +178,7 @@ The preflight result is cached in `~/.claude/.sdlc-deps-preflight.json` to avoid
 
 **Write cache stamp** (after full scan completes without `block` abort):
 
-Write `~/.claude/.sdlc-deps-preflight.json`:
+Write `${CLAUDE_PLUGIN_DATA}/deps-preflight.json`:
 
 ```json
 {
@@ -186,6 +198,7 @@ Write `~/.claude/.sdlc-deps-preflight.json`:
 
 ```
 HEADLESS = (env SDLC_NONINTERACTIVE == "true" OR "1")
+       OR (env SDLC_NONINTERACTIVE unset AND env CLAUDE_PLUGIN_OPTION_NONINTERACTIVE == "true")
 ```
 
 Persist in `CONTEXT.headless_mode` for telemetry. Affects UX of policy enforcement below (interactive prompts vs. machine-readable JSON to stdout, warnings to stderr, etc.).
@@ -284,7 +297,7 @@ full-scan path, since a forced stack still has to be read from *some* `stack.md`
 as the sole match for 0b-aspects.
 
 Otherwise, resolve via a cache fast-path, same shape as Step 0a's dependency preflight —
-`scripts/detect-stack.py` is the exact same algorithm as the full scan below (it exists so a
+`scripts/detect-stack.sh` is the exact same algorithm as the full scan below (it exists so a
 `SessionStart` hook can precompute this once per session for free; see
 `hooks/session-start-stack-cache.sh`), and this step is just choosing whether to read its
 cached output or re-run the algorithm inline.
@@ -293,9 +306,9 @@ cached output or re-run the algorithm inline.
 
 1. If `$ARGUMENTS` includes `--redetect-stack`, skip to the full scan below.
 2. Compute the cache path: `sha1(realpath(project_root))[:16] + ".json"` under
-   `~/.claude/.sdlc-stack-cache/`. `Read` it (1 tool call).
+   `${CLAUDE_PLUGIN_DATA}/stack-cache/` (fallback when the variable is unset: `~/.claude/.sdlc-stack-cache/`). `Read` it (1 tool call).
 3. Trust it when **all** hold: `schema_version == 1`; `repo` field matches
-   `realpath(project_root)`; `detected_at` is younger than 6h (matching the run-marker
+   `realpath(project_root)`; `detected_at` is younger than `stack_cache_ttl_hours` (plugin option `CLAUDE_PLUGIN_OPTION_STACK_CACHE_TTL_HOURS`, default 6h — matching the run-marker
    staleness window elsewhere in this pipeline); `aspect_ties` is `{}` (a recorded tie must
    still reach the operator — see step 4).
 4. If `aspect_ties` is non-empty, do **not** silently pick a winner — this is the one
@@ -327,10 +340,10 @@ For each `stack.md`:
    - `file_contains: { path, pattern }` → `Read` the file, run regex.
 4. Score by `priority` (higher wins).
 
-This is the same logic `scripts/detect-stack.py` runs non-interactively; running it inline here
+This is the same logic `scripts/detect-stack.sh` runs non-interactively; running it inline here
 (rather than shelling out) is deliberate — a cache miss on `--stack=NAME` or a fresh repo is
 already the exception path, and keeping one obviously-correct inline algorithm as the source of
-truth is worth more than a second dependency on Python being present for every session.
+truth is worth more than a hard dependency on `jq` being present for every session.
 
 #### 0b-aspects — Per-aspect winner resolution
 
@@ -567,6 +580,7 @@ If present — `Read` and parse it. Recognized top-level keys:
 | `convention_skills_extra` | array of strings | APPENDS to `convention_skills`. |
 | `git` | object | **Already consumed by Step 0b-git** — recognized here so it is not reported as an unknown key. Do not re-apply it; the branch decision is settled by now. Shape documented in `references/GIT-FLOW.md` Step A-1. |
 | `agent_overrides` | object (phase → agent name) | Deliberately dispatch a different agent for that phase — e.g. a project-local `.claude/agents/{name}.md`. **REPLACES** `EFFECTIVE_PROFILE.agents_per_phase[phase]` for that phase and is added to the Step 2 run-marker `roster`, so the `enforce-agent-model.sh` PreToolUse hook allows it. Without this key, a project-local agent is off-roster for the run and the hook denies it — see Step 2 and Step 3c. |
+| `post_check_fix_attempts` | integer `0` or `1` | **REPLACES** the plugin option `CLAUDE_PLUGIN_OPTION_POST_CHECK_FIX_ATTEMPTS` (default `0`) for this project. Consumed by Step 4: `1` allows one minimal-diff fix pass by the development architect when a post-pipeline check fails; `0` keeps the report-only behaviour. |
 
 **Example `sdlc.local.yaml`:**
 
@@ -640,7 +654,9 @@ Summary:
 5. **Persist and print (RESOLVER.md Step 5):** store as `CONTEXT.resolved_phases[]`,
    persist `WORKFLOW_NAME` in `CONTEXT.active_workflow`, print one line at Step 1c.
 6. **Persist the cost cap:** store `caps.max_total_cost_usd` (when the recipe declares
-   one) in `CONTEXT.max_total_cost_usd`, otherwise `null`. Enforced in Step 3d-3.
+   one) in `CONTEXT.max_total_cost_usd`. When the recipe declares none, use the plugin option
+   `CLAUDE_PLUGIN_OPTION_DEFAULT_COST_CAP_USD` if it is set and greater than 0, otherwise `null`.
+   The recipe value always wins over the option. Enforced in Step 3d-3.
 
 The resolved `CONTEXT.resolved_phases[]` replaces the hardcoded list for all
 downstream steps. Phase names and their semantics are unchanged.

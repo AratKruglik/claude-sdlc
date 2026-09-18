@@ -8,7 +8,7 @@
           {
             "type": "command",
             "command": "f=\"$CLAUDE_FILE\"; case \"$f\" in *.php) docker compose exec -T php vendor/bin/php-cs-fixer fix \"$f\" 2>/dev/null || vendor/bin/php-cs-fixer fix \"$f\" 2>/dev/null; exit 0;; esac",
-            "timeout": 30000
+            "timeout": 30
           }
         ]
       }

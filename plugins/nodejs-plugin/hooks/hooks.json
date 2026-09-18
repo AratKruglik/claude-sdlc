@@ -8,7 +8,7 @@
           {
             "type": "command",
             "command": "f=\"$CLAUDE_FILE\"; case \"$f\" in *.js|*.jsx|*.ts|*.tsx|*.mjs|*.cjs) [ -f package.json ] && grep -q '\"prettier\"' package.json 2>/dev/null && npx --no-install prettier --write \"$f\" 2>/dev/null; [ -f package.json ] && grep -q '\"eslint\"' package.json 2>/dev/null && npx --no-install eslint --fix \"$f\" 2>/dev/null; exit 0;; esac",
-            "timeout": 30000
+            "timeout": 30
           }
         ]
       }

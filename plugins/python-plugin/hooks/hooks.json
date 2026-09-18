@@ -8,7 +8,7 @@
           {
             "type": "command",
             "command": "f=\"$CLAUDE_FILE\"; case \"$f\" in *.py) docker compose exec -T app ruff format \"$f\" 2>/dev/null || ruff format \"$f\" 2>/dev/null; exit 0;; esac",
-            "timeout": 30000
+            "timeout": 30
           }
         ]
       }

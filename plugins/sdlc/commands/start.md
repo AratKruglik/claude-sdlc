@@ -78,7 +78,7 @@ If any phase fails fatally (e.g. agent crashes, post-validation impossible to sa
 
 1. **Step R** — resume check. A fresh state file from an earlier run is never silently overwritten: with `--resume` the run continues at its first unfinished phase; without it you are asked resume / start fresh / abort.
 2. **Step 0a** — dependency preflight (reads `runtime-dependencies.json`, checks superpowers etc.).
-3. **Step 0b** — stack detection. Reads the `SessionStart`-hook-written cache (`~/.claude/.sdlc-stack-cache/`) when fresh; otherwise falls back to a full scan via Glob `~/.claude/plugins/cache/**/stack.md`. Picks highest-priority match per aspect. Prints `🎯 Active stack profiles: ...` (MANDATORY).
+3. **Step 0b** — stack detection. Reads the `SessionStart`-hook-written cache (`${CLAUDE_PLUGIN_DATA}/stack-cache/`) when fresh; otherwise falls back to a full scan via Glob `~/.claude/plugins/cache/**/stack.md`. Picks highest-priority match per aspect. Prints `🎯 Active stack profiles: ...` (MANDATORY).
 4. **Step 0b-git** — branching-model detection, task-type classification, and the branch gate. Prints `🌿 Git flow: ...` (MANDATORY). See `references/GIT-FLOW.md`.
 5. **Step 0c** — skip-rules for trivial changes, measured against the detected base branch.
 6. **Step 1-2** — parse profile, select the workflow recipe, generate `task_slug`, create `docs/plans/{task_slug}/` and the run state file (`.claude/.sdlc-run-active.json`, updated at every phase boundary).
@@ -101,7 +101,7 @@ If any phase fails fatally (e.g. agent crashes, post-validation impossible to sa
 
 ## Headless mode
 
-Set `SDLC_NONINTERACTIVE=true` in the environment to run without interactive prompts (intended for CI / automation):
+Set `SDLC_NONINTERACTIVE=true` in the environment — or enable the plugin option `noninteractive` when installing `sdlc` (the environment variable wins when both are set) — to run without interactive prompts (intended for CI / automation):
 
 - `policy=block` dependency failures emit machine-readable JSON to stdout and exit 1 (no install prompts).
 - `policy=warn` failures write a single line to stderr and continue.
