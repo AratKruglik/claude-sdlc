@@ -474,10 +474,11 @@ Write the cache only after the gate resolves, with `user_confirmed = true` in in
 and `false` in headless (so the next interactive run confirms what CI assumed).
 
 Before writing, ensure the file is excluded from version control — the same idempotent
-mechanism Step 2 uses for `.claude/.sdlc-run-active.json`: if `.git/info/exclude` exists and
-does not already contain `.claude/.sdlc-git-flow.json`, append it. This keeps a
-machine-generated file out of the commit the documentation phase creates without touching the
-project's own `.gitignore`.
+mechanism Step 2 uses for `.claude/.sdlc-run-active.json`: resolve the exclude file with
+`git rev-parse --git-path info/exclude` (correct in a worktree too, where `.git` is a file, not a
+directory) and, if it does not already contain `.claude/.sdlc-git-flow.json`, append it. This
+keeps a machine-generated file out of the commit the documentation phase creates without
+touching the project's own `.gitignore`.
 
 Unlike the run marker, the cache is **not** deleted at Step 5 — outliving the run is its
 entire purpose.
