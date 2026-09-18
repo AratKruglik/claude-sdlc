@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fixture-based test harness for detect-stack.py.
+# Fixture-based test harness for detect-stack.sh.
 #
 # Each case builds a throwaway "plugins root" (a directory of fake stack.md
 # files) and/or a throwaway project directory, then asserts on the
@@ -11,10 +11,9 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DETECT="${SCRIPT_DIR}/detect-stack.py"
+DETECT="${SCRIPT_DIR}/detect-stack.sh"
 REAL_PLUGINS_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-command -v python3 >/dev/null 2>&1 || { echo "SKIP: python3 not available"; exit 0; }
 command -v jq >/dev/null 2>&1 || { echo "SKIP: jq not available"; exit 0; }
 
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/sdlc-stack-test.XXXXXX")
@@ -48,7 +47,7 @@ assert_valid_json() {
 }
 
 run_detect() {
-    python3 "$DETECT" --repo "$1" --plugins-root "${2:-$REAL_PLUGINS_ROOT}"
+    bash "$DETECT" --repo "$1" --plugins-root "${2:-$REAL_PLUGINS_ROOT}"
 }
 
 # ── Case 1: real plugin set, vanilla project (this repo itself) ──
@@ -142,7 +141,7 @@ assert_field "case6 primary is null" '.primary_profile' "null" "$OUT"
 CACHE_DIR="$TMP_ROOT/cache-dir"
 REPO="$TMP_ROOT/cache-write-repo"
 mkdir -p "$REPO"
-python3 "$DETECT" --repo "$REPO" --plugins-root "$REAL_PLUGINS_ROOT" --cache-dir "$CACHE_DIR" --write-cache >/dev/null
+bash "$DETECT" --repo "$REPO" --plugins-root "$REAL_PLUGINS_ROOT" --cache-dir "$CACHE_DIR" --write-cache >/dev/null
 CACHE_FILE_COUNT=$(find "$CACHE_DIR" -name '*.json' | wc -l | tr -d ' ')
 if [ "$CACHE_FILE_COUNT" = "1" ]; then
     pass_count=$((pass_count + 1)); printf 'PASS  %-64s exactly one cache file written\n' "case7 write-cache"
