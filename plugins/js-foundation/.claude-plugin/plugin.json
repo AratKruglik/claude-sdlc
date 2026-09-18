@@ -1,6 +1,6 @@
 {
   "name": "js-foundation",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "description": "Shared JavaScript/TypeScript foundation skills for the SDLC marketplace. Contains stack-agnostic conventions: typescript-patterns (strict TS, branded types, validation at boundary, no-any) and npm-patterns (package manager detection, semver, scripts, lockfile hygiene). Referenced cross-plugin by every JS/TS framework provider (nodejs, nestjs, nextjs, react, react-native, vue, angular). No agent, no stack profile — pure shared library.",
   "author": {
     "name": "Oleksii Kruhlyk",
@@ -8,6 +8,14 @@
   },
   "license": "MIT",
   "homepage": "https://github.com/AratKruglik/claude-sdlc",
-  "keywords": ["typescript", "javascript", "shared", "foundation", "sdlc"],
-  "dependencies": ["sdlc"]
+  "keywords": [
+    "typescript",
+    "javascript",
+    "shared",
+    "foundation",
+    "sdlc"
+  ],
+  "dependencies": [
+    "sdlc"
+  ]
 }

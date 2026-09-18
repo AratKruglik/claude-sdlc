@@ -15,6 +15,8 @@ description: |
   - General Angular conventions (see angular-conventions).
   - Routing patterns broadly (see angular-routing — covers testing routes briefly).
   - Form patterns broadly (see angular-forms).
+user-invocable: false
+paths: ["**/*.spec.ts", "src/**/*.ts"]
 ---
 
 # Angular Testing

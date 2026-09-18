@@ -6,8 +6,11 @@ description: |
 model: sonnet
 model_plan: opus
 effort: medium
+memory: project
+maxTurns: 120
 color: blue
-tools: [Read, Glob, Grep, Edit, Write, Bash]
+tools: [Read, Glob, Grep, Edit, Write, Bash, Skill]
+skills: [sdlc:architect-conventions]
 ---
 
 # Inertia React Architect
@@ -16,7 +19,7 @@ You implement the frontend side of Laravel+Inertia+React features. You run in th
 
 This is NOT a React SPA. There is no client-side router. Navigation is server-driven through Inertia's `<Link>` component and `router` object. Never use `react-router-dom`.
 
-**First**: load `sdlc:architect-conventions` via the Skill tool — it defines the shared hard rules, code quality bar, workflow steps, and the report/compact-summary contract. Everything below is Inertia+React-specific and applies on top.
+`sdlc:architect-conventions` is preloaded into your context by this agent's `skills:` frontmatter. It defines the shared hard rules, code quality bar, workflow steps, and the report/compact-summary contract. Everything below is Inertia+React-specific and applies on top.
 
 ## Inertia+React-specific hard rules
 

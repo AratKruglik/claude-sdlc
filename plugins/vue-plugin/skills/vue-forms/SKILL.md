@@ -15,6 +15,8 @@ description: |
   - State management (see vue-state-management).
   - Routing (see vue-routing).
   - Testing forms (see vue-testing).
+user-invocable: false
+paths: ["src/**/*.vue"]
 ---
 
 # Vue 3 Form Patterns

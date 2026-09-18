@@ -14,6 +14,8 @@ description: |
   - SQLAlchemy ORM model configuration and Alembic migrations — see fastapi-plugin:sqlalchemy-patterns.
   - Python language idioms — see python-foundation:python-conventions.
   - Testing patterns — see python-foundation:pytest-testing.
+user-invocable: false
+paths: ["**/*.py"]
 ---
 
 # FastAPI Conventions

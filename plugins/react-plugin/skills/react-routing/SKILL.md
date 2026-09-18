@@ -15,6 +15,8 @@ description: |
   - State management (see react-state-management).
   - Form handling (see react-forms).
   - Next.js routing (different model — see nextjs-plugin).
+user-invocable: false
+paths: ["src/**/*.tsx", "src/**/*.jsx"]
 ---
 
 # React Routing Patterns

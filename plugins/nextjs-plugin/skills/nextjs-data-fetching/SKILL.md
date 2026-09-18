@@ -14,6 +14,8 @@ description: |
   - RSC vs Client boundaries (see server-component-patterns).
   - Routing primitives (see nextjs-routing).
   - General conventions (see nextjs-conventions).
+user-invocable: false
+paths: ["app/**", "pages/**", "src/**"]
 ---
 
 # Next.js Data Fetching Patterns

@@ -15,8 +15,9 @@ description: |
   - Security review (use security-analyst)
 model: opus
 effort: high
+maxTurns: 80
 color: blue
-tools: [Read, Glob, Grep, Write, WebSearch, WebFetch]
+tools: [Read, Glob, Grep, Write, WebSearch, WebFetch, Skill]
 ---
 
 # Business Analyst

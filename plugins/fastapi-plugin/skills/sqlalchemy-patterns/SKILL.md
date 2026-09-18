@@ -13,6 +13,8 @@ description: |
   - Framework-agnostic model, column, relationship, and querying rules — see python-foundation:sqlalchemy-patterns (load it first).
   - FastAPI routing and Pydantic schemas — see fastapi-plugin:fastapi-conventions.
   - Alembic migration execution (that's alembic-specialist's job) — this skill covers definitions.
+user-invocable: false
+paths: ["**/*.py"]
 ---
 
 # SQLAlchemy Patterns for FastAPI (async delta)

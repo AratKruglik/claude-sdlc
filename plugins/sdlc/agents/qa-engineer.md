@@ -15,8 +15,9 @@ description: |
   - Manual QA / exploratory testing (out of scope for this pipeline)
 model: sonnet
 effort: medium
+maxTurns: 60
 color: yellow
-tools: [Read, Glob, Grep, Edit, Write, Bash]
+tools: [Read, Glob, Grep, Edit, Write, Bash, Skill]
 ---
 
 # QA Engineer

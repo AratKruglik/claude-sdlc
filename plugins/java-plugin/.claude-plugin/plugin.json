@@ -1,6 +1,6 @@
 {
   "name": "java-plugin",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "description": "Plain Java backend stack provider for the SDLC marketplace (priority=100). Detects any Maven or Gradle project and registers a java-architect agent (Sonnet/medium) as the development-phase backend implementer. Handles CLI tools, libraries, plain services without a web framework. Falls back gracefully to this plugin when no higher-priority Java framework plugin matches (e.g. spring-boot-plugin at 150). Reuses shared skills from java-foundation (java-conventions, build-tooling, jvm-testing).",
   "author": {
     "name": "Oleksii Kruhlyk",

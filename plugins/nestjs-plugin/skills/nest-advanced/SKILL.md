@@ -12,6 +12,8 @@ description: |
   - REST controllers (see nest-conventions + decorator-patterns).
   - ORM (see nest-data-layer).
   - Auth strategies (see security-analyst phase guidance).
+user-invocable: false
+paths: ["src/**/*.ts"]
 ---
 
 # NestJS Advanced Surfaces

@@ -4,6 +4,8 @@ description: |
   Consolidated Laravel project conventions: Action pattern, Form Requests, Policies, routing, Inertia integration, code style.
   Apply when: writing or reviewing Laravel backend code (controllers, actions, requests, policies, providers).
   Activated automatically by laravel-plugin/stack.md as a convention skill for the development phase.
+user-invocable: false
+paths: ["app/**", "routes/**", "config/**", "database/**", "resources/views/**"]
 ---
 
 # Laravel Conventions

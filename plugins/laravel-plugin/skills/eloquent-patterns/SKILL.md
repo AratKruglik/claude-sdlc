@@ -4,6 +4,8 @@ description: |
   Eloquent ORM best practices: query builders, scopes, relations, N+1 prevention, batch operations, soft deletes, model events, raw queries when needed.
   Apply when: writing or reviewing Eloquent queries and model interactions.
   Activated automatically by laravel-plugin/stack.md as a convention skill for the development phase.
+user-invocable: false
+paths: ["app/Models/**", "database/**", "app/**/*.php"]
 ---
 
 # Eloquent Patterns

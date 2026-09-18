@@ -14,6 +14,8 @@ description: |
   - FastAPI async engine/session lifecycle — see fastapi-plugin:sqlalchemy-patterns.
   - Flask-SQLAlchemy extension setup and Flask-Migrate — see flask-plugin:sqlalchemy-patterns.
   - Python idioms — see python-foundation:python-conventions.
+user-invocable: false
+paths: ["**/*.py"]
 ---
 
 # SQLAlchemy 2.0 Patterns (framework-agnostic core)

@@ -15,6 +15,8 @@ description: |
   - Routing primitives (see react-routing).
   - Form patterns (see react-forms).
   - Testing (see react-testing).
+user-invocable: false
+paths: ["src/**/*.tsx", "src/**/*.jsx", "src/**/*.ts", "src/**/*.js"]
 ---
 
 # React Conventions

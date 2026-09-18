@@ -12,6 +12,8 @@ description: |
   Do NOT use this skill for:
   - Spring-specific test slices (@SpringBootTest, @WebMvcTest, @DataJpaTest — those are in spring-boot-plugin skills).
   - Framework-specific mocking utilities (MockMvc, WebTestClient).
+user-invocable: false
+paths: ["src/test/**", "**/*Test.java", "**/*Tests.java"]
 ---
 
 # JVM Testing Patterns (stack-agnostic)

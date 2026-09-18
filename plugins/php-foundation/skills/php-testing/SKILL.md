@@ -13,6 +13,8 @@ description: |
   - PHP language idioms — see php-foundation:php-conventions.
   - Composer / autoloading — see php-foundation:composer-tooling.
   - Framework-specific test helpers (Laravel RefreshDatabase/actingAs, Symfony WebTestCase/KernelTestCase) — those are injected by the framework plugin's QA phase.
+user-invocable: false
+paths: ["tests/**", "**/*Test.php"]
 ---
 
 # PHP Testing Patterns (stack-agnostic)

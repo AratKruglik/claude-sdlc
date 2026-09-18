@@ -14,6 +14,8 @@ description: |
   - Migration generation commands (that is efcore-specialist's job in the database extra phase).
   - ASP.NET Core middleware, DI, or validation — see aspnet-core-plugin:aspnet-conventions.
   - C# language idioms — see csharp-foundation:csharp-conventions.
+user-invocable: false
+paths: ["**/*.cs", "**/Migrations/**"]
 ---
 
 # EF Core Patterns

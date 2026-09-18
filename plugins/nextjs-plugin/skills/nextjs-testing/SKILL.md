@@ -14,6 +14,8 @@ description: |
   - General Next.js conventions (see nextjs-conventions).
   - RSC vs Client model (see server-component-patterns).
   - Plain Node.js test patterns (see nodejs-plugin equivalents).
+user-invocable: false
+paths: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}", "e2e/**"]
 ---
 
 # Next.js Testing Patterns
