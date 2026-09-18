@@ -781,8 +781,9 @@ detailed_output_path: docs/plans/{task_slug}/0X-{phase}{-aspect_suffix}.md
 inputs_available:
   - docs/plans/{task_slug}/_brief.md
   - {list of prior phase output files, including earlier-aspect outputs
-    from the SAME phase (e.g. 02-development-database.md before running
-    development-backend)}
+    from the SAME phase — both the implementation report and the plan
+    (e.g. 02-development-database.md, then 02-development-plan-backend.md
+    and 02-development-backend.md, before running development-frontend).}
 phase_command_overrides:
   {phase_command_overrides[phase] as a key:value list, or "none"}
 availability_flags:
@@ -1251,6 +1252,11 @@ Step 4: Build a detailed implementation plan:
 - Design decisions with rationale
 - Convention skills you will invoke during implementation: {convention_skills}
 - Risks and edge cases the plan must handle
+- **Contract for frontend** — a section under exactly that heading when your aspect is
+  `backend` (see your agent file's "Plan additions"). The frontend aspect plans against
+  this shape, and the approval gate reviews it, so it is fixed here rather than
+  discovered from the implementation. If the change exposes no frontend surface, write
+  the heading with the single line `No frontend contract`.
 
 Follow project conventions found in CLAUDE.md and the active stack profile.
 
@@ -1258,6 +1264,7 @@ Write the plan to: docs/plans/{task_slug}/02-development-plan.md
 
 RETURN ONLY a COMPACT summary (≤2K tokens):
 - Planned files to create/modify (list)
+- Contract for frontend: [one line per endpoint/prop shape, or "none"]
 - Key design decisions (3-5 bullets)
 - Skills to invoke: [list]
 - Risks: [list or "none"]

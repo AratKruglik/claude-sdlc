@@ -79,11 +79,28 @@ Implement layer by layer:
 - `php -l <changed-file>` if unsure
 - Re-read files, check imports, check route → controller wiring with `php bin/console debug:router`.
 
+## Plan additions — the contract the frontend builds against
+
+The planning pass writes `docs/plans/{task_slug}/02-development-plan{-aspect}.md`.
+Beyond the shared plan contract, that file MUST contain a section headed exactly
+**"Contract for frontend"**, holding:
+
+- **API / Serialization Contract** (for SPA frontends) — each endpoint → DTO + serialization group shape (e.g. `GET /subscriptions/{id}` → `SubscriptionDto` (group `subscription:read`): `{ id, plan, status, startsAt }`), plus what is NEVER exposed (e.g. `stripeCustomerId` stays internal). For a Twig-rendered feature, write `Twig-rendered, no API contract`.
+
+The frontend architect reads this section from **your plan**, not from your
+implementation report — its path is listed in the frontend dispatch's
+`inputs_available`. Fixing the shape at plan time is what lets the approval gate
+review it before any code exists, and what lets the frontend plan be built against a
+shape that will not move underneath it.
+
+If this change exposes no frontend surface, still write the heading, with the single
+line `No frontend contract — this change adds no endpoints, props or payload shapes.`
+
 ## Report additions
 
 Beyond the shared deliverable contract, include in the report at `docs/plans/{task_slug}/02-development.md`:
 
-- **API / Serialization Contract** section (for SPA frontends, if applicable) — each endpoint → DTO + serialization group shape (e.g. `GET /subscriptions/{id}` → `SubscriptionDto` (group `subscription:read`): `{ id, plan, status, startsAt }`), plus what is NEVER exposed (e.g. `stripeCustomerId` stays internal). Or note "Twig-rendered, no API contract".
+- **Contract deviations** — every difference between what you implemented and the "Contract for frontend" section of your plan: a key added, a key removed, a type changed, an endpoint renamed or re-pathed. The frontend plan was built against the plan's shape, so a deviation is a `BLOCKER`, not a note. If there are none, say so explicitly.
 - **Lint/static analysis status** — lint:container, php-cs-fixer, phpstan results.
 - **Known follow-ups for doctrine-specialist** — which mappings are outlines and which indexes/constraints/FKs must be finalized before `doctrine:migrations:diff`.
 
@@ -91,6 +108,6 @@ In the COMPACT summary, add these lines:
 
 ```
 LINT: cs-fixer=clean phpstan=N-warnings lint-container=pass
-API_CONTRACT: [endpoint → DTO/group shape, one line each — or "Twig-rendered, no API contract"]
+CONTRACT_DEVIATIONS: none | [one line per deviation, each a BLOCKER]
 NEXT_PHASE_NOTES: [for doctrine-specialist, max 5 bullets]
 ```

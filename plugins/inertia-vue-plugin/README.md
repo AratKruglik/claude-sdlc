@@ -37,7 +37,7 @@ Post-pipeline (laravel-plugin):
   php artisan route:list
 ```
 
-`laravel-architect` documents the Inertia props contract in `docs/plans/{task_slug}/02-development-backend.md`. `inertia-vue-architect` reads that contract and implements the matching Vue pages.
+`laravel-architect` fixes the Inertia props contract at plan time, in the "Contract for frontend" section of `docs/plans/{task_slug}/02-development-plan-backend.md`. `inertia-vue-architect` reads that contract and implements the matching Vue pages.
 
 ## Prerequisites
 
