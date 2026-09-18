@@ -42,22 +42,10 @@ esac
 
 command -v jq >/dev/null 2>&1 || exit 0
 
-# Resolve detect-stack.sh the same way the PreToolUse hook resolves its own
-# script: plugin root env var first, then the installed cache copy, then the
-# dev-checkout layout (this repo, when testing the plugin from source).
-DETECT=""
-if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.sh" ]; then
-    DETECT="${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.sh"
-else
-    f=$(ls -d "${HOME}/.claude/plugins/cache"/*/sdlc/*/scripts/detect-stack.sh 2>/dev/null | { sort -Vr 2>/dev/null || sort -r; } | head -1)
-    if [ -n "$f" ]; then
-        DETECT="$f"
-    elif [ -f "${PWD}/plugins/sdlc/scripts/detect-stack.sh" ]; then
-        DETECT="${PWD}/plugins/sdlc/scripts/detect-stack.sh"
-    fi
-fi
-
-[ -n "$DETECT" ] || exit 0
+# detect-stack.sh ships in the same plugin as this hook, so resolve it relative to this
+# file — no environment variable or install-path guessing needed.
+DETECT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/scripts/detect-stack.sh"
+[ -f "$DETECT" ] || exit 0
 
 bash "$DETECT" --repo "$cwd" --write-cache >/dev/null 2>&1
 

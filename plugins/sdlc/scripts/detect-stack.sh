@@ -21,7 +21,8 @@
 #                   ~/.claude/plugins/cache — the real installed-plugin location.
 #   --write-cache   Also write the result to the session stack-cache file
 #                   ({cache-dir}/{sha1(realpath(repo))[:16]}.json) after printing it.
-#   --cache-dir     Override the cache directory. Default ~/.claude/.sdlc-stack-cache.
+#   --cache-dir     Override the cache directory. Default ${CLAUDE_PLUGIN_DATA}/stack-cache when
+#                   Claude Code provides the plugin data dir, else ~/.claude/.sdlc-stack-cache.
 set -uo pipefail
 
 CANONICAL_ASPECTS='["backend","frontend","database","infra","testing","messaging"]'
@@ -29,7 +30,8 @@ CANONICAL_ASPECTS='["backend","frontend","database","infra","testing","messaging
 repo="."
 plugins_root="${HOME}/.claude/plugins/cache"
 write_cache=false
-cache_dir="${HOME}/.claude/.sdlc-stack-cache"
+cache_dir="${CLAUDE_PLUGIN_DATA:+${CLAUDE_PLUGIN_DATA}/stack-cache}"
+[ -n "$cache_dir" ] || cache_dir="${HOME}/.claude/.sdlc-stack-cache"
 
 while [ $# -gt 0 ]; do
     case "$1" in
