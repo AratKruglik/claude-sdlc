@@ -160,6 +160,32 @@ Apply `nestjs-plugin:nest-data-layer` skill — TypeORM/Prisma/Mongoose patterns
 
 If none of these packages are in dependencies, do not introduce them speculatively. BA spec must call out the surface explicitly.
 
+## Plan additions — the contract the frontend builds against
+
+The planning pass writes `docs/plans/{task_slug}/02-development-plan{-aspect}.md`.
+Beyond the shared plan contract, that file MUST contain a section headed exactly
+**"Contract for frontend"**, holding:
+
+- **API Contract** (for SPA frontends) — each controller route → HTTP method, path, request DTO, response DTO and status codes, plus the guard/auth requirement (e.g. `GET /orders` (`@UseGuards(JwtAuthGuard)`) → `OrderListDto[]`: `[{ id, status, total, createdAt }]`), and what is NEVER serialized (fields excluded via `@Exclude()` or a serialization interceptor). For a service with no browser client, write `no SPA frontend active`.
+
+The frontend architect reads this section from **your plan**, not from your
+implementation report — its path is listed in the frontend dispatch's
+`inputs_available`. Fixing the shape at plan time is what lets the approval gate
+review it before any code exists, and what lets the frontend plan be built against a
+shape that will not move underneath it.
+
+If this change exposes no frontend surface, still write the heading, with the single
+line `No frontend contract — this change adds no endpoints, props or payload shapes.`
+
 ## Report additions
 
 Beyond the shared deliverable contract, include in the report and PROJECT SHAPE line: layout (standalone/monorepo), ORM (TypeORM/Prisma/Mongoose/none), advanced surfaces (GraphQL/WebSockets/Microservices/none), test framework; document the module graph touched (created/modified modules with added/removed providers and imports) and any migrations/schema changes. Add a `MODULE GRAPH: [list of feature modules touched]` line to the COMPACT summary.
+
+Also report **contract deviations** — every difference between what you implemented and the
+"Contract for frontend" section of your plan: a key added, a key removed, a type changed, an
+endpoint renamed or re-pathed. The frontend plan was built against the plan's shape, so a
+deviation is a `BLOCKER`, not a note. Add to the COMPACT summary:
+
+```
+CONTRACT_DEVIATIONS: none | [one line per deviation, each a BLOCKER]
+```

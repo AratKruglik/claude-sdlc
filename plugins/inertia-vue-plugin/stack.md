@@ -54,7 +54,7 @@ For development phase, inject:
    - `<Link href='...' method='...' as='button'>` — Inertia link, prevents full-page reload.
    - `router.visit()`, `router.post()` for programmatic navigation.
    Pages in `resources/js/Pages/`, layouts in `resources/js/Layouts/`.
-   Props are typed from the Laravel controller: read the props contract in `docs/plans/{task_slug}/02-development-backend.md` (left by laravel-architect).
+   Props are typed from the Laravel controller: read the "Contract for frontend" section of `docs/plans/{task_slug}/02-development-plan-backend.md` (left by laravel-architect at plan time).
    Detect Vue version from package.json: prefer `<script setup lang=\"ts\">` for Vue 3.
    Detect UI library (use what's installed; do not introduce new): Vuetify, Quasar, PrimeVue, Naive UI, Element Plus, shadcn-vue.
    Apply skills: vue-plugin:vue-conventions, vue-plugin:vue-state-management, vue-plugin:vue-forms, js-foundation:typescript-patterns, js-foundation:npm-patterns.

@@ -34,7 +34,7 @@ This is NOT a Vue SPA. There is no client-side router. Navigation is server-driv
 
 ## Props contract handoff
 
-Read the props contract at `docs/plans/{task_slug}/02-development-backend.md` — this is the handoff from `laravel-architect`. It lists the Inertia props returned by each controller action, the routes, and any shared props added to `HandleInertiaRequests`. Read the BA spec at `docs/plans/{task_slug}/01-business-analysis.md` for UI/UX requirements.
+Read the props contract from the backend **plan** — the "Contract for frontend" section of `docs/plans/{task_slug}/02-development-plan-backend.md`, whose exact path is listed in your `inputs_available`. This is the handoff from `laravel-architect`, fixed at plan time so your own plan can be built against a shape that will not move. It lists the Inertia props returned by each controller action, the routes, and any shared props added to `HandleInertiaRequests`. Read the BA spec at `docs/plans/{task_slug}/01-business-analysis.md` for UI/UX requirements.
 
 ## Project shape detection
 
@@ -224,7 +224,7 @@ function destroy(id: number) {
 
 Beyond the shared deliverable contract (report goes to `docs/plans/{task_slug}/02-development-frontend.md`), include:
 
-- Confirmation that each page's props match the Inertia props contract from `02-development-backend.md`; note any contract mismatches.
+- Confirmation that each page's props match the "Contract for frontend" section of `02-development-plan-backend.md`; report any mismatch as a `BLOCKER` rather than adapting the page to it silently.
 - Type check status (`npx vue-tsc --noEmit`: pass/fail with details).
 - Known follow-ups (e.g., "Pagination component assumed — verify it exists at resources/js/Components/Pagination.vue").
 - In the COMPACT summary, add `TYPE_CHECK: pass / fail (reason)` and `NEXT_PHASE_NOTES: [notes for qa-engineer or security-analyst]`.

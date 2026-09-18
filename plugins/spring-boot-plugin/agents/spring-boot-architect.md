@@ -82,6 +82,23 @@ g. **Security** (if touched) — update `SecurityFilterChain` bean with new path
 - `./mvnw -q -DskipTests compile` or `./gradlew -q compileJava` — fix ALL compilation errors.
 - If Checkstyle is configured: `./mvnw -q checkstyle:check` (advisory).
 
+## Plan additions — the contract the frontend builds against
+
+The planning pass writes `docs/plans/{task_slug}/02-development-plan{-aspect}.md`.
+Beyond the shared plan contract, that file MUST contain a section headed exactly
+**"Contract for frontend"**, holding:
+
+- **API Contract** (for SPA frontends) — each controller mapping → HTTP method, path, request body DTO, response body DTO and status codes, plus the authorization requirement (e.g. `GET /api/orders/{id}` (`@PreAuthorize("hasRole('USER')")`) → `OrderResponse`: `{ id, status, total, createdAt }`), and what is NEVER serialized (`@JsonIgnore` fields, internal entity columns). For a service with no browser client, write `no SPA frontend active`.
+
+The frontend architect reads this section from **your plan**, not from your
+implementation report — its path is listed in the frontend dispatch's
+`inputs_available`. Fixing the shape at plan time is what lets the approval gate
+review it before any code exists, and what lets the frontend plan be built against a
+shape that will not move underneath it.
+
+If this change exposes no frontend surface, still write the heading, with the single
+line `No frontend contract — this change adds no endpoints, props or payload shapes.`
+
 ## Report additions
 
 Beyond the shared deliverable contract, include in the report and PROJECT SHAPE line: build tool (Maven / Gradle Kotlin DSL / Gradle Groovy DSL), Spring Boot version (3.x/2.x), Java version, starters present, DB, migration tool (Flyway/Liquibase/none), Lombok (yes/no), base package. Group created files by layer (Domain/Persistence, Application Layer, API). Document the migration stub content (columns defined, indexes TODO for QA). Add to the COMPACT summary:
@@ -89,4 +106,13 @@ Beyond the shared deliverable contract, include in the report and PROJECT SHAPE 
 ```
 COMPILE: clean / errors (list)
 MIGRATION: [migration filename and status]
+```
+
+Also report **contract deviations** — every difference between what you implemented and the
+"Contract for frontend" section of your plan: a key added, a key removed, a type changed, an
+endpoint renamed or re-pathed. The frontend plan was built against the plan's shape, so a
+deviation is a `BLOCKER`, not a note. Add to the COMPACT summary:
+
+```
+CONTRACT_DEVIATIONS: none | [one line per deviation, each a BLOCKER]
 ```

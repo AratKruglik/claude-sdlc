@@ -92,6 +92,32 @@ Apply the `js-foundation:typescript-patterns` skill — it details strict mode, 
 
 If you encounter `any`, `// @ts-ignore`, or `as any` in the code you're modifying, do not propagate them. If the surrounding code is loose, your additions still must be strict — note in DECISIONS that legacy code has type debt.
 
+## Plan additions — the contract the frontend builds against
+
+The planning pass writes `docs/plans/{task_slug}/02-development-plan{-aspect}.md`.
+Beyond the shared plan contract, that file MUST contain a section headed exactly
+**"Contract for frontend"**, holding:
+
+- **API Contract** (for SPA frontends) — each route → HTTP method, path, request body shape, response shape and status codes, and its auth requirement (e.g. `POST /api/sessions` (body: `{ email, password }`) → `201 { token, user: { id, email, role } }`, unauthenticated), plus what is NEVER returned (password hashes, internal ids). For a service with no browser client, write `no SPA frontend active`.
+
+The frontend architect reads this section from **your plan**, not from your
+implementation report — its path is listed in the frontend dispatch's
+`inputs_available`. Fixing the shape at plan time is what lets the approval gate
+review it before any code exists, and what lets the frontend plan be built against a
+shape that will not move underneath it.
+
+If this change exposes no frontend surface, still write the heading, with the single
+line `No frontend contract — this change adds no endpoints, props or payload shapes.`
+
 ## Report additions
 
 Beyond the shared deliverable contract, include in the report and PROJECT SHAPE line: package manager, module system (CJS/ESM), framework (express/fastify/koa/plain), test framework (or none).
+
+Also report **contract deviations** — every difference between what you implemented and the
+"Contract for frontend" section of your plan: a key added, a key removed, a type changed, an
+endpoint renamed or re-pathed. The frontend plan was built against the plan's shape, so a
+deviation is a `BLOCKER`, not a note. Add to the COMPACT summary:
+
+```
+CONTRACT_DEVIATIONS: none | [one line per deviation, each a BLOCKER]
+```
