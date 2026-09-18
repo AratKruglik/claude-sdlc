@@ -35,7 +35,7 @@ packages/<stack>/
 
 ## stack-manifest.json contract
 
-Validate against [`packages/core/schema/stack-manifest.schema.json`](./packages/core/schema/stack-manifest.schema.json). Minimum required fields:
+Validate against `packages/core/schema/stack-manifest.schema.json`. Minimum required fields:
 
 ```json
 {

@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'release/**', 'feat/**', 'fix/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # Pinned so that a stricter upstream `--strict` cannot turn an unrelated PR red.
+  CLAUDE_CODE_VERSION: 2.1.276
+  YQ_VERSION: v4.53.6
+
+jobs:
+  shell:
+    name: Shell syntax and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: bash -n
+        run: find plugins scripts -name '*.sh' -print0 | xargs -0 -n1 bash -n
+
+      - name: shellcheck
+        run: find plugins scripts -name '*.sh' -print0 | xargs -0 shellcheck -S warning
+
+  tests:
+    name: Test harnesses
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Run every test-*.sh
+        run: |
+          set -uo pipefail
+          failed=0
+          while IFS= read -r -d '' t; do
+            printf '\n::group::%s\n' "$t"
+            bash "$t" || failed=1
+            printf '::endgroup::\n'
+          done < <(find plugins -name 'test-*.sh' -print0 | sort -z)
+          exit "$failed"
+
+  declarative:
+    name: Schemas, README drift, links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Install yq ${{ env.YQ_VERSION }}
+        run: |
+          curl -fsSL -o /usr/local/bin/yq \
+            "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Install ajv-cli
+        run: npm install -g ajv-cli@5 ajv-formats@3
+
+      - name: Validate schemas
+        run: bash scripts/ci/validate-schemas.sh
+
+      - name: Check README agent-table drift
+        run: bash scripts/ci/check-readme-drift.sh
+
+      - name: Check relative markdown links
+        run: bash scripts/ci/check-links.sh
+
+  plugins:
+    name: claude plugin validate --strict
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code@${{ env.CLAUDE_CODE_VERSION }}
+
+      - name: Validate every plugin
+        run: |
+          set -uo pipefail
+          failed=0
+          for plugin in plugins/*/; do
+            name=$(basename "$plugin")
+            if output=$(claude plugin validate "$plugin" --strict 2>&1); then
+              printf 'PASS  %s\n' "$name"
+            else
+              failed=1
+              printf 'FAIL  %s\n%s\n' "$name" "$output"
+            fi
+          done
+          exit "$failed"
