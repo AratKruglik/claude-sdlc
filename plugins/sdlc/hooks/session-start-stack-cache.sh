@@ -11,7 +11,7 @@
 #     paid unconditionally to save tokens conditionally. Silence is the point.
 #   - Never blocks session start (SessionStart hooks can't anyway) and never
 #     writes a non-zero exit code for anything short of a scripting bug.
-#   - Fails open silently: no python3, no detect-stack.py found, malformed
+#   - Fails open silently: no jq, no detect-stack.sh found, malformed
 #     plugin set, unwritable cache dir → do nothing. A missing cache is a
 #     supported state (the orchestrator's Step 0b falls back to a full scan).
 #
@@ -25,9 +25,6 @@ payload=$(cat 2>/dev/null) || exit 0
 if command -v jq >/dev/null 2>&1; then
     source=$(printf '%s' "$payload" | jq -r '.source // empty' 2>/dev/null)
     cwd=$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)
-elif command -v python3 >/dev/null 2>&1; then
-    source=$(printf '%s' "$payload" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("source") or "")' 2>/dev/null)
-    cwd=$(printf '%s' "$payload" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("cwd") or "")' 2>/dev/null)
 else
     exit 0
 fi
@@ -43,25 +40,25 @@ esac
 
 [ -n "$cwd" ] && [ -d "$cwd" ] || exit 0
 
-command -v python3 >/dev/null 2>&1 || exit 0
+command -v jq >/dev/null 2>&1 || exit 0
 
-# Resolve detect-stack.py the same way the PreToolUse hook resolves its own
+# Resolve detect-stack.sh the same way the PreToolUse hook resolves its own
 # script: plugin root env var first, then the installed cache copy, then the
 # dev-checkout layout (this repo, when testing the plugin from source).
 DETECT=""
-if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.py" ]; then
-    DETECT="${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.py"
+if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.sh" ]; then
+    DETECT="${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.sh"
 else
-    f=$(ls -d "${HOME}/.claude/plugins/cache"/*/sdlc/*/scripts/detect-stack.py 2>/dev/null | { sort -Vr 2>/dev/null || sort -r; } | head -1)
+    f=$(ls -d "${HOME}/.claude/plugins/cache"/*/sdlc/*/scripts/detect-stack.sh 2>/dev/null | { sort -Vr 2>/dev/null || sort -r; } | head -1)
     if [ -n "$f" ]; then
         DETECT="$f"
-    elif [ -f "${PWD}/plugins/sdlc/scripts/detect-stack.py" ]; then
-        DETECT="${PWD}/plugins/sdlc/scripts/detect-stack.py"
+    elif [ -f "${PWD}/plugins/sdlc/scripts/detect-stack.sh" ]; then
+        DETECT="${PWD}/plugins/sdlc/scripts/detect-stack.sh"
     fi
 fi
 
 [ -n "$DETECT" ] || exit 0
 
-python3 "$DETECT" --repo "$cwd" --write-cache >/dev/null 2>&1
+bash "$DETECT" --repo "$cwd" --write-cache >/dev/null 2>&1
 
 exit 0
