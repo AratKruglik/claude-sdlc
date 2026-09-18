@@ -15,6 +15,8 @@ description: |
   - Routing (see angular-routing).
   - Forms (see angular-forms).
   - Testing (see angular-testing).
+user-invocable: false
+paths: ["src/**/*.ts", "src/**/*.html"]
 ---
 
 # Angular Conventions

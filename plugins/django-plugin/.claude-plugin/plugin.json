@@ -1,6 +1,6 @@
 {
   "name": "django-plugin",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "description": "Django backend + database stack provider (priority=150). Detects manage.py or Django in pyproject.toml/requirements.txt. Provides django-architect (Sonnet/medium — views, DRF ViewSets, serializers, forms, URLconf, middleware, signals, model definitions, Django templates, DRF API contract for SPA) and django-migrations-specialist (Sonnet/low — model field finalization, indexes/constraints, makemigrations, sqlmigrate review, migrate, verify) agents plus django-conventions and django-orm-patterns skills. Reuses python-foundation skills. Extra database phase after development.",
   "author": {
     "name": "Oleksii Kruhlyk",

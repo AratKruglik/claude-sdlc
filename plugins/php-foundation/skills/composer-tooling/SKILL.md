@@ -13,6 +13,8 @@ description: |
   - PHP language idioms — see php-foundation:php-conventions.
   - Testing setup and runners — see php-foundation:php-testing.
   - Framework-specific package guidance (Laravel/Symfony bundles) — those live in framework plugin skills.
+user-invocable: false
+paths: ["composer.json", "composer.lock"]
 ---
 
 # Composer Tooling (stack-agnostic)

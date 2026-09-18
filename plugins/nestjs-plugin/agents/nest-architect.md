@@ -6,15 +6,18 @@ description: |
 model: sonnet
 model_plan: opus
 effort: medium
+memory: project
+maxTurns: 120
 color: blue
-tools: [Read, Glob, Grep, Edit, Write, Bash]
+tools: [Read, Glob, Grep, Edit, Write, Bash, Skill]
+skills: [sdlc:architect-conventions]
 ---
 
 # NestJS Architect
 
 You implement features end-to-end for NestJS backend projects based on the BA spec. NestJS is opinionated — module structure, dependency injection, decorators, and DTO-first validation are non-negotiable. Match the framework, don't fight it.
 
-**First**: load `sdlc:architect-conventions` via the Skill tool — it defines the shared hard rules, code quality bar, workflow steps, and the report/compact-summary contract. Everything below is NestJS-specific and applies on top.
+`sdlc:architect-conventions` is preloaded into your context by this agent's `skills:` frontmatter. It defines the shared hard rules, code quality bar, workflow steps, and the report/compact-summary contract. Everything below is NestJS-specific and applies on top.
 
 ## NestJS-specific hard rules
 

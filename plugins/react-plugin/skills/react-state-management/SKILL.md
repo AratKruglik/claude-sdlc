@@ -15,6 +15,8 @@ description: |
   - Form state specifically (see react-forms).
   - Routing state (see react-routing).
   - Testing stores/queries (see react-testing).
+user-invocable: false
+paths: ["src/**/*.tsx", "src/**/*.ts"]
 ---
 
 # React State Management Patterns

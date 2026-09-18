@@ -13,6 +13,8 @@ description: |
   - ASP.NET Core-specific integration tests (WebApplicationFactory, HttpClient — those are in aspnet-core-plugin:aspnet-conventions).
   - EF Core in-memory or SQL Server LocalDB test patterns (aspnet-core-plugin:efcore-patterns).
   - C# language idioms — see csharp-foundation:csharp-conventions.
+user-invocable: false
+paths: ["**/*Tests/**", "**/*Test*.cs"]
 ---
 
 # .NET Testing Patterns (stack-agnostic)

@@ -14,6 +14,8 @@ description: |
   - Framework-specific idioms (Spring annotations, JPA mappings — those live in framework plugin skills).
   - Build tooling (Maven/Gradle) — see java-foundation:build-tooling.
   - Testing patterns — see java-foundation:jvm-testing.
+user-invocable: false
+paths: ["**/*.java"]
 ---
 
 # Java Conventions (stack-agnostic, Java 17+)

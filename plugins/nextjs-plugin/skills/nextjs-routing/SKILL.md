@@ -14,6 +14,8 @@ description: |
   - Data fetching per route (see nextjs-data-fetching).
   - General file conventions (see nextjs-conventions).
   - RSC vs Client (see server-component-patterns).
+user-invocable: false
+paths: ["app/**", "pages/**", "src/**"]
 ---
 
 # Next.js Routing Patterns

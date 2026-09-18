@@ -14,6 +14,8 @@ description: |
   - Framework-specific idioms (Django ORM, FastAPI routers, Flask blueprints — those live in framework plugin skills).
   - Packaging and dependency management — see python-foundation:python-tooling.
   - Testing patterns — see python-foundation:pytest-testing.
+user-invocable: false
+paths: ["**/*.py"]
 ---
 
 # Python Conventions (stack-agnostic, Python 3.10+)

@@ -968,6 +968,18 @@ Never abort silently: a cap is a runaway guard, and a half-finished pipeline tha
 - Security phase: must report severity counts.
 - Docs phase: must contain a PR URL or commit hash.
 
+**Truncated output (`maxTurns` reached).** Every agent carries a `maxTurns` cap in its
+frontmatter (architects 120, specialists and QA 60, BA and security 80, docs 30). When an
+agent hits it, the Agent tool returns whatever it had produced, so the compact summary is
+usually missing its closing fields. Treat that as a validation failure, not as success:
+
+- **QA phase** — record `incomplete-blocked` for the member and do not report a pass/fail
+  count you did not receive.
+- **Any other phase** — apply the normal member-failure prompt below (retry / skip / abort).
+
+A retry after a `maxTurns` hit must narrow the scope (one aspect, or the failing subset)
+rather than re-issuing the same prompt — the cap will be reached again otherwise.
+
 If validation fails, **do not proceed** — ask the user how to handle (retry, skip, abort).
 
 ### Step 4 — Run post-pipeline checks

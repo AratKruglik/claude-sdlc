@@ -16,6 +16,8 @@ description: |
   - Routing state (see angular-routing).
   - Form state (see angular-forms).
   - Testing state (see angular-testing).
+user-invocable: false
+paths: ["src/**/*.ts"]
 ---
 
 # Angular State + RxJS Patterns

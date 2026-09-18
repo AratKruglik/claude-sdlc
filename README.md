@@ -374,6 +374,41 @@ The hook is registered in `plugins/sdlc/hooks/hooks.json` and activates automati
 
 ---
 
+## Agent Capability Frontmatter
+
+Beyond `model` / `model_plan` / `effort`, every agent declares three capability fields that
+Claude Code reads natively.
+
+**`skills:`** — the 24 stack architects and database specialists carry
+`skills: [sdlc:architect-conventions]`, which injects the shared conventions skill (hard
+rules, code quality bar, workflow steps, report contract) into the agent's context before
+it starts. Until v2.0.0 those agents were merely *instructed* to load it via the Skill tool,
+which they could not do: `tools:` is an allowlist and `Skill` was not in it. Every agent that
+the orchestrator tells to invoke a skill — all of them except `document-writer` — now lists
+`Skill` in `tools:`, so the stack's convention skills (`Apply skills: …` in the dispatch
+prompt) and the optional `superpowers` skills are reachable as well.
+
+**`maxTurns:`** — a hard ceiling on agent turns, so a stuck agent costs a bounded amount
+instead of an open-ended one: architects 120, database specialists and `qa-engineer` 60,
+`business-analyst` and `security-analyst` 80, `document-writer` 30. These are starting
+values chosen from phase shape, not measurements; Block A telemetry (`_usage.jsonl`) now
+records real turn counts, so they should be recalibrated from data. Hitting the cap
+truncates the agent's output, which the orchestrator treats as a validation failure
+(SKILL Step 3e), never as a pass.
+
+**`memory: project`** — architects, database specialists and `security-analyst` keep
+per-project notes under `.claude/agent-memory/{agent-name}/`, so a second run on the same
+repo starts with what the first one learned about its layout and conventions.
+`business-analyst` is deliberately excluded: its job is to read the request and the product
+context afresh, and carrying over a previous feature's framing is a bias, not a saving.
+`qa-engineer` and `document-writer` derive everything from the current run's artefacts.
+
+> ⚠️ Agent memory is injected into the agent's context, so anything written there is
+> attacker-reachable if a previous run processed untrusted input. Treat
+> `.claude/agent-memory/` as project state you review, not as a cache you ignore.
+
+---
+
 ## Stack-Detection Caching
 
 Stack-profile detection (Step 0b in `pipeline-orchestrator/SKILL.md`) matches every installed plugin's `stack.md` against the current project — a Glob-then-Read-then-parse pass over every plugin, repeated on every `/sdlc:start` and `/sdlc:doctor` invocation.

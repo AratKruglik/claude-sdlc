@@ -14,6 +14,8 @@ description: |
   - SQLAlchemy ORM model patterns and Flask-Migrate — see flask-plugin:sqlalchemy-patterns.
   - Python language idioms — see python-foundation:python-conventions.
   - Testing patterns — see python-foundation:pytest-testing.
+user-invocable: false
+paths: ["**/*.py", "**/templates/**"]
 ---
 
 # Flask Conventions

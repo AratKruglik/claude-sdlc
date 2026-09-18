@@ -15,6 +15,8 @@ description: |
   - General Vue conventions (see vue-conventions).
   - State patterns (see vue-state-management).
   - Form-specific patterns (see vue-forms).
+user-invocable: false
+paths: ["**/*.spec.{ts,js}", "**/*.test.{ts,js}", "tests/**"]
 ---
 
 # Vue 3 Testing Patterns

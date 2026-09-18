@@ -12,6 +12,8 @@ description: |
   Do NOT use this skill for:
   - Framework-specific build plugins (Spring Boot Gradle plugin — in spring-boot-plugin:spring-conventions).
   - CI/CD pipeline config.
+user-invocable: false
+paths: ["pom.xml", "build.gradle*", "settings.gradle*", "gradle/**"]
 ---
 
 # Build Tooling (Maven & Gradle, stack-agnostic)

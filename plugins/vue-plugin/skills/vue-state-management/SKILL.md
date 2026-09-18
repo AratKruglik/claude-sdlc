@@ -15,6 +15,8 @@ description: |
   - Form state (see vue-forms — vee-validate handles that).
   - Routing state (see vue-routing — use vue-router useRoute).
   - Testing stores (see vue-testing).
+user-invocable: false
+paths: ["src/**/*.vue", "src/**/*.ts"]
 ---
 
 # Vue 3 State Management Patterns

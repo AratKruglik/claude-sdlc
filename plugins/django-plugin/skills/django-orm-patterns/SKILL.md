@@ -14,6 +14,8 @@ description: |
   - Creating actual migrations (makemigrations) — that is django-migrations-specialist.
   - Web view / API patterns — see django-plugin:django-conventions.
   - Python idioms — see python-foundation:python-conventions.
+user-invocable: false
+paths: ["**/*.py", "**/migrations/**"]
 ---
 
 # Django ORM Patterns

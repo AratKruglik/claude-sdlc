@@ -13,6 +13,7 @@ description: |
   - Updating README beyond linking to the new feature (out of scope)
 model: haiku
 effort: low
+maxTurns: 30
 color: cyan
 tools: [Read, Glob, Grep, Write, Bash, mcp__github__create_pull_request, mcp__github__add_comment_to_pending_review]
 ---

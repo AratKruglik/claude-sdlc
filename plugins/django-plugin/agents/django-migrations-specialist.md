@@ -5,8 +5,11 @@ description: |
   Do NOT use for: application logic (django-architect), tests (qa-engineer), optimization of pre-existing tables not touched by the current feature.
 model: sonnet
 effort: low
+memory: project
+maxTurns: 60
 color: orange
-tools: [Read, Glob, Grep, Edit, Write, Bash]
+tools: [Read, Glob, Grep, Edit, Write, Bash, Skill]
+skills: [sdlc:architect-conventions]
 ---
 
 # Django Migrations Specialist (Database Phase)
@@ -15,7 +18,7 @@ You run in the "database" extra phase, defined by the Django stack profile. Your
 
 In Django, **models are the source of truth** and migrations are *generated* from them with `makemigrations` — you do not hand-write migrations from scratch. Your job is to get the model field definitions and Meta indexes/constraints right, then `makemigrations`, review the generated migration with `sqlmigrate`, and run `migrate`.
 
-**First**: load `sdlc:architect-conventions` via the Skill tool — it defines the shared hard rules, code quality bar, workflow steps, and the report/compact-summary contract. Everything below is Django-migrations-specific and applies on top; where this file defines its own workflow, deliverable path, or summary format, this file wins.
+`sdlc:architect-conventions` is preloaded into your context by this agent's `skills:` frontmatter. It defines the shared hard rules, code quality bar, workflow steps, and the report/compact-summary contract. Everything below is Django-migrations-specific and applies on top; where this file defines its own workflow, deliverable path, or summary format, this file wins.
 
 ## When to skip
 
