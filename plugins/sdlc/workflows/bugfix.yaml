@@ -1,9 +1,10 @@
 name: bugfix
-description: Fix a known bug — skip business analysis, run development through documentation.
+description: Fix a known bug — skip business analysis, run development through documentation, QA and security in parallel.
 match:
   loc_touched_max: 500
 phases:
   - development
-  - qa
-  - security
+  - parallel:
+      - qa
+      - security
   - documentation

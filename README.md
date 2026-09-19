@@ -146,42 +146,79 @@ Some technologies are supersets of others. Next.js is React + a server. NestJS i
 
 ## Pipeline Phases
 
-### Standard 5-phase pipeline
+### The default pipeline — 5 phases in 4 steps
 
 Before Phase 1, the orchestrator detects the stack profile and the [git branching model](#git-flow-awareness), classifies the task type, and asks you to confirm the branch.
 
 ```
 Phase 1: BA → business-analyst (opus/high)
           ↓ output: docs/plans/{slug}/01-business-analysis.md
-Phase 2: Dev → [stack agent] (sonnet/medium)
-          ↓ output: docs/plans/{slug}/02-development.md
-Phase 3: QA → qa-engineer (sonnet/medium, max 3 attempts)
-          ↓ output: docs/plans/{slug}/03-qa.md
-Phase 4: Security → security-analyst (opus/high)
-          ↓ output: docs/plans/{slug}/04-security.md
-Phase 5: Docs → document-writer (haiku/low)
+Phase 2: Dev → [stack agent] (opus plan → approval gate → sonnet implement)
+          ↓ output: docs/plans/{slug}/02-development-plan.md, 02-development.md
+Phase 3: QA ∥ Security → qa-engineer (sonnet/medium, max 3 attempts)
+                       ∥ security-analyst (opus/xhigh, report-only)
+          ↓ output: docs/plans/{slug}/03-qa.md, 04-security.md
+          ↓ then, only if Critical/High were found:
+            security [pass:fix]  → the development architect applies the fixes
+            qa [pass:verify]     → the existing suite is re-run
+Phase 4: Docs → document-writer (haiku/low)
           ↓ output: PR on GitHub
 ```
 
-### Example: Laravel (6 phases)
+QA and security read the same finished diff and never write to the same files, so they run as
+one step. **`Phase N/total` counts steps, not phases** — both members of a parallel group share
+one `N` and are told apart by their own phase name (`Phase 3/4: qa`, `Phase 3/4: security`).
+
+### Security is report-only
+
+`security-analyst` has no `Edit` tool. It classifies findings and prescribes the exact change
+for each Critical and High one; the **development-phase architect** then applies them in a
+`[pass:fix]` dispatch with a minimal-diff contract, and QA re-runs the existing suite in a
+`[pass:verify]` dispatch if anything was actually fixed.
+
+The reviewer and the author of a fix are deliberately different agents: an agent that fixes
+what it just found reviews its own work, and a fix that breaks a test is exactly what the
+verify rerun exists to catch.
+
+Nothing runs on an unreliable basis — if the security review itself failed, no fix pass runs,
+because there is no trustworthy finding list to apply. If QA failed, the fix pass still runs
+but the verify rerun does not: there is no passing baseline to compare against.
+
+### Example: Laravel (6 phases in 5 steps)
 
 ```
 Phase 1: BA → business-analyst
 Phase 2: Dev/backend  → laravel-architect    (aspect=backend)
 Phase 3: Dev/database → artisan-specialist   (extra phase after backend)
-Phase 4: QA → qa-engineer
-Phase 5: Security → security-analyst
-Phase 6: Docs → document-writer
+Phase 4: QA ∥ Security → qa-engineer ∥ security-analyst
+Phase 5: Docs → document-writer
 ```
+
+A stack profile's `extra_phases` is always inserted as its **own** step, never as a member of
+an existing parallel group: declaring "after development" states a dependency, not that the
+phase is safe to run alongside that group's members.
 
 ### Per-aspect dispatch (multi-framework projects)
 
 For a project with a Node.js backend and a React frontend:
 
 - Phase 2/backend → `node-architect`
-- Phase 2/frontend → `react-architect` (separate run)
+- Phase 2/frontend → `react-architect`
 
 Aspects are dispatched in canonical order: `database → backend → frontend → testing`.
+
+Development aspects run **sequentially** by default: the frontend plan is built against the
+"Contract for frontend" section of the backend plan, which the backend architect fixes at plan
+time. Setting `aspect_execution: parallel-implement` in `sdlc.local.yaml` keeps the plan passes
+sequential and behind one approval gate but dispatches the backend and frontend
+*implementation* passes concurrently — and only when the orchestrator can verify, from the two
+approved plans, that their file sets are disjoint and neither touches a shared-fate file
+(`package.json`, `composer.json`, lockfiles, `Dockerfile*`, CI YAML, `.env*`, shared routes).
+Otherwise it falls back to sequential and prints which invariant failed.
+
+That mode is **experimental**: the file-set invariants constrain what the plans declare, not
+what an agent can reach, and tool-level interference (a repo-wide formatter, generated build
+output) is guarded by prompt text rather than enforced. It is off by default.
 
 ---
 
@@ -189,7 +226,7 @@ Aspects are dispatched in canonical order: `database → backend → frontend �
 
 | Command | Purpose |
 |---|---|
-| `/sdlc:start "feature"` | Run the full 5-phase pipeline |
+| `/sdlc:start "feature"` | Run the full pipeline (5 phases, QA and security in parallel) |
 | `/sdlc:batch "task1" "task2"` | Run pipelines in parallel for multiple tasks (isolated worktrees) |
 | `/sdlc:list-stacks` | Show detected stack profiles and their priorities |
 | `/sdlc:doctor` | Preflight check: dependencies, stack detection, git branching model, cost baseline |
@@ -215,10 +252,10 @@ A **workflow recipe** is a YAML file that declares which pipeline phases to run.
 
 | Recipe | Phases | Auto-selects when |
 |---|---|---|
-| `default` | BA → Dev → QA → Security → Docs | any task |
-| `bugfix` | Dev → QA → Security → Docs | task type is `fix` or `bugfix`; ≤500 LOC |
-| `hotfix` | Dev → QA → Security → Docs | task type is `hotfix`; ≤200 LOC; $2.50 cost cap |
-| `refactor` | Dev → QA → Security → Docs | task type is `refactor` |
+| `default` | BA → Dev → (QA ∥ Security) → Docs | any task |
+| `bugfix` | Dev → (QA ∥ Security) → Docs | task type is `fix` or `bugfix`; ≤500 LOC |
+| `hotfix` | Dev → (QA ∥ Security) → Docs | task type is `hotfix`; ≤200 LOC; $2.50 cost cap |
+| `refactor` | Dev → (QA ∥ Security) → Docs | task type is `refactor` |
 | `docs-only` | Docs | task type is `docs`; config-only diff; $0.20 cost cap |
 
 Cost caps are **runaway guards, not budgets** — each sits roughly 2× above what a normal run of
@@ -577,6 +614,9 @@ phase_command_overrides:
 convention_skills_extra:
   - "local:custom-coding-standards"
 
+aspect_execution: sequential   # or parallel-implement (experimental)
+post_check_fix_attempts: 0     # 1 allows one minimal-diff fix pass after a failed post-check
+
 skip_phases:
   - security  # for internal hotfix branches
 
@@ -593,10 +633,12 @@ git:
 | `post_pipeline_checks` | **replaces** the plugin's list (`[]` disables checks) |
 | `phase_command_overrides` | adds or replaces individual keys |
 | `extra_phase_prompts` | **appends** to the plugin's phase guidance |
-| `skip_phases` | removes phases from the resolved order |
+| `skip_phases` | removes phases from the resolved order — per **member**, so skipping `security` leaves QA running alone rather than dropping the whole step |
 | `convention_skills_extra` | appends to `convention_skills` |
 | `agent_overrides` | replaces the agent for a phase, and adds it to the run roster |
 | `active_workflow` | forces a workflow recipe |
+| `aspect_execution` | `sequential` (default) or `parallel-implement` — **experimental**, see [Per-aspect dispatch](#per-aspect-dispatch-multi-framework-projects) |
+| `post_check_fix_attempts` | `0` (default) or `1` — one minimal-diff fix pass when a post-pipeline check fails |
 | `git` | authoritative branching-model config — see [Git Flow Awareness](#git-flow-awareness) |
 
 ---

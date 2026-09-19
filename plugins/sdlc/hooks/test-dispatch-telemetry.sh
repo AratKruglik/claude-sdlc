@@ -236,6 +236,28 @@ REP=$(report "$PROJ")
 assert_field "case7b ambiguous nested stays unattributed" '[.dispatches[] | select(.agent_id=="agent-N2")][0].phase' "null" "$REP"
 assert_field "case7b ambiguous nested still costed" '.nested_cost_usd' "0.001" "$REP"
 
+# ── Case 7c: a parallel group — two members share one Phase N, each keeps its own identity ──
+fresh_project "case7c"
+write_marker "$PROJ" "$(iso_offset -10M)"
+run_pre "$PROJ" "sdlc:qa-engineer" "Phase 3/4: qa — frontend"
+run_pre "$PROJ" "sdlc:security-analyst" "Phase 3/4: security"
+run_start "$PROJ" "agent-PQ" "qa-engineer"
+run_start "$PROJ" "agent-PS" "security-analyst"
+write_transcript "case7c" "agent-PQ" "claude-sonnet-5" "q1:1000:100:0:0"
+write_transcript "case7c" "agent-PS" "claude-opus-5" "s1:100:10:0:0"
+run_stop "$PROJ" "case7c" "agent-PS" "security-analyst" "ISSUES_FOUND: critical=0"
+run_stop "$PROJ" "case7c" "agent-PQ" "qa-engineer" "TESTS: 12 passed"
+REP=$(report "$PROJ")
+assert_field "case7c both members recorded" '.dispatches | length' "2" "$REP"
+assert_field "case7c qa member keeps its aspect" '[.dispatches[] | select(.agent_id=="agent-PQ")][0].aspect' "frontend" "$REP"
+assert_field "case7c qa member phase" '[.dispatches[] | select(.agent_id=="agent-PQ")][0].phase' "qa" "$REP"
+assert_field "case7c security member has no aspect" '[.dispatches[] | select(.agent_id=="agent-PS")][0].aspect' "null" "$REP"
+assert_field "case7c security member phase" '[.dispatches[] | select(.agent_id=="agent-PS")][0].phase' "security" "$REP"
+assert_field "case7c neither member counted as nested" '[.dispatches[] | select(.nested)] | length' "0" "$REP"
+# sonnet: (1000*3 + 100*15)/1e6 = 0.0045 ; opus: (100*5 + 10*25)/1e6 = 0.00075
+assert_field "case7c group total is the sum of both members" '.total_cost_usd' "0.00525" "$REP"
+assert_field "case7c nothing leaks into nested" '.nested_cost_usd' "0" "$REP"
+
 # ── Case 8: transcript missing → stop row with transcript_missing ──
 fresh_project "case8"
 write_marker "$PROJ" "$(iso_offset -10M)"
