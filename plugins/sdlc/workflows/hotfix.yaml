@@ -10,6 +10,7 @@ caps:
   max_total_cost_usd: 2.50
 phases:
   - development
-  - qa
-  - security
+  - parallel:
+      - qa
+      - security
   - documentation
