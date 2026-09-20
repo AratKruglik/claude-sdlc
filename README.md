@@ -407,6 +407,28 @@ The hook is registered in `plugins/sdlc/hooks/hooks.json` and activates automati
 
 **Model tiers:** both layers pass the short alias (`opus` / `sonnet` / `haiku` / `fable`) as-is — the `Agent` tool's `model` parameter accepts only these aliases, and a full pinned model ID would fail validation and silently fall back to the session model. (Agent *frontmatter* is more permissive and does accept full IDs and `inherit`; the dispatch parameter does not.) Which concrete model each alias resolves to is decided by the harness, so the marketplace never goes stale on model releases.
 
+**Resolution order.** Claude Code resolves a subagent's model in this order:
+
+1. the per-invocation `model` parameter (what Layer 1 passes),
+2. the agent's `model:` frontmatter (`inherit` = the session model),
+3. `CLAUDE_CODE_SUBAGENT_MODEL`,
+4. the session model.
+
+Both enforcement layers write the first two, so `CLAUDE_CODE_SUBAGENT_MODEL` on its own does
+**not** override them — it only fills in where neither is set, which for this pipeline is never.
+Setting it to `inherit` is the same as leaving it unset.
+
+> ⚠️ **The override that does defeat both layers is `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`**
+> (Claude Code v2.1.257+). With it set, Claude Code ignores every agent's `model:` frontmatter
+> *and* the dispatch parameter, and every phase runs on `CLAUDE_CODE_SUBAGENT_MODEL` — or on the
+> session model when that variable is unset. An organization `availableModels` allowlist can
+> likewise skip a value in favour of the inherited model. Run `/sdlc:doctor` to see whether
+> either is in play: while `_FORCE` is active, none of the cost figures in this README apply.
+>
+> Before Claude Code v2.1.251 `CLAUDE_CODE_SUBAGENT_MODEL` came *first* in the order and did
+> override both layers by itself. Documentation written against that behaviour — including
+> earlier versions of this file — is stale, not wrong about a different build.
+
 **Two-tier development phase:** the development phase runs a planning pass and an implementation pass either side of a human approval gate, and they resolve different tiers. The planning pass reads `model_plan:` (Opus by default), the implementation pass reads `model:` (Sonnet). The orchestrator marks the pass in the `Agent()` `description` field so the hook enforces the matching one — see `MODEL-ROUTING.md` §4.1.
 
 ---
@@ -456,7 +478,6 @@ A `SessionStart` hook — `plugins/sdlc/hooks/session-start-stack-cache.sh` — 
 
 This hook is also registered in `hooks.json` and activates automatically on install — no manual `settings.json` changes needed.
 
-> ⚠️ **Enforcement is not absolute.** Claude Code resolves a subagent's model in the order `CLAUDE_CODE_SUBAGENT_MODEL` → per-invocation parameter → frontmatter. That environment variable overrides **both** layers above, and every phase silently runs on whatever it names. An organization `availableModels` allowlist can likewise skip a value in favour of the inherited model. Run `/sdlc:doctor` to see whether either is in play — while an override is active, none of the cost figures below apply.
 
 ---
 

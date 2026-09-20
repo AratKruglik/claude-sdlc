@@ -16,8 +16,10 @@ set -uo pipefail
 # (full IDs and `inherit` are legal there); this allowlist deliberately is not.
 #
 # NOTE: this hook cannot make enforcement absolute. Claude Code resolves a subagent's model
-# in the order CLAUDE_CODE_SUBAGENT_MODEL → per-invocation parameter → frontmatter, so that
-# environment variable overrides the value we write here. `/sdlc:doctor` reports when it is set.
+# in the order per-invocation parameter -> frontmatter -> CLAUDE_CODE_SUBAGENT_MODEL ->
+# session model. This hook writes the parameter, so that variable alone never overrides it.
+# CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 (Claude Code v2.1.257+) does: it makes Claude Code
+# ignore the parameter and the frontmatter alike. `/sdlc:doctor` reports when it is set.
 tier_to_model() {
     case "$1" in
         opus|sonnet|haiku|fable) echo "$1" ;;
