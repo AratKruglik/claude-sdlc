@@ -21,7 +21,7 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
 
    If `jq` is unavailable, fall back to the inline algorithm (Glob `~/.claude/plugins/cache/**/stack.md`, parse frontmatter, evaluate detect rules) — the same fallback Step 0b's full scan uses.
 
-   Separately, check whether `~/.claude/.sdlc-stack-cache/{sha1(realpath(cwd))[:16]}.json` exists (the file the `SessionStart` hook writes) and report its age. If it disagrees with the fresh detection above (different `primary_profile.stack`, or different `aspect_ties`), flag it exactly like the git-flow cache-disagreement check — that is a repo whose installed-plugin set or detectable files changed since the hook last ran. Doctor reports the disagreement; it does not decide which one `/sdlc:start` will trust (Step 0b's own trust rules do that).
+   Separately, check whether `${CLAUDE_PLUGIN_DATA}/stack-cache/{sha1(realpath(cwd))[:16]}.json` (fallback `~/.claude/.sdlc-stack-cache/`) exists (the file the `SessionStart` hook writes) and report its age. If it disagrees with the fresh detection above (different `primary_profile.stack`, or different `aspect_ties`), flag it exactly like the git-flow cache-disagreement check — that is a repo whose installed-plugin set or detectable files changed since the hook last ran. Doctor reports the disagreement; it does not decide which one `/sdlc:start` will trust (Step 0b's own trust rules do that).
 
 4. **Read cost baseline.** Try `<repo>/docs/cost-baseline.md`. If it has a fenced JSON block tagged `summary` (e.g. ```` ```json summary ````) parse and extract `avg_cost_per_medium_run_usd`, `p90_cost_per_medium_run_usd`, `cache_hit_ratio`, `runs_aggregated`.
 
@@ -31,6 +31,7 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
 
    - `CLAUDE_CODE_SUBAGENT_MODEL` — read from the environment. If set to anything other than `inherit`, this is a **routing override**: every phase runs on that model regardless of agent frontmatter, and all cost estimates in this repo become meaningless. Report the value and flag it.
    - **Declared tiers per active agent.** For each agent named by the active stack profile, read `model:` (and `model_plan:` where present) from its `.md` frontmatter and list them, so the operator sees the intended routing next to any override.
+   - **Plugin options in effect.** List every `CLAUDE_PLUGIN_OPTION_*` variable the `sdlc` plugin declares (`noninteractive`, `default_cost_cap_usd`, `stack_cache_ttl_hours`, `post_check_fix_attempts`) with its current value or "default", and flag when `SDLC_NONINTERACTIVE` in the environment overrides the `noninteractive` option.
 
    This step reads the environment and agent files only — it changes nothing.
 
@@ -300,7 +301,7 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
 }
 ```
 
-`stack.session_cache.present` is `false` (with `age_seconds`, `cached_primary`, and `agrees_with_fresh_detection` all `null`) when `~/.claude/.sdlc-stack-cache/{hash}.json` does not exist — this is the normal state before the `SessionStart` hook has run once, or when it is disabled. `active_profile`/`primary_priority`/`all_installed` always reflect the **fresh** scan, never the cache.
+`stack.session_cache.present` is `false` (with `age_seconds`, `cached_primary`, and `agrees_with_fresh_detection` all `null`) when `${CLAUDE_PLUGIN_DATA}/stack-cache/{hash}.json` does not exist — this is the normal state before the `SessionStart` hook has run once, or when it is disabled. `active_profile`/`primary_priority`/`all_installed` always reflect the **fresh** scan, never the cache.
 
 `git_flow.source` is `"config"` when a `git:` block exists in `.claude/sdlc.local.yaml` (with the overridden keys listed in `config_override_keys`), otherwise `"detection"`. `git_flow.detected` is the verbatim `detect-git-flow.sh` output, always freshly computed. Every `cache.*` field is `null` when `cache.present` is `false`. `git_flow.branch_creation_method` mirrors `references/GIT-FLOW.md` Step F-2a: `"git-flow-cli"` only when `detected.model == "git-flow"` and both `detected.git_flow_cli_available` and `detected.git_flow_initialized` are `true`, else `"checkout-b"` — this field does not account for the task-type restriction in F-2a-4 (bugfix/fix/refactor/docs/chore always use `checkout-b` even when the other three conditions hold), since doctor has no task description to classify.
 
