@@ -13,6 +13,8 @@ description: |
   - Language idioms — see python-foundation:python-conventions.
   - Testing patterns — see python-foundation:pytest-testing.
   - Framework-specific tooling (django management commands, flask CLI) — see framework plugin skills.
+user-invocable: false
+paths: ["pyproject.toml", "ruff.toml", "setup.cfg", "requirements*.txt", "tox.ini"]
 ---
 
 # Python Tooling (stack-agnostic)

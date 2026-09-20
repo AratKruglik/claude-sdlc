@@ -12,6 +12,8 @@ description: |
   Do NOT use this skill for:
   - Framework-specific test types (Django TestCase / WebTestCase, FastAPI TestClient, Flask test client — see framework plugin skills).
   - Language idioms — see python-foundation:python-conventions.
+user-invocable: false
+paths: ["tests/**", "**/test_*.py", "**/*_test.py", "**/conftest.py"]
 ---
 
 # pytest Testing Patterns (stack-agnostic)

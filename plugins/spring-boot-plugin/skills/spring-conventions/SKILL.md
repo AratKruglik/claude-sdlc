@@ -13,6 +13,8 @@ description: |
   - JPA entity and repository patterns — see spring-boot-plugin:spring-data-jpa.
   - Spring Security configuration — see the security phase injection in stack.md.
   - Build tool configuration — see java-foundation:build-tooling.
+user-invocable: false
+paths: ["src/main/java/**", "src/main/resources/**"]
 ---
 
 # Spring Boot Conventions

@@ -12,6 +12,8 @@ description: |
   Do NOT use this skill for:
   - Code-level conventions (see the active framework plugin's conventions skill).
   - Framework-specific package patterns (NestJS modules, Angular schematics, Expo SDK choice etc.).
+user-invocable: false
+paths: ["package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", ".npmrc"]
 ---
 
 # npm / yarn / pnpm Patterns (stack-agnostic)

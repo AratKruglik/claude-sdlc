@@ -14,6 +14,8 @@ description: |
   - Framework-specific idioms (ASP.NET Core controllers, minimal APIs, EF Core — those live in aspnet-core-plugin skills).
   - Build tooling (dotnet CLI, NuGet, csproj) — see csharp-foundation:dotnet-tooling.
   - Testing patterns — see csharp-foundation:dotnet-testing.
+user-invocable: false
+paths: ["**/*.cs"]
 ---
 
 # C# Conventions (stack-agnostic, C# 10+ / .NET 6+)

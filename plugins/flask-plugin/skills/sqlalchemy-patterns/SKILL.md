@@ -13,6 +13,8 @@ description: |
   - Framework-agnostic model, column, relationship, and querying rules — see python-foundation:sqlalchemy-patterns (load it first).
   - Flask routing and template/API patterns — see flask-plugin:flask-conventions.
   - Migration execution (flask db migrate, flask db upgrade) — that's flask-migrate-specialist's job.
+user-invocable: false
+paths: ["**/*.py"]
 ---
 
 # SQLAlchemy Patterns for Flask (sync delta)

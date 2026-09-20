@@ -13,8 +13,10 @@ description: |
   - Compliance certification (this is an in-loop review, not an audit)
 model: opus
 effort: xhigh
+memory: project
+maxTurns: 80
 color: red
-tools: [Read, Glob, Grep, Edit, Write, WebSearch, WebFetch]
+tools: [Read, Glob, Grep, Edit, Write, WebSearch, WebFetch, Skill]
 ---
 
 # Security Analyst

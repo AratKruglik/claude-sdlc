@@ -15,6 +15,8 @@ description: |
   - Package manager commands (ruff, mypy, pip/poetry/uv) — see python-foundation:python-tooling.
   - Testing patterns — see python-foundation:pytest-testing.
   - Web framework patterns (Django/FastAPI/Flask) — see those framework plugin skills.
+user-invocable: false
+paths: ["**/*.py"]
 ---
 
 # Python Application Conventions

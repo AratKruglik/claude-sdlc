@@ -14,6 +14,8 @@ description: |
   - EF Core entity configuration and migrations — see aspnet-core-plugin:efcore-patterns.
   - C# language idioms — see csharp-foundation:csharp-conventions.
   - Testing — see csharp-foundation:dotnet-testing.
+user-invocable: false
+paths: ["**/*.cs", "**/*.csproj", "appsettings*.json"]
 ---
 
 # ASP.NET Core Conventions

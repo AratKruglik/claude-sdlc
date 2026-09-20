@@ -14,6 +14,8 @@ description: |
   - Test framework setup (Jest/Vitest config — usually already in place).
   - Frontend tests.
   - Load testing (out of QA scope).
+user-invocable: false
+paths: ["**/*.spec.ts", "test/**"]
 ---
 
 # NestJS Testing

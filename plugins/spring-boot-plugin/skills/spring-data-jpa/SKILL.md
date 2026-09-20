@@ -14,6 +14,8 @@ description: |
   - Service or controller patterns — see spring-boot-plugin:spring-conventions.
   - Build tool setup — see java-foundation:build-tooling.
   - Test slices (@DataJpaTest) — see java-foundation:jvm-testing.
+user-invocable: false
+paths: ["src/main/java/**", "src/main/resources/db/**"]
 ---
 
 # Spring Data JPA Patterns

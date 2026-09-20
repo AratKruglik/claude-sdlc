@@ -1,6 +1,6 @@
 {
   "name": "fastapi-plugin",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "description": "FastAPI backend + database stack provider (priority=150). Detects fastapi in pyproject.toml/requirements.txt. Provides fastapi-architect (Sonnet/medium — APIRouter, Pydantic v2 schemas, Depends injection, async endpoints, OAuth2/JWT, OpenAPI, SQLAlchemy model stubs, API contract for SPA frontends) and alembic-specialist (Sonnet/low — SQLAlchemy 2.0 mapped classes, alembic revision --autogenerate, migration review, alembic upgrade head, verification) agents plus fastapi-conventions and sqlalchemy-patterns skills. Reuses python-foundation skills. Extra database phase after development.",
   "author": {
     "name": "Oleksii Kruhlyk",

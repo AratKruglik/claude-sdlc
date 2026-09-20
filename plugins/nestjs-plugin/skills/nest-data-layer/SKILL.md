@@ -14,6 +14,8 @@ description: |
   - Module/DI patterns (see nest-conventions).
   - Decorator usage broadly (see decorator-patterns).
   - Non-ORM raw SQL (rare; flag in BLOCKERS if needed).
+user-invocable: false
+paths: ["src/**/*.ts"]
 ---
 
 # NestJS Data Layer

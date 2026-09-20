@@ -14,6 +14,8 @@ description: |
   - Plain JavaScript projects (no tsconfig.json).
   - Framework-specific type idioms (React component props, Vue defineProps, Angular signals — those live in framework plugins' own conventions skills).
   - tRPC/Zod runtime-validation specifics — handled by validation libs at the boundary.
+user-invocable: false
+paths: ["**/*.ts", "**/*.tsx", "tsconfig*.json"]
 ---
 
 # TypeScript Patterns (stack-agnostic)

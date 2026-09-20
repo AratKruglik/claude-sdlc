@@ -15,6 +15,8 @@ description: |
   - Navigation (see rn-navigation).
   - Storage (see rn-state-and-storage).
   - Testing (see rn-testing).
+user-invocable: false
+paths: ["**/*.ios.*", "**/*.android.*", "ios/**", "android/**"]
 ---
 
 # Platform-Specific Patterns

@@ -13,6 +13,8 @@ description: |
   - Framework-specific tooling (dotnet ef migrations, aspnet-codegenerator — those are in aspnet-core-plugin:aspnet-conventions).
   - Testing patterns — see csharp-foundation:dotnet-testing.
   - C# language idioms — see csharp-foundation:csharp-conventions.
+user-invocable: false
+paths: ["**/*.csproj", "**/*.sln", "Directory.Build.props", ".editorconfig"]
 ---
 
 # .NET Tooling (stack-agnostic)

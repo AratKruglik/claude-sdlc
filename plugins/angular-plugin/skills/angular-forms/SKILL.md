@@ -16,6 +16,8 @@ description: |
   - State management beyond forms (see angular-state-and-rx).
   - Routing (see angular-routing).
   - Testing forms (see angular-testing).
+user-invocable: false
+paths: ["src/**/*.ts", "src/**/*.html"]
 ---
 
 # Angular Forms

@@ -1,6 +1,6 @@
 {
   "name": "python-plugin",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "description": "Plain Python backend stack provider (priority=100, detects pyproject.toml/requirements.txt/setup.py/Pipfile). Handles Python libraries, CLI tools, scripts, data pipelines, and microservices without a recognized web framework. Adds python-architect agent (Sonnet/medium) and python-app-conventions skill. Falls back gracefully when django-plugin/fastapi-plugin/flask-plugin (priority 150) match instead. Reuses python-foundation skills.",
   "author": {
     "name": "Oleksii Kruhlyk",

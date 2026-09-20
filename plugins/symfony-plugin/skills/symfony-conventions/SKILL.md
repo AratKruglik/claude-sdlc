@@ -10,6 +10,8 @@ description: |
   - PHP language idioms (strict_types, enums, readonly) — see php-foundation:php-conventions.
   - Doctrine queries / entities — see symfony-plugin:doctrine-patterns.
   - Testing — injected by the QA phase (WebTestCase/KernelTestCase) + php-foundation:php-testing.
+user-invocable: false
+paths: ["src/**", "config/**", "templates/**"]
 ---
 
 # Symfony Conventions (6.4 / 7.x)

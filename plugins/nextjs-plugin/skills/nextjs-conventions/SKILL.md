@@ -15,6 +15,8 @@ description: |
   - Data fetching patterns (see nextjs-data-fetching).
   - Complex routing (parallel/intercepting routes — see nextjs-routing).
   - Testing (see nextjs-testing).
+user-invocable: false
+paths: ["app/**", "pages/**", "src/**", "next.config.*"]
 ---
 
 # Next.js Conventions
