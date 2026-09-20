@@ -238,6 +238,52 @@ assert_valid_json "case9 valid JSON" "$OUT"
 assert_field "case9 stale marker treated as absent" '.hookSpecificOutput.permissionDecision' "allow" "$OUT"
 assert_contains "case9 falls through to not-found warning" '.systemMessage' "not found" "$OUT"
 
+# ── Case 11: v2 description contract — aspect suffix keeps the phase name parseable ──
+# "Phase 3/4: qa — frontend" must still resolve phase "qa" for the deny message, and the
+# aspect must not leak into the suggested agent lookup.
+PROJ=$(fresh_project "case11")
+cat > "$PROJ/.claude/agents/tester.md" <<'EOF'
+---
+name: tester
+---
+Local tester agent.
+EOF
+write_marker "$PROJ" "$(iso_offset -10M)" '["sdlc:qa-engineer"]' '{"qa":"sdlc:qa-engineer"}'
+OUT=$(run_hook "$PROJ" '{"tool_name":"Agent","tool_input":{"subagent_type":"tester","description":"Phase 3/4: qa — frontend"}}')
+assert_valid_json "case11 valid JSON" "$OUT"
+assert_field "case11 aspect-suffixed description still denied" '.hookSpecificOutput.permissionDecision' "deny" "$OUT"
+assert_contains "case11 phase resolved despite aspect suffix" '.hookSpecificOutput.permissionDecisionReason' "using 'sdlc:qa-engineer'" "$OUT"
+
+# ── Case 12: [pass:fix] and [pass:verify] resolve `model:` (only [pass:plan] is special) ──
+PROJ=$(fresh_project "case12")
+mkdir -p "$PROJ/plugins/laravel-plugin/agents"
+cat > "$PROJ/plugins/laravel-plugin/agents/laravel-architect.md" <<'EOF'
+---
+name: laravel-architect
+model: sonnet
+model_plan: opus
+---
+Test agent.
+EOF
+OUT=$(run_hook "$PROJ" '{"tool_name":"Agent","tool_input":{"subagent_type":"laravel-plugin:laravel-architect","description":"Phase 3/4: security [pass:fix]"}}')
+assert_field "case12 fix pass resolves model (not model_plan)" '.hookSpecificOutput.updatedInput.model' "sonnet" "$OUT"
+OUT=$(run_hook "$PROJ" '{"tool_name":"Agent","tool_input":{"subagent_type":"laravel-plugin:laravel-architect","description":"Phase 2/4: development — backend [pass:plan]"}}')
+assert_field "case12 plan pass with aspect still resolves model_plan" '.hookSpecificOutput.updatedInput.model' "opus" "$OUT"
+
+# ── Case 13: v2 state file — stale started_at but fresh updated_at keeps the marker active ──
+PROJ=$(fresh_project "case13")
+cat > "$PROJ/.claude/agents/tester.md" <<'EOF'
+---
+name: tester
+---
+Local tester agent.
+EOF
+cat > "$PROJ/.claude/.sdlc-run-active.json" <<EOF
+{"task_slug":"test-slug","schema_version":2,"started_at":"$(iso_offset -8H)","updated_at":"$(iso_offset -5M)","roster":["sdlc:qa-engineer"],"phase_agents":{"qa":"sdlc:qa-engineer"}}
+EOF
+OUT=$(run_hook "$PROJ" '{"tool_name":"Agent","tool_input":{"subagent_type":"tester","description":"Phase 3/4: qa"}}')
+assert_field "case13 updated_at keeps a long/resumed run enforced" '.hookSpecificOutput.permissionDecision' "deny" "$OUT"
+
 echo
 echo "=== ${pass_count} passed, ${fail_count} failed ==="
 [ "$fail_count" -eq 0 ]

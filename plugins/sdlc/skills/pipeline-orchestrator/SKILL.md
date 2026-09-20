@@ -668,16 +668,28 @@ The two `===` delimiters are part of the prompt — agents are instructed (via t
 **3b-2. MUST PRINT VERBATIM** before spawning each agent:
 
 ```
-▶ Phase {N}/{total}: {phase_name}{IF aspect-aware: " — " + aspect}{IF development: " — " + pass} → {agent_name} ({model_tier})
+▶ {dispatch_label} → {agent_name} ({model_tier})
+```
+
+where `{dispatch_label}` is **exactly the string passed as `description` in 3c**:
+
+```
+Phase {N}/{total}: {phase_name}{aspect_marker}{pass_marker}
+  aspect_marker = " — {aspect}"          (aspect-aware dispatches only)
+  pass_marker   = " [pass:plan]" | " [pass:implement]" | " [pass:fix]" | " [pass:verify]"
+                                         (development passes; security fix / QA verify sub-passes)
 ```
 
 Examples:
 - Aspect-agnostic: `▶ Phase 1/6: business_analysis → business-analyst (opus)`
-- Development, plan pass: `▶ Phase 2/6: development — backend — plan → laravel-architect (opus)`
-- Development, implement pass: `▶ Phase 2/6: development — backend — implement → laravel-architect (sonnet)`
+- Development, plan pass: `▶ Phase 2/6: development — backend [pass:plan] → laravel-architect (opus)`
+- Development, implement pass: `▶ Phase 2/6: development — backend [pass:implement] → laravel-architect (sonnet)`
 - Aspect-aware: `▶ Phase 3/6: qa — frontend → qa-engineer (sonnet)`
 
-This is a contract with the user. Do not skip.
+Print and `description` carry the identical label: the label is what the telemetry hooks
+(`hooks/dispatch-log.sh`) parse to attribute measured usage to a phase, aspect and pass, and what
+`enforce-agent-model.sh` parses to pick the frontmatter field. This is a contract with the user
+and with the hooks. Do not skip, do not paraphrase.
 
 **3b-3. Resolve model from agent frontmatter** — before spawning, read the agent's `.md` file (`plugins/**/agents/{agent_name}.md`) and resolve `{model_tier}`:
 
@@ -697,7 +709,7 @@ The two passes have different economics and therefore **different model tiers**.
 **Pass 1 — Planning:**
 
 1. Use base prompt `development_plan` (instead of `development`).
-2. Resolve the model via `model_plan:` per 3b-3. Set `description` to `Phase {N}/{total}: {phase_name} [pass:plan]`.
+2. Resolve the model via `model_plan:` per 3b-3. Set `description` to `Phase {N}/{total}: {phase_name}{aspect_marker} [pass:plan]`.
 3. Spawn the agent. It reads the BA spec + codebase and writes an implementation plan to `docs/plans/{task_slug}/02-development-plan{-aspect_suffix}.md`.
 4. Agent returns a plan summary.
 
@@ -717,7 +729,7 @@ The two passes have different economics and therefore **different model tiers**.
 **Pass 2 — Implementation:**
 
 1. Use base prompt `development_implement` (instead of `development`).
-2. Resolve the model via `model:` per 3b-3. Set `description` to `Phase {N}/{total}: {phase_name} [pass:implement]`.
+2. Resolve the model via `model:` per 3b-3. Set `description` to `Phase {N}/{total}: {phase_name}{aspect_marker} [pass:implement]`.
 3. Spawn the agent. It reads the approved plan and implements the code.
 4. Agent writes the implementation report to `docs/plans/{task_slug}/02-development{-aspect_suffix}.md`.
 5. Standard validation (3e) applies: output must list files changed.
@@ -732,7 +744,7 @@ For aspect-aware fan-out, the canonical order remains: `database → backend →
 Agent({
   subagent_type: "{plugin_name}:{agent_from_profile}",
   model: "{model_tier_resolved_in_3b-3}",   // short alias only: "opus" | "sonnet" | "haiku" | "fable"
-  description: "Phase {N}/{total}: {phase_name}{pass_marker}",
+  description: "Phase {N}/{total}: {phase_name}{aspect_marker}{pass_marker}",   // = the 3b-2 label
   prompt: <the prompt built in 3b>
 })
 ```
@@ -755,30 +767,41 @@ Code build without `plugin:agent` support), treat it as a phase failure per *Fai
 modes and recovery* (retry / skip / abort with the user) rather than papering over it
 with an unqualified retry.
 
-`description` is not decoration — the hook only sees `tool_input`, so it is the sole
+`description` is not decoration — the hooks only see `tool_input`, so it is the sole
 channel telling `enforce-agent-model.sh` (a) which frontmatter field to enforce and
-(b) which phase this dispatch belongs to, for its off-roster deny message. It **MUST**
-be exactly `Phase {N}/{total}: {phase_name}{pass_marker}` — a free-form description
-(e.g. "Regression test verification for X") breaks both. `{pass_marker}` is empty for
-every phase except development, where it is ` [pass:plan]` or ` [pass:implement]` per
-3b-special. Drop the marker on a planning pass and the hook rewrites the model back to
-`model:`, silently undoing the tier split.
+(b) which phase this dispatch belongs to, for its off-roster deny message, and telling
+`dispatch-log.sh` which phase / aspect / pass a measured usage row belongs to. It **MUST**
+be exactly the 3b-2 label `Phase {N}/{total}: {phase_name}{aspect_marker}{pass_marker}` — a
+free-form description (e.g. "Regression test verification for X") breaks all three: the
+model rewrite, the deny message, and the telemetry attribution (the row is then recorded
+as a *nested* dispatch, not a phase). `{aspect_marker}` is ` — {aspect}` on aspect-aware
+dispatches and empty otherwise. `{pass_marker}` is empty for every phase except
+development, where it is ` [pass:plan]` or ` [pass:implement]` per 3b-special (` [pass:fix]`
+and ` [pass:verify]` are reserved for the security fix / QA verify sub-passes). Drop the
+marker on a planning pass and the hook rewrites the model back to `model:`, silently
+undoing the tier split.
 
 **3d. Save the COMPACT summary** returned by the agent to `CONTEXT.{phase}_output`. Verify the agent also wrote the detailed file to `docs/plans/{task_slug}/0X-{phase}.md` (use `Glob` to check). If the file is missing, ask the agent again to write it before proceeding.
 
-**3d-1. Capture per-phase telemetry** — extract from the Agent tool result (when usage data is present in the result envelope, read `input_tokens`, `output_tokens`, `cached_input_tokens`; otherwise estimate from prompt + summary character length / 4). Compute:
+**3d-1. Capture per-dispatch telemetry (measured).** The Agent tool result carries **no** usage data, so nothing in this step reads token counts from the result envelope. Usage is measured by this plugin's hooks while the Step 2 run marker is fresh: `hooks/dispatch-log.sh` records every `Agent` dispatch (`PreToolUse`) and its assigned `agent_id` (`SubagentStart`), and `hooks/subagent-usage.sh` (`SubagentStop`) sums the finished subagent's own transcript — deduplicated by `message.id` — and prices it from `references/pricing.json`. All three append rows to `docs/plans/{task_slug}/_usage.jsonl`; the orchestrator never writes that file.
 
-- `compact_summary_chars` — `len(CONTEXT.{phase}_output)`. Convert to tokens the same way as above (`chars / 4`) before comparing: the handoff budget is stated in **tokens** by every agent contract (≤2K for BA/QA/security, ≤3K for development), so a char-count must never be compared against a token threshold directly. If `chars / 4 > 3000` (i.e. > 12000 chars), record `compact_handoff_violation: true` and emit a one-line warning to stderr: `WARN: {phase} compact summary exceeded budget (~{chars/4} tokens > 3000)`. Do not abort — the violation is recorded for post-run analysis.
+Right after the `Agent` call returns, run (one Bash call; listed in the Bash allowlist below):
 
-  This counter is the pipeline's only sensor for model verbosity drift (newer models default to longer responses and narrate progress more often in agentic sessions). A threshold set ~4× too tight fires on every compliant run and destroys that signal.
-- `model` — the model tier declared in the agent's frontmatter (`opus`, `sonnet`, or `haiku`). This is the authoritative value because the PreToolUse hook enforces it at dispatch time. **Do not** read this from the Agent result envelope (it is not exposed there).
-- `cost_usd` — derived from per-tier pricing table (kept inline for transparency). Cached input is 10% of base input across all tiers:
-  - opus: input $5/MTok, cached input $0.50/MTok, output $25/MTok
-  - sonnet: input $3/MTok, cached input $0.30/MTok, output $15/MTok
-  - haiku: input $1/MTok, cached input $0.10/MTok, output $5/MTok
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-report.sh" {task_slug} --project-root .
+```
 
-  These are list prices for the current generation behind each alias. Keep them in sync with `README.md` → "Cost Optimization" — the two tables are the only cost references in the repo and they must not diverge. Estimates here exclude the orchestrator's own token consumption (see `_telemetry.json` note in 3f).
-- For aspect-aware phase fan-out, push one entry **per aspect** into `phases[]` with `phase: "{phase_name}"` and `aspect: "{aspect}"` set; aspect-agnostic phases omit `aspect`.
+(dev checkout fallback: `plugins/sdlc/scripts/usage-report.sh`). It pairs the rows into one record per dispatch. Take the record for **this** call: same bare `agent_type`, same `phase` / `aspect` / `pass` as the 3b-2 label, latest `started_at`. Then fill the `phases[]` entry:
+
+- `usage_source` — `"measured"` when the record's `status` is `completed`. When the record is missing, `unmeasured` (transcript not found), or `jq` is unavailable, fall back to the estimate `chars / 4` over prompt + summary and set `usage_source: "estimated"`. Never silently mix the two: the field says which one this row is.
+- Token fields, measured case — `input_tokens = input_tokens + cache_creation_input_tokens + cache_read_input_tokens` (the total input the API saw), `cached_input_tokens = cache_read_input_tokens`, plus the two raw fields `cache_creation_input_tokens` and `cache_read_input_tokens` verbatim. This mapping keeps `cache_hit_ratio` (Step 5) meaning "share of input served from cache", as before.
+- `model` — the model **tier** declared in the agent's frontmatter (`opus` / `sonnet` / `haiku` / `fable`), authoritative because the PreToolUse hook enforces it. `model_id` — the concrete id from the record (e.g. `claude-opus-5`), measured case only. A mismatch between the two is worth a one-line stderr warning: it means an override (`CLAUDE_CODE_SUBAGENT_MODEL_FORCE`, an org allowlist) is in play.
+- `cost_usd` — from the record. When it is `null` (`pricing_note: "unknown model"`), price the measured tokens yourself from the frontmatter tier's row in `references/pricing.json` and copy `pricing_note` into the entry. Estimated rows are priced the same way from the tier. `pricing.json` is the single source of truth for prices — README and this skill reference it, never restate it.
+- `agent_id`, `started_at`, `completed_at`, `turns`, `pass` — copied from the record (`null` when estimated).
+- `compact_summary_chars` — `last_message_chars` from the record when measured, else `len(CONTEXT.{phase}_output)`. Convert to tokens (`chars / 4`) before comparing: the handoff budget is stated in **tokens** by every agent contract (≤2K for BA/QA/security, ≤3K for development). If `chars / 4 > 3000` (i.e. > 12000 chars), record `compact_handoff_violation: true` and emit a one-line stderr warning: `WARN: {phase} compact summary exceeded budget (~{chars/4} tokens > 3000)`. Do not abort. This counter is the pipeline's only sensor for model verbosity drift; a threshold ~4× too tight fires on every compliant run and destroys that signal.
+- For aspect-aware fan-out, push one entry **per dispatch** into `phases[]` with `phase` and `aspect` set; aspect-agnostic phases omit `aspect`. Development pushes one entry per pass (`pass: "plan"` / `"implement"`).
+
+Nested dispatches (a phase agent spawning `general-purpose` / `Explore` via a skill) are recorded by the hooks too, with `nested: true`; they are **not** `phases[]` entries. Their cost is summed by `usage-report.sh` into `nested_cost_usd` and surfaces in Step 5.
 
 **3d-2. QA-specific telemetry** — when running the `qa` phase, parse the agent's compact summary for the lines `ITERATIONS_USED: N` (max 3, hard cap from the agent prompt) and `STATUS: complete | incomplete-blocked`. Record:
 
@@ -789,7 +812,7 @@ Both fields go into the QA phase entry of `phases[]`.
 
 **3d-3. Enforce the workflow cost cap.** If `CONTEXT.max_total_cost_usd` is `null`, skip this step.
 
-Otherwise sum `cost_usd` across `phases[]` so far. If the running total exceeds the cap, **MUST PRINT VERBATIM**:
+Otherwise sum `cost_usd` across `phases[]` so far (measured rows where available — this is exactly why 3d-1 prefers the hook-measured value over an estimate; a cap compared against guesses is not a guard). If the running total exceeds the cap, **MUST PRINT VERBATIM**:
 
 ```
 💸 Cost cap exceeded for workflow '{active_workflow}'
@@ -869,32 +892,55 @@ Write `docs/plans/{task_slug}/_telemetry.json`:
     {
       "phase": "business_analysis",
       "aspect": null,
+      "pass": null,
       "agent": "business-analyst",
+      "agent_id": "agent_3f9c…",
       "model": "opus",
+      "model_id": "claude-opus-5",
       "status": "completed",
+      "usage_source": "measured",
+      "started_at": "<ISO timestamp>",
+      "completed_at": "<ISO timestamp>",
+      "turns": 14,
       "input_tokens": 35000,
       "output_tokens": 3000,
       "cached_input_tokens": 21000,
+      "cache_creation_input_tokens": 4000,
+      "cache_read_input_tokens": 21000,
       "cost_usd": 0.16,
+      "pricing_note": null,
       "compact_summary_chars": 1840,
       "compact_handoff_violation": false
     },
     {
       "phase": "qa",
       "aspect": null,
+      "pass": null,
       "agent": "qa-engineer",
+      "agent_id": null,
       "model": "sonnet",
+      "model_id": null,
       "status": "completed",
+      "usage_source": "estimated",
+      "started_at": null,
+      "completed_at": null,
+      "turns": null,
       "qa_iterations_used": 2,
       "qa_status": "completed",
       "input_tokens": 28000,
       "output_tokens": 2100,
-      "cached_input_tokens": 18000,
+      "cached_input_tokens": 0,
+      "cache_creation_input_tokens": null,
+      "cache_read_input_tokens": null,
       "cost_usd": 0.07,
+      "pricing_note": null,
       "compact_summary_chars": 1450,
       "compact_handoff_violation": false
     }
   ],
+  "usage_source_summary": { "measured": 5, "estimated": 1, "unmeasured": 0 },
+  "nested_cost_usd": 0.04,
+  "total_cost_usd_including_nested": 1.46,
   "skip_rules_applied": [
     { "rule": "typo-fix", "phase_skipped": "business_analysis", "reason": "$ARGUMENTS matched /^typo/ AND diff < 30 LOC" }
   ],
@@ -923,8 +969,10 @@ Compute aggregates from `phases[]`:
 - `total_cost_usd` = sum of phase `cost_usd`.
 - `cache_hit_ratio` = `total_cached_input_tokens / max(total_input_tokens, 1)` rounded to 2 decimals.
 - `cost_scope` = always the literal `"subagent_phases_only"`.
+- `usage_source_summary` = counts of `phases[].usage_source` values (`measured` / `estimated` / `unmeasured`). A run with any `estimated` row is not baseline-grade; `docs/cost-baseline.md` aggregates only fully measured runs.
+- `nested_cost_usd` and `total_cost_usd_including_nested` — copied from the final `usage-report.sh` output (run it once more here, after the last phase). `nested_cost_usd` is the measured cost of subagents that phase agents spawned themselves (superpowers skills, `Explore`); it is real pipeline spend that no earlier version could see. `total_cost_usd` keeps its historical meaning (phase dispatches only) so `cost_scope` stays truthful.
 
-> Token counts come from the Agent tool's usage envelope when present. If a phase's result lacks usage data, fall back to char-length / 4 estimation and set `phases[N].usage_source: "estimated"` (default `"reported"`).
+> Token counts are **measured** by the `SubagentStop` hook from each subagent's own transcript (3d-1); the Agent tool result never carried them. A row is `estimated` (char-length / 4) only when the hooks could not measure it — jq missing, transcript not found, or the run marker not fresh.
 
 > **What `total_cost_usd` does not include.** Only subagent spawns are metered. The orchestrator's own consumption — this skill's body, stack-profile globbing and parsing, workflow resolution and schema validation, and the approval-gate exchanges — runs on the session model and is invisible here. Treat `total_cost_usd` as a floor for the run, not the full bill. The `cost_scope` field exists so downstream consumers (`docs/cost-baseline.md`, `/sdlc:doctor`) cannot silently misread it as a total.
 
@@ -1181,7 +1229,7 @@ RETURN: PR URL + 1-paragraph release-notes blurb suitable for changelog.
 
 You **never**:
 - Read or write project source files directly. Delegate to agents.
-- Run any Bash command beyond the post-pipeline checks and the git allowlist below. Delegate to agents.
+- Run any Bash command beyond the post-pipeline checks and the Bash allowlist below. Delegate to agents.
 - Skip phases except per Step 0c skip-rules.
 - Continue past a failed phase validation without user input.
 - Modify files inside `~/.claude/plugins/cache/**`.
@@ -1197,16 +1245,20 @@ You **never**:
   only history-shaping act the orchestrator performs; committing belongs to the documentation
   phase and merging belongs to a human reviewing the PR.
 
-### Git command allowlist (Steps 0b-git and 0c only)
+### Bash allowlist (Steps 0b-git, 0c, 3d-1 and 5 only)
 
-Branch setup needs git plumbing, which is why the Bash rule above is scoped rather than
-absolute. Exactly these are permitted, and only from Step 0b-git / Step 0c:
+Branch setup needs git plumbing and telemetry needs one read-only script, which is why the
+Bash rule above is scoped rather than absolute. Exactly these are permitted:
 
-**Read-only** — `git rev-parse`, `git symbolic-ref`, `git for-each-ref`, `git branch`
-(listing only), `git config --get` / `--get-regexp`, `git ls-remote --heads`,
+**Read-only (Steps 0b-git / 0c)** — `git rev-parse`, `git symbolic-ref`, `git for-each-ref`,
+`git branch` (listing only), `git config --get` / `--get-regexp`, `git ls-remote --heads`,
 `git status --porcelain`, `git diff` (the Step 0c signals), `git rev-list --count`,
 `git check-ref-format`, `git flow version` (the F-2a CLI-availability probe), and
 `scripts/detect-git-flow.sh`.
+
+**Read-only (Steps 3d-1 / 5)** — `bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-report.sh"
+{task_slug} --project-root .` (dev checkout: `plugins/sdlc/scripts/usage-report.sh`). It only
+reads `docs/plans/{task_slug}/_usage.jsonl` and prints JSON.
 
 **Mutating** — only three, each narrowly conditioned:
 

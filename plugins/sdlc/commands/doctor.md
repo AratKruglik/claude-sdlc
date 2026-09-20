@@ -55,7 +55,21 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
 
    This step reads the filesystem only — it changes nothing.
 
-7. **Check the git branching model.** Run `${CLAUDE_PLUGIN_ROOT}/scripts/detect-git-flow.sh` (falling back to `<repo>/plugins/sdlc/scripts/detect-git-flow.sh` in a development checkout) and report what `/sdlc:start` would decide. Always run it **fresh** — never read the cache for this report. A doctor that echoes a stale cache cannot diagnose a stale cache.
+7. **Check dispatch telemetry.** Two read-only observations:
+
+   - **Hook wiring.** Confirm the plugin's `hooks/hooks.json` registers `SubagentStart` and
+     `SubagentStop` entries pointing at `dispatch-log.sh` / `subagent-usage.sh`, and that the
+     scripts resolve at `${CLAUDE_PLUGIN_ROOT}/hooks/` (or the dev-checkout path). Report which
+     JSON tool they will use (`jq`, else `python3`, else "neither — telemetry disabled, every
+     run will be `estimated`").
+   - **Last run.** Find the newest `docs/plans/*/_usage.jsonl` in the project. Run
+     `scripts/usage-report.sh {slug} --project-root .` on it and report
+     `usage_source_summary` (measured / unmeasured / not_started), `total_cost_usd`,
+     `nested_cost_usd`, and any dispatch with `pricing_note: "unknown model"` (a model id
+     missing from `references/pricing.json` — the one case where a maintainer must act). If
+     no log exists, say so; a project that has never run `/sdlc:start` has none.
+
+8. **Check the git branching model.** Run `${CLAUDE_PLUGIN_ROOT}/scripts/detect-git-flow.sh` (falling back to `<repo>/plugins/sdlc/scripts/detect-git-flow.sh` in a development checkout) and report what `/sdlc:start` would decide. Always run it **fresh** — never read the cache for this report. A doctor that echoes a stale cache cannot diagnose a stale cache.
 
    Report:
 
@@ -69,7 +83,7 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
 
    This step reads the filesystem and runs read-only git plumbing. It creates no branch and writes no cache.
 
-8. **Render output.** Default = human-readable table. With `--json` flag, emit a single valid JSON object to stdout and exit.
+9. **Render output.** Default = human-readable table. With `--json` flag, emit a single valid JSON object to stdout and exit.
 
 ## Human output format
 
@@ -121,6 +135,13 @@ Local-agent shadowing:
 
 Run marker:
   ✅ no .claude/.sdlc-run-active.json present
+
+Dispatch telemetry:
+  hooks: ✅ SubagentStart + SubagentStop registered (jq available)
+  last run: add-subscription-billing — 6 dispatches, measured=6 unmeasured=0 not_started=0
+    total $1.42 (phases) + $0.04 nested; no unknown model ids
+  (or: last run: none — no docs/plans/*/_usage.jsonl in this project)
+  (or: ⚠️  2 dispatches priced null — model id 'claude-foo-6' missing from references/pricing.json)
 
 Git flow:
   source: detection (no `git:` block in .claude/sdlc.local.yaml)
@@ -215,6 +236,18 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
     "started_at": null,
     "age_seconds": null
   },
+  "dispatch_telemetry": {
+    "hooks_registered": true,
+    "json_tool": "jq",
+    "last_run": {
+      "task_slug": "add-subscription-billing",
+      "dispatches": 6,
+      "usage_source_summary": { "measured": 6, "unmeasured": 0, "not_started": 0, "running": 0 },
+      "total_cost_usd": 1.42,
+      "nested_cost_usd": 0.04,
+      "unknown_model_ids": []
+    }
+  },
   "git_flow": {
     "source": "detection",
     "config_override_keys": [],
@@ -264,7 +297,7 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
 
 ## Hard rules
 
-- **Effectively read-only.** Do NOT install plugins, run pipelines, or modify any existing file. The single exception is seeding `docs/cost-baseline.md` from the shipped template when that file does not exist (step 4) — a create-if-absent scaffold, never an overwrite. Step 6 (shadowing check, run-marker staleness) never deletes the marker itself — it only reports and suggests the `rm` command; the operator runs it. Step 7 never creates a branch, never fetches, and never writes the git-flow cache.
+- **Effectively read-only.** Do NOT install plugins, run pipelines, or modify any existing file. The single exception is seeding `docs/cost-baseline.md` from the shipped template when that file does not exist (step 4) — a create-if-absent scaffold, never an overwrite. Step 6 (shadowing check, run-marker staleness) never deletes the marker itself — it only reports and suggests the `rm` command; the operator runs it. Step 7 only reads `_usage.jsonl` through `usage-report.sh`. Step 8 never creates a branch, never fetches, and never writes the git-flow cache.
 - **Do not enforce policy.** A missing `block` dep here is just reported, not actioned.
 - **Reuse, don't reimplement.** The dependency-status algorithm is described in `pipeline-orchestrator/SKILL.md` Step 0a-2 / 0a-3. If those steps change, this command's behavior must follow — this command is documentation that delegates to those steps, not a parallel implementation.
 - **Exit code semantics with `--json`:** exit 0 normally; exit 1 only if the runtime-dependencies.json file itself is malformed JSON (parse error). Missing-but-blocking deps still exit 0 — report them in the JSON and let the caller decide.

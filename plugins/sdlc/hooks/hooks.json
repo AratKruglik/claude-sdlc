@@ -8,6 +8,36 @@
             "type": "command",
             "command": "bash -c 'if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/enforce-agent-model.sh\" ]; then exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforce-agent-model.sh\"; fi; f=$(ls -d \"${HOME}/.claude/plugins/cache\"/*/sdlc/*/hooks/enforce-agent-model.sh 2>/dev/null | { sort -Vr 2>/dev/null || sort -r; } | head -1); if [ -n \"$f\" ]; then exec bash \"$f\"; fi; f=\"${PWD}/plugins/sdlc/hooks/enforce-agent-model.sh\"; if [ -f \"$f\" ]; then exec bash \"$f\"; fi; echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PreToolUse\\\",\\\"permissionDecision\\\":\\\"allow\\\"}}\"'",
             "description": "Enforce declared model tier for SDLC pipeline agents. Reads model: from agent frontmatter and injects the correct model ID via updatedInput before the Agent tool fires. Fails open for unknown agents."
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch-log.sh\" ]; then exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch-log.sh\"; fi; f=$(ls -d \"${HOME}/.claude/plugins/cache\"/*/sdlc/*/hooks/dispatch-log.sh 2>/dev/null | { sort -Vr 2>/dev/null || sort -r; } | head -1); if [ -n \"$f\" ]; then exec bash \"$f\"; fi; f=\"${PWD}/plugins/sdlc/hooks/dispatch-log.sh\"; if [ -f \"$f\" ]; then exec bash \"$f\"; fi; exit 0'",
+            "description": "Dispatch telemetry (pending row): records agent_type + description of every Agent dispatch made while a pipeline run marker is fresh, so usage-report.py can attribute measured usage to phases. Silent, no-op outside a run.",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch-log.sh\" ]; then exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch-log.sh\"; fi; f=$(ls -d \"${HOME}/.claude/plugins/cache\"/*/sdlc/*/hooks/dispatch-log.sh 2>/dev/null | { sort -Vr 2>/dev/null || sort -r; } | head -1); if [ -n \"$f\" ]; then exec bash \"$f\"; fi; f=\"${PWD}/plugins/sdlc/hooks/dispatch-log.sh\"; if [ -f \"$f\" ]; then exec bash \"$f\"; fi; exit 0'",
+            "description": "Dispatch telemetry (start row): pairs the assigned agent_id with the pending dispatch of the same agent_type. Silent, no-op outside a run.",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-usage.sh\" ]; then exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-usage.sh\"; fi; f=$(ls -d \"${HOME}/.claude/plugins/cache\"/*/sdlc/*/hooks/subagent-usage.sh 2>/dev/null | { sort -Vr 2>/dev/null || sort -r; } | head -1); if [ -n \"$f\" ]; then exec bash \"$f\"; fi; f=\"${PWD}/plugins/sdlc/hooks/subagent-usage.sh\"; if [ -f \"$f\" ]; then exec bash \"$f\"; fi; exit 0'",
+            "description": "Dispatch telemetry (stop row): sums the finished subagent's transcript usage (deduped by message.id), prices it from references/pricing.json and appends the measured row. Synchronous on purpose — the orchestrator reads the log right after the Agent call returns. Silent, no-op outside a run.",
+            "timeout": 15
           }
         ]
       }
