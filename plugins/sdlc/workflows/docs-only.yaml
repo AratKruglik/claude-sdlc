@@ -3,8 +3,9 @@ description: Documentation updates only — skip all implementation and review p
 match:
   config_only: true
 caps:
-  # The documentation phase alone runs on haiku/low and costs ~$0.03. Cap set well above
-  # that so it only fires if the phase goes pathological, never on a normal run.
-  max_total_cost_usd: 0.20
+  # The documentation phase alone runs on haiku/low. Modelled at ~$0.07 with caching,
+  # ~$0.14 cold. The cap sits ~3x over the cold figure so it only fires if the phase
+  # goes pathological, never on a normal run.
+  max_total_cost_usd: 0.40
 phases:
   - documentation

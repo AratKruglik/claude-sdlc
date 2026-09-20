@@ -3,11 +3,13 @@ description: Emergency production fix — skip BA, minimal footprint, capped cos
 match:
   loc_touched_max: 200
 caps:
-  # Runaway guard, not a routine blocker. A hotfix runs dev (opus plan pass + sonnet
-  # implement pass) + qa + security; under the 200-LOC ceiling above that lands around
-  # $1.00-1.50 at current list prices. The cap sits ~2x over that so it fires on
-  # pathology (QA retry storms, oversized diffs) and never on a normal run.
-  max_total_cost_usd: 2.50
+  # Runaway guard, not a routine blocker. Modelled cost of a healthy hotfix under the
+  # 200-LOC ceiling above: ~$2.45 with prompt caching, ~$6.00 when the cache is cold
+  # (see README "What a run actually costs"). The previous $2.50 sat exactly on the
+  # healthy figure and would have fired on normal runs — the one thing a runaway guard
+  # must not do. $8.00 is ~1.3x the cold-cache cost, so it fires on pathology (a QA
+  # retry storm, an oversized diff) and never on healthy work.
+  max_total_cost_usd: 8.00
 phases:
   - development
   - parallel:

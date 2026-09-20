@@ -254,8 +254,8 @@ assert_field "case7c qa member phase" '[.dispatches[] | select(.agent_id=="agent
 assert_field "case7c security member has no aspect" '[.dispatches[] | select(.agent_id=="agent-PS")][0].aspect' "null" "$REP"
 assert_field "case7c security member phase" '[.dispatches[] | select(.agent_id=="agent-PS")][0].phase' "security" "$REP"
 assert_field "case7c neither member counted as nested" '[.dispatches[] | select(.nested)] | length' "0" "$REP"
-# sonnet: (1000*3 + 100*15)/1e6 = 0.0045 ; opus: (100*5 + 10*25)/1e6 = 0.00075
-assert_field "case7c group total is the sum of both members" '.total_cost_usd' "0.00525" "$REP"
+# sonnet: (1000*2 + 100*10)/1e6 = 0.003 ; opus: (100*5 + 10*25)/1e6 = 0.00075
+assert_field "case7c group total is the sum of both members" '.total_cost_usd' "0.00375" "$REP"
 assert_field "case7c nothing leaks into nested" '.nested_cost_usd' "0" "$REP"
 
 # ── Case 8: transcript missing → stop row with transcript_missing ──
@@ -297,8 +297,20 @@ STOP=$(printf '%s\n' "$LOG" | sed -n 3p)
 assert_field "case10 py pending aspect" '.aspect' "frontend" "$PENDING"
 assert_field "case10 py pending pass" '.pass' "verify" "$PENDING"
 assert_field "case10 py dedupe input" '.input_tokens' "1000" "$STOP"
-# sonnet: (1000*3 + 200*3*1.25 + 300*3*0.1 + 50*15)/1e6 = (3000+750+90+750)/1e6 = 0.00459
-assert_field "case10 py cost sonnet" '.cost_usd' "0.00459" "$STOP"
+# sonnet: (1000*2 + 200*2*1.25 + 300*2*0.1 + 50*10)/1e6 = (2000+500+60+500)/1e6 = 0.00306
+assert_field "case10 py cost sonnet" '.cost_usd' "0.00306" "$STOP"
+
+# ── Case 10b: Fable 5.1 reads cache at 0.025x, not the 0.1x every other tier uses ──
+fresh_project "case10b"
+write_marker "$PROJ" "$(iso_offset -10M)"
+run_pre "$PROJ" "sdlc:business-analyst" "Phase 1/4: business_analysis"
+run_start "$PROJ" "agent-F" "business-analyst"
+write_transcript "case10b" "agent-F" "claude-fable-5-1" "f1:1000:100:0:10000"
+run_stop "$PROJ" "case10b" "agent-F" "business-analyst" "done"
+STOP=$(printf '%s\n' "$(cat "$(log_of "$PROJ")")" | grep '"event":"stop"')
+# fable-5-1: (1000*10 + 10000*10*0.025 + 100*50)/1e6 = (10000+2500+5000)/1e6 = 0.0175
+# at the generic 0.1x it would read 0.025 — a 43% overstatement on a cache-heavy dispatch
+assert_field "case10b fable 5.1 cache read at 0.025x" '.cost_usd' "0.0175" "$STOP"
 
 # ── Case 11: non-Agent PreToolUse and non-contract description ──
 fresh_project "case11"

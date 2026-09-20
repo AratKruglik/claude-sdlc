@@ -125,12 +125,25 @@ valid now is not, or produces a different shape.
   `BLOCKER` rather than adapting to it.
 - **`java-plugin/security-patterns.yaml` duplicated `java-foundation` byte for byte.** Deleted;
   `java-plugin` already depends on `java-foundation`. Zero `rule_name` collisions remain.
+- **`references/pricing.json` had two wrong prices** — found by the cost research this
+  release's own telemetry work motivated. Sonnet was priced at `$3/$15`; the `$2/$10`
+  launch rate became the standard price and the scheduled increase was cancelled, so every
+  measured Sonnet dispatch was **overstated by 50%**. Fable 5.1 and Mythos 5.1 read cache
+  at `0.025x`, not the `0.1x` every other tier uses — a 43% overstatement on a cache-heavy
+  dispatch. Both fixed, both now pinned by tests.
+- **The `hotfix` cost cap would have fired on healthy runs.** `$2.50` sat on a modelled
+  healthy hotfix cost of `$2.45` — exactly what its own comment says a runaway guard must
+  never do. Raised to `$8.00`; `docs-only` from `$0.20` to `$0.40` on the same reasoning.
 - **Two dead documentation links** (`ARCHITECTURE.md` → a never-committed ADR, `CONTRIBUTING.md`
   → a pre-`plugins/` schema path), and the broken `yq '.frontmatter'` schema-validation recipe
   in the README, which could never have worked.
 
 ### Changed
 
+- **The README cost section is rebuilt from the way dispatches actually bill.** The old
+  table modelled each phase as one API request; an agentic loop re-sends its whole context
+  every turn, which makes cost roughly quadratic in dispatch length and the old figure low
+  by 2–3×. A medium feature models at ~$6 cached, ~$21 cache-cold.
 - `docs/cost-baseline.md` and `MODEL-ROUTING.md` now defer to measured numbers. The estimates
   remain as reasoning, explicitly superseded by whatever your own baseline says.
 - `README.md`, `ARCHITECTURE.md`, `CONTRIBUTING.md` and `plugins/sdlc/README.md` rewritten
