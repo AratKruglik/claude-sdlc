@@ -66,6 +66,9 @@ fresh_project() {
     rm -rf "$PROJ"
     mkdir -p "$PROJ/.claude"
     git -C "$PROJ" init -q 2>/dev/null
+    # Pin the initial branch: `git init` defaults to master on the CI runner and main
+    # locally, and the fixtures state base_branch explicitly.
+    git -C "$PROJ" symbolic-ref HEAD refs/heads/main 2>/dev/null
     git -C "$PROJ" config user.email t@example.com
     git -C "$PROJ" config user.name Test
 }
