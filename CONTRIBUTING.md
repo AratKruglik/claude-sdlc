@@ -1,99 +1,71 @@
 # Contributing a Stack Plugin
 
-The `claude-sdlc` marketplace is designed to be extended with stack plugins — language/framework-specific adapters that plug into the core orchestration. This guide walks through adding one.
+This marketplace extends by **adding a plugin**, never by modifying the core. A stack plugin
+declares what it can handle in a `stack.md` profile; the `sdlc` orchestrator discovers it,
+resolves which aspects it owns, and dispatches to its agents. Nothing in `plugins/sdlc/`
+changes when you add a stack.
 
-## What "stack plugin" means
+## What a stack plugin is
 
-A stack plugin is a Claude Code plugin that lives under `packages/<stack>/` and declares:
+A Claude Code plugin under `plugins/<name>/` that ships a `stack.md` with:
 
-- At least a `developer` agent and a `tester` agent.
-- A `stack-manifest.json` that the core orchestrator uses to discover and route to these agents.
-- Lint/test/build shell commands.
-- Optional auto-detection rules (which project files indicate this stack).
+- `stack` — a unique lowercase name
+- `priority` — `0` for the vanilla fallback, `100+` for a framework. Highest wins **per aspect**
+- `aspects` — which of `backend, frontend, database, infra, testing, messaging` it owns
+- `detect` — the file/content rules that make it match a project
 
-The orchestrator in the `sdlc` core plugin reads all installed stack manifests at session start and maps generic roles ("developer", "tester", "qa") to your stack-specific agents.
+Plus the agents it dispatches, the convention skills they load, and the shell commands it wants
+run after a pipeline.
 
 ## Directory layout
 
 ```
-packages/<stack>/
-├── .claude-plugin/
-│   └── plugin.json           # { "name": "sdlc-<stack>", "version": "0.1.0" }
-├── stack-manifest.json       # Contract with core — validates against schema
+plugins/<name>/
+├── .claude-plugin/plugin.json     # name, version, description, dependencies
+├── stack.md                       # the profile: frontmatter + phase prompt injections
 ├── agents/
-│   ├── developer.md          # Required
-│   ├── tester.md             # Required
-│   ├── qa.md                 # Optional (E2E)
-│   └── ...                   # Any custom roles
+│   └── <name>-architect.md        # distinctive names — see Agent naming below
 ├── skills/
-│   └── <framework-skill>/SKILL.md
-├── rules/
-│   ├── code-style.md
-│   └── architecture.md
+│   └── <name>-conventions/SKILL.md
+├── security-patterns.yaml         # optional, rule_name prefixed with your stack
+├── hooks/hooks.json               # optional: formatter, config protection, typecheck
 └── README.md
 ```
 
-## stack-manifest.json contract
+Look at `plugins/laravel-plugin/` for a full-stack example with a database specialist, and
+`plugins/react-plugin/` for a frontend-only one.
 
-Validate against `packages/core/schema/stack-manifest.schema.json`. Minimum required fields:
+## The `stack.md` contract
 
-```json
-{
-  "stack": "<unique-id>",
-  "language": "<primary-language>",
-  "version": "0.1.0",
-  "agents": {
-    "developer": { "file": "agents/developer.md", "required": true },
-    "tester":    { "file": "agents/tester.md",    "required": true }
-  },
-  "commands": {
-    "test": "<shell command to run tests>",
-    "lint": "<shell command to run linter>"
-  }
-}
+The frontmatter validates against [`schemas/stack.schema.json`](schemas/stack.schema.json) and
+allows exactly four keys:
+
+```yaml
+---
+stack: laravel
+aspects: [backend, database]
+priority: 100
+detect:
+  all:
+    - file_exists: composer.json
+    - file_contains:
+        path: composer.json
+        pattern: '"laravel/framework"'
+---
 ```
 
-Recommended additions:
+`detect` takes `any` (OR) or `all` (AND). Rules are `file_exists`, `file_contains`, or the
+literal `"*"` — the last one is reserved for the vanilla profile.
 
-- `detect` — files/content patterns for auto-detection (e.g. `composer.json` → laravel).
-- `pipeline_overrides` — reorder phases for `feature` / `bugfix` when your stack needs extra steps (DDD modelling, migrations, etc.).
-- Optional agents: `qa`, `dba`, `frontend`, or anything custom.
+The body declares, in prose the orchestrator reads: `agents_per_phase`, per-phase prompt
+injections, the convention skills to apply, `post_pipeline_checks`, and any `extra_phases`.
 
-## Local development
+**Priority is a claim about specificity, not quality.** `inertia-vue` outranks `vue` because it
+is the narrower match, not because it is better. Set yours so the more specific profile wins on
+a project where both would match.
 
-```
-# From the repo root
-claude --plugin-dir ./packages/core --plugin-dir ./packages/<your-stack>
-```
+## Agent naming
 
-Then inside Claude Code:
-
-```
-/sdlc:bugfix "reproduce the failing test"
-```
-
-The orchestrator will detect your stack via the manifest and route the `developer`/`tester` roles to your agents.
-
-## Schema validation
-
-If you have `ajv` installed:
-
-```
-npx ajv validate \
-  -s packages/core/schema/stack-manifest.schema.json \
-  -d packages/<your-stack>/stack-manifest.json
-```
-
-## Pull request checklist
-
-- [ ] `stack-manifest.json` validates against the schema.
-- [ ] Both `developer` and `tester` agents exist and have `tools:` frontmatter (principle of least privilege).
-- [ ] `commands.test` and `commands.lint` actually work in a sample project.
-- [ ] `README.md` in your package documents the stack version, prerequisites, and any MCP dependencies.
-- [ ] You tested locally with `claude --plugin-dir` against the core plugin.
-- [ ] No Laravel/React/etc.-specific assumptions leak into `packages/core/`.
-
-## Role naming convention
 
 Claude Code's `Agent` tool DOES support `plugin:agent` namespacing, and the orchestrator
 dispatches every phase agent qualified that way (e.g. `sdlc:qa-engineer`,
@@ -113,16 +85,81 @@ own agents (`business-analyst`, `developer`, `qa-engineer`, `security-analyst`,
 If two active profiles declare the same agent name for the same phase, the orchestrator
 prompts the user rather than silently picking one.
 
-## Universal vs stack-specific — quick reference
+## Agent frontmatter
 
-| Component                                 | Lives in core | Lives in stack |
-|-------------------------------------------|:-------------:|:--------------:|
-| orchestrator, BA, reviewer, security, docs, debugger, devil | ✅ | — |
-| `workflow.md`, `git-operations.md`        | ✅            | —              |
-| `stack-discovery`, `checkpoint-protocol`, `pipeline-synthesis` skills | ✅ | — |
-| developer, tester, qa, dba, frontend      | —             | ✅             |
-| `code-style.md`, `architecture.md`        | —             | ✅             |
-| Framework-specific skills                 | —             | ✅             |
-| `stack-manifest.json`                     | —             | ✅             |
+Every agent declares its cost and capability envelope:
 
-If you're not sure where something belongs — if it's stack-agnostic, it goes in core; if it references PHP/TypeScript/C#, it goes in the stack package.
+| Field | Meaning |
+|---|---|
+| `model` | tier for normal dispatches — `opus` / `sonnet` / `haiku` / `fable` |
+| `model_plan` | tier for the development **planning** pass (this marketplace's own field, not Claude Code's) |
+| `effort` | reasoning budget: `low` / `medium` / `high` / `xhigh` / `max` |
+| `maxTurns` | hard turn ceiling, so a stuck agent costs a bounded amount |
+| `memory` | `project` to keep per-project notes under `.claude/agent-memory/` |
+| `skills` | skills injected into the agent's context — architects carry `[sdlc:architect-conventions]` |
+| `tools` | an **allowlist**. If you want the agent to invoke skills, `Skill` must be in it |
+
+That last row is not a formality: before v2.0.0 no agent had `Skill` in `tools`, so every
+documented "load this skill" instruction in the marketplace was dead text.
+
+Your agent's `model` / `model_plan` / `effort` must also appear in the README's agent table —
+`scripts/ci/check-readme-drift.sh` fails the build otherwise, in both directions.
+
+## Local development
+
+```bash
+claude --plugin-dir ./plugins/sdlc --plugin-dir ./plugins/<your-stack>
+```
+
+Then, inside a project that your `detect` rules should match:
+
+```
+/sdlc:list-stacks     # did your profile match, and which aspects did it win?
+/sdlc:doctor          # full preflight: detection, git flow, model routing, hooks
+```
+
+`/sdlc:list-stacks` is the fastest loop while tuning `detect` rules.
+
+## Validation
+
+Run what CI runs, before pushing:
+
+```bash
+bash scripts/ci/validate-schemas.sh       # stack.md, plugin.json, workflow recipes
+bash scripts/ci/check-readme-drift.sh     # agent table vs frontmatter
+bash scripts/ci/check-links.sh            # relative markdown links
+claude plugin validate plugins/<name> --strict
+find plugins -name 'test-*.sh' -exec bash {} \;
+```
+
+Requires `jq`, the mikefarah `yq` v4 binary, and Node. Every script here is bash — this repo
+has no Python anywhere, deliberately, so that a contributor needs no language runtime beyond
+what their own stack already requires.
+
+## Pull request checklist
+
+- [ ] `stack.md` frontmatter validates, and `priority` is set deliberately against the profiles
+      it could collide with
+- [ ] Agent names are distinctive, not generic
+- [ ] Agent `model` / `model_plan` / `effort` added to the README table
+- [ ] `tools:` includes `Skill` if the agent is told to invoke one
+- [ ] `security-patterns.yaml` rule names are prefixed with your stack, and duplicate nothing a
+      foundation plugin already ships
+- [ ] Detection tested against a real project of that stack, not just a fixture
+- [ ] `plugins/<name>/README.md` documents prerequisites and any MCP dependency
+- [ ] Nothing in `plugins/sdlc/` changed
+
+## Universal vs stack-specific
+
+| Component | Core (`sdlc`) | Stack plugin |
+|---|:---:|:---:|
+| orchestrator, workflow recipes, git-flow detection | ✅ | — |
+| BA, QA, security, docs agents | ✅ | — |
+| `architect-conventions` skill | ✅ | — |
+| core (`core_*`) security patterns | ✅ | — |
+| architects and database specialists | — | ✅ |
+| convention skills, framework idioms | — | ✅ |
+| `stack.md`, stack security patterns, format hooks | — | ✅ |
+
+If it references PHP, TypeScript or C#, it belongs in a stack plugin. If it would read the same
+for every language, it belongs in core.

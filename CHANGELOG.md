@@ -3,6 +3,139 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [2.0.0] — marketplace v2.0.0 / all plugins v2.0.0
+
+Per-phase cost stops being a guess, a crashed run stops costing twice, QA and security stop
+waiting on each other, and the `Skill` tool starts actually being available to the agents that
+were told to use it.
+
+### Breaking
+
+Read this section before upgrading. Each entry is breaking because something that used to be
+valid now is not, or produces a different shape.
+
+- **`_telemetry.json` changes shape.** Per-dispatch entries gain `agent_id`, `model_id`,
+  `pass`, `group_index`, `started_at`, `completed_at`, and the file gains
+  `usage_source_summary`, `nested_cost_usd` and `total_cost_usd_including_nested`.
+  `total_cost_usd` keeps its old meaning — phase dispatches only — so `cost_scope` stays
+  truthful, but anything parsing this file needs updating.
+- **The run marker becomes a state file** (`schema_version: 2`). `.claude/.sdlc-run-active.json`
+  keeps `task_slug`, `started_at`, `roster` and `phase_agents` so the hooks are backward
+  compatible, and adds the decisions a resume cannot re-derive. Freshness is now judged by
+  `updated_at` falling back to `started_at`.
+- **Workflow recipes gain a `parallel` construct**, and `Phase N/total` counts **steps**, not
+  phases. The members of a group share an `N`. A recipe using `parallel` will not load on
+  v1.x, and any tooling that parsed `Phase N` as a phase index must now treat it as a step
+  index.
+- **`security-analyst` is report-only.** It has no `Edit` tool and never changes code. If you
+  relied on the security phase applying its own fixes, that work now happens in a
+  `[pass:fix]` dispatch by the development architect, followed by a QA `[pass:verify]` rerun.
+  Its compact summary replaces `FIXES_APPLIED` with `MUST_FIX` and adds
+  `ENTRY_POINTS_CHECKED` / `CALLERS_TRACED`.
+- **The dispatch `description` contract is load-bearing.** `Phase {N}/{total}: {phase}[ — {aspect}][ [pass:…]]`
+  is parsed by three consumers. A free-form description silently breaks model enforcement, the
+  off-roster deny message, and telemetry attribution.
+- **Backend architects moved their API/props contract from the implementation report to the
+  plan.** It now lives under a section headed exactly `Contract for frontend` in
+  `02-development-plan{-aspect}.md`. Anything reading the contract out of
+  `02-development-backend.md` must be repointed.
+- **Cache locations moved** to `${CLAUDE_PLUGIN_DATA}/stack-cache/` and
+  `${CLAUDE_PLUGIN_DATA}/deps-preflight.json`, falling back to `~/.claude/.sdlc-*` when the
+  variable is unset.
+- **Hook timeouts were in the wrong unit.** Stack plugins declared `"timeout": 30000`, meaning
+  30000 *seconds*. They now declare `30` (60 for the JVM stacks).
+- **Agent frontmatter contract changed** — see Added. Notably `tools:` must include `Skill` for
+  any agent expected to invoke one.
+- **`CONTRIBUTING.md` describes the current layout.** It documented `packages/<stack>/` and
+  `stack-manifest.json`, neither of which has existed since v1.0.
+- **`detect-stack.py` and `usage-report.py` are gone**, replaced by `.sh` equivalents with the
+  same contracts. There is no Python anywhere in this repository any more.
+
+### Added
+
+- **Measured telemetry.** `dispatch-log.sh` (`PreToolUse`/`SubagentStart`) and
+  `subagent-usage.sh` (`SubagentStop`) append to `docs/plans/{slug}/_usage.jsonl`;
+  `scripts/usage-report.sh` pairs and attributes them. Usage is summed from each subagent's own
+  transcript, **deduplicated by `message.id`** — one API response spans several lines with the
+  same id, and summing them naively inflates the total 2.5–3×. Prices come from
+  `references/pricing.json`, one source of truth. Nested dispatches (a phase agent spawning
+  `Explore` or a superpowers skill) are metered into `nested_cost_usd`.
+- **`/sdlc:start --resume`.** Re-enters at the first group with unfinished members. Guards: it
+  halts if `HEAD` is not the branch the run recorded, and re-runs a plan pass whose file is
+  missing rather than presenting an approval gate for a plan that does not exist. Starting
+  fresh over a live state file prompts three ways rather than overwriting artefacts.
+- **Parallel phase groups.** `default`, `bugfix`, `hotfix` and `refactor` run
+  `{parallel: [qa, security]}`. A group is dispatched as several foreground `Agent` calls in
+  one assistant message; failure, retry and skip are per member; the cost cap is checked once
+  per group.
+- **Security fix pass and QA verify rerun**, with an explicit four-outcome table: a failed
+  security review produces no fix pass (no trustworthy findings to apply), and a failed QA
+  produces no verify rerun (no passing baseline to compare against).
+- **Run-scoped guard hooks**, all inert outside a run: `pre-commit-guard.sh` (denies
+  `--no-verify` and staged secrets, naming `file:line`; scans added lines only, so removing a
+  secret is never blocked), `config-protection.sh` (denies mid-run tooling-config edits unless
+  `task_type` is `chore`), `post-implement-check.sh` (runs the stack's typecheck once per
+  architect and relays failures as a retry hint).
+- **Agent capability frontmatter** across every agent: `skills: [sdlc:architect-conventions]`
+  on the 24 stack agents, `maxTurns` everywhere, `memory: project` on architects, specialists
+  and security-analyst, and `Skill` in `tools:` for the 28 agents the orchestrator tells to
+  invoke one.
+- **`user-invocable: false` and `paths:`** on all 61 convention skills — hidden from the `/`
+  menu, and auto-activated only under the paths they are about. The pipeline invokes them
+  explicitly, so `paths` cannot break a run.
+- **`when:` conditions** on phase members (`complexity == small|medium|large`), evaluated after
+  BA. When BA was skipped or emitted no `COMPLEXITY:` line the member **runs** — an unevaluated
+  condition is unknown, not false.
+- **Project-local workflow recipes** in `<project>/.claude/sdlc-workflows/`, validated against
+  the same schema and marked `(project-local)` in the announce line.
+- **Opt-in post-check fix pass** (`post_check_fix_attempts`, cap 1). A check that is wrong
+  about the code is reported, never edited.
+- **Experimental `aspect_execution: parallel-implement`** — plan passes stay sequential behind
+  one approval gate, implementation passes run concurrently, but only when three deterministic
+  invariants hold over the approved plans. Off by default, and documented as constraining what
+  the plans declare rather than what an agent can reach.
+- **`userConfig`** in the sdlc plugin: `noninteractive`, `default_cost_cap_usd`,
+  `stack_cache_ttl_hours`, `post_check_fix_attempts`.
+- **CI** (`.github/workflows/ci.yml`): shellcheck and `bash -n`, all test harnesses, schema
+  validation, README agent-table drift, relative-link resolution, and
+  `claude plugin validate --strict` for all 24 plugins. Plus `scripts/ci/*.sh`, all bash.
+- **Eval suite** (`plugins/sdlc/evals/`), four cases, run as a manual `workflow_dispatch` job
+  since they make real model calls.
+- **`plugins/sdlc/security-patterns.yaml`** — six `core_`-prefixed stack-agnostic rules.
+
+### Fixed
+
+- **No agent had `Skill` in its `tools:` allowlist.** Every documented skill invocation in the
+  marketplace was dead text: the "First: load `sdlc:architect-conventions`" line in 24 agents,
+  `architect-conventions` steps 1/7/9, and the `Apply skills: …` list every `stack.md` passes
+  into the dispatch prompt. Confirmed by headless dispatch probes before and after.
+- **The documented model-resolution order was stale.** It is per-invocation parameter →
+  frontmatter → `CLAUDE_CODE_SUBAGENT_MODEL` → session model, so that variable alone does not
+  override the enforcement layers; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` (Claude Code v2.1.257+)
+  does. The repo documented the reverse in six places — accurate before Claude Code v2.1.251,
+  and not updated since. `/sdlc:doctor` now warns only on `_FORCE`.
+- **Skip-rule 4 was too easy to trip.** Skipping the security phase now requires two empty
+  checks: a widened path regex, and a content check over the **added** lines of the diff.
+  Either hit keeps security in the pipeline.
+- **`typo-fix` could not match Ukrainian.** Its patterns moved into
+  `references/task-type-patterns.json` with `опечатк`, `одрук`, `форматув`, `перейменув` — the
+  last two carrying no left boundary, since Ukrainian prefixes attach directly to the stem.
+- **Four SPA frontend architects read nothing about a backend contract.** `vue`, `react`,
+  `angular` and `rn` now read it from the backend plan and report a divergent response as a
+  `BLOCKER` rather than adapting to it.
+- **`java-plugin/security-patterns.yaml` duplicated `java-foundation` byte for byte.** Deleted;
+  `java-plugin` already depends on `java-foundation`. Zero `rule_name` collisions remain.
+- **Two dead documentation links** (`ARCHITECTURE.md` → a never-committed ADR, `CONTRIBUTING.md`
+  → a pre-`plugins/` schema path), and the broken `yq '.frontmatter'` schema-validation recipe
+  in the README, which could never have worked.
+
+### Changed
+
+- `docs/cost-baseline.md` and `MODEL-ROUTING.md` now defer to measured numbers. The estimates
+  remain as reasoning, explicitly superseded by whatever your own baseline says.
+- `README.md`, `ARCHITECTURE.md`, `CONTRIBUTING.md` and `plugins/sdlc/README.md` rewritten
+  against the shipped design.
+
 ## [1.5.0] — marketplace v1.5.0 / sdlc plugin v1.5.0
 
 Branch *creation* on a git-flow project can now go through the real `git flow` CLI (AVH
