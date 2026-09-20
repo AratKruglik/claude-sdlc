@@ -1,0 +1,42 @@
+# Core security patterns — stack-agnostic, shipped by the sdlc plugin itself.
+#
+# These fire on any project, whatever the detected stack, and deliberately cover only what is
+# dangerous regardless of language. Anything language-specific belongs in that language's
+# foundation or framework plugin. Every rule_name is `core_`-prefixed: /sdlc:security-init
+# de-duplicates by rule_name with first-occurrence-wins, and sdlc is merged first, so a prefix
+# collision here would silently shadow a stack rule.
+patterns:
+  - rule_name: core_private_key_block
+    regex: "-----BEGIN (RSA |DSA |EC |OPENSSH |PGP )?PRIVATE KEY"
+    paths: ["**/*"]
+    exclude_paths: ["**/tests/**", "**/test/**", "**/fixtures/**", "**/*.example", "**/*.dist"]
+    reminder: "A private key block in the repository. A key committed once stays in the history after any later removal, so removing the file is not the fix: rotate the key, then move it to a secrets manager or an untracked file referenced by environment variable."
+
+  - rule_name: core_cloud_access_key
+    regex: "AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|(?i)aws_secret_access_key\\s*[:=]"
+    paths: ["**/*"]
+    exclude_paths: ["**/*.example", "**/*.dist", "**/fixtures/**"]
+    reminder: "A cloud provider credential. Use the provider's own credential chain (instance role, workload identity, or a local profile) rather than a literal in source. If this key was ever real, rotate it — assume anything committed is compromised."
+
+  - rule_name: core_generic_credential_literal
+    regex: "(?i)(password|passwd|secret|api_?key|access_token|auth_token|client_secret)\\s*[:=]\\s*['\"][^'\"$#{]{8,}['\"]"
+    paths: ["**/*"]
+    exclude_paths: ["**/tests/**", "**/test/**", "**/spec/**", "**/fixtures/**", "**/*.example", "**/*.dist", "**/*.md"]
+    reminder: "A credential literal in source. Read it from the environment or a secrets manager instead. The exclusion of ${...} and #{...} in this pattern is deliberate: an interpolated value is already coming from somewhere else."
+
+  - rule_name: core_curl_pipe_shell
+    regex: "(curl|wget)\\s+[^|\\n]*\\|\\s*(sudo\\s+)?(ba|z|k)?sh"
+    paths: ["**/*"]
+    reminder: "Piping a downloaded script straight into a shell executes whatever the server returns at that moment, unverified, with your privileges — and a failed download can execute a truncated script. Download to a file, check a published checksum or signature, then run it."
+
+  - rule_name: core_committed_dotenv
+    regex: "^(?!#)[A-Z_][A-Z0-9_]*\\s*=\\s*\\S"
+    paths: ["**/.env", "**/.env.local", "**/.env.production", "**/.env.prod", "**/.env.staging"]
+    exclude_paths: ["**/.env.example", "**/.env.dist", "**/.env.sample", "**/.env.template"]
+    reminder: "A populated .env file is tracked. These files hold real per-environment secrets; add the path to .gitignore, rotate anything it contained, and keep only .env.example with placeholder values in the repository."
+
+  - rule_name: core_insecure_transport
+    regex: "(?i)(verify|ssl_verify|rejectUnauthorized|CURLOPT_SSL_VERIFYPEER|InsecureSkipVerify|check_hostname)\\s*[:=]\\s*(false|False|0|None)"
+    paths: ["**/*"]
+    exclude_paths: ["**/tests/**", "**/test/**", "**/spec/**", "**/fixtures/**"]
+    reminder: "TLS certificate verification is disabled, which turns HTTPS into transport encryption with no identity check — any on-path attacker can present their own certificate. If a self-signed certificate is the real problem, add that CA to the trust store instead of switching verification off."
