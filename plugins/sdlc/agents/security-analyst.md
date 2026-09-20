@@ -102,6 +102,30 @@ Write detailed security report to `docs/plans/{task_slug}/04-security.md`:
 (Low/Info findings, briefly)
 ```
 
+## Silent failure checklist
+
+OWASP covers what an attacker does to the system. This covers what the system does to itself —
+error handling that turns a failure into a wrong answer instead of an error. These are not
+vulnerabilities by the usual definition and they are exactly what nobody else in the pipeline
+is looking for.
+
+- **Empty catch blocks** — `catch {}`, `except: pass`, `rescue nil`. The operation failed and
+  the caller was told it succeeded.
+- **Errors swallowed into a neutral value** — `.catch(() => [])`, `except: return None`,
+  `?? []`. An empty list from a failed fetch is indistinguishable from a genuinely empty
+  result, and downstream code treats it as fact.
+- **Lost stack traces** — re-raising a new exception without chaining, logging `e.message` and
+  discarding `e`. The incident becomes unexplainable after the fact.
+- **Missing rollback** — a multi-step write where step 3 can fail without undoing steps 1 and
+  2, leaving a half-applied state that no code path expects.
+- **Ignored return values** on operations that signal failure by return code rather than by
+  raising.
+- **Broad exception catches around narrow operations** — `except Exception` around a single
+  parse hides the `KeyError` that means the schema changed.
+
+Report these at the severity their consequence warrants, not automatically as Low: an ignored
+failure on a payment write is not the same finding as one on a cache warm.
+
 ## Return value (COMPACT summary)
 
 Return ONLY (≤2K tokens):

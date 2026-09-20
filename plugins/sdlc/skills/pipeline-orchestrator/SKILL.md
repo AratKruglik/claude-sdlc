@@ -492,10 +492,36 @@ Apply rules in order. A phase already removed by an earlier rule cannot be re-re
 
 | # | Rule | Signal | Action |
 |---|---|---|---|
-| 1 | `typo-fix` | `$ARGUMENTS` matches `/^(typo\|fix typo\|rename .* to\|format)/i` AND `LOC_TOUCHED < 30` | Skip `business_analysis`. Use `$ARGUMENTS` directly as spec for `development`. |
+| 1 | `typo-fix` | `$ARGUMENTS` matches any pattern in `references/task-type-patterns.json` → `skip_rules.typo_fix.patterns` (compiled with that file's `flags`) AND `LOC_TOUCHED < 30` | Skip `business_analysis`. Use `$ARGUMENTS` directly as spec for `development`. |
 | 2 | `whitespace-only` | `WHITESPACE_ONLY == true` | Skip `business_analysis` AND `qa`. Development is still required (a maintainer should look at the changes), but BA and QA add no value over a `pint`/`prettier` post-check. |
 | 3 | `config-only` | `CONFIG_ONLY == true` AND `LOC_TOUCHED < 200` | Skip `qa`. Config files have no executable behavior to test; post-pipeline checks (lint, schema validators) cover them. |
-| 4 | `lightweight-no-db` | `LOC_TOUCHED < 50` AND `HAS_MIGRATIONS == false` AND no path matches `/(auth\|password\|crypt\|secret\|token\|jwt\|session)/i` | Skip `security`. Inject an inline secret-leak check directive into the `development` phase prompt instead (developer scans diff for hardcoded secrets via `grep` for known patterns and reports findings in the compact summary). |
+| 4 | `lightweight-no-db` | `LOC_TOUCHED < 50` AND `HAS_MIGRATIONS == false` AND **neither** the path check nor the content check below finds anything | Skip `security`. Inject an inline secret-leak check directive into the `development` phase prompt instead (developer scans diff for hardcoded secrets via `grep` for known patterns and reports findings in the compact summary). |
+
+
+**Rule 4's two checks.** Skipping the security phase is the most consequential skip in the
+table — a missed vulnerability is silent, unlike a missed test. So rule 4 fires only when
+**both** checks come back empty, and either one finding anything is enough to keep security in
+the pipeline.
+
+*Path check* — any changed path matching, case-insensitively:
+
+```
+auth|password|crypt|secret|token|jwt|session|upload|exec|shell|raw|query|fetch|http|storage|serializ
+```
+
+*Content check* — the **added** lines of the diff, so that deleting a dangerous call does not
+keep the phase alive for no reason:
+
+```bash
+git diff {BASE}...HEAD | grep '^+' | grep -nE 'DB::raw|eval\(|exec\(|shell_exec|child_process|subprocess|pickle|unserialize'
+```
+
+A hit in either check means the rule **does not fire** and security runs. Record which check
+fired and the matching path or pattern in `skip_rules_applied[]`'s reason field for the rule
+that did fire, so a reader can tell "no risk signal" from "not checked".
+
+Both lists are deliberately broad. The cost of a false negative here is a shipped
+vulnerability; the cost of a false positive is one extra security phase on a small diff.
 
 If a skip-rule disables a phase that the active stack profile maps to a per-aspect agent map, ALL aspects of that phase are skipped (skip-rules operate at phase granularity, not aspect granularity).
 
@@ -845,7 +871,16 @@ and with the hooks. Do not skip, do not paraphrase.
 
 This resolved tier is what you print in 3b-2 and pass to `Agent()` in 3c. Pass the tier **as-is** (`opus`, `sonnet`, `haiku`, or `fable`) — the Agent tool's `model` parameter accepts only these short aliases; a full model ID (e.g. `claude-haiku-4-5-20251001`) fails schema validation and the dispatch silently falls back to the session model. (Agent *frontmatter* does accept full IDs and `inherit`; the dispatch parameter does not. Do not confuse the two.) If the file is missing or `model:` is absent, warn inline and fall back to `sonnet`.
 
-> **Enforcement is not absolute.** Model resolution order in Claude Code is `CLAUDE_CODE_SUBAGENT_MODEL` → per-invocation parameter → frontmatter. When that environment variable is set, it overrides both this step and the PreToolUse hook, and every phase silently runs on whatever it names. An organization `availableModels` allowlist can likewise skip a value and fall back to the inherited model. `/sdlc:doctor` reports both conditions — run it before trusting a cost estimate.
+> **What this step actually controls.** Claude Code resolves a subagent's model in the order
+> per-invocation `model` parameter → agent `model:` frontmatter → `CLAUDE_CODE_SUBAGENT_MODEL`
+> → session model. This step writes the first, the PreToolUse hook writes it too, and the
+> frontmatter is the second — so `CLAUDE_CODE_SUBAGENT_MODEL` alone never overrides either.
+> The one override that does is `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` (v2.1.257+): it makes
+> Claude Code ignore both the parameter and the frontmatter, and every phase runs on
+> `CLAUDE_CODE_SUBAGENT_MODEL` (or the session model if that is unset). An organization
+> `availableModels` allowlist can likewise skip a value. `/sdlc:doctor` reports both — run it
+> before trusting a cost estimate. (Before v2.1.251 the variable came first; that is the
+> behaviour this note used to describe.)
 
 **3b-special. Development phase two-pass execution**
 
@@ -1162,7 +1197,30 @@ Capture exit code and last 30 lines of output. Save to `docs/plans/{task_slug}/0
 
 If any command fails:
 - Print the failure summary to the user.
-- Do **not** automatically iterate (orchestrator does not implement fixes — that's the developer's job in a follow-up run).
+- **If `post_check_fix_attempts` is `0`** (the default, from `sdlc.local.yaml` or the
+  `CLAUDE_PLUGIN_OPTION_POST_CHECK_FIX_ATTEMPTS` plugin option): do **not** iterate. Report and
+  proceed to Step 5. The orchestrator does not implement fixes; that is a follow-up run's job.
+- **If it is `1`**: dispatch exactly one fix pass, then stop regardless of the outcome.
+
+**The post-check fix pass** (only when `post_check_fix_attempts == 1`):
+
+- One dispatch to the development-phase architect for the `backend` aspect, or the sole aspect
+  on a single-aspect run.
+- `description`: `Phase {X}/{Y}: post_checks [pass:fix]` — `{X}/{Y}` is the last group's
+  numbering. `[pass:fix]` resolves `model:`.
+- Input: `docs/plans/{task_slug}/05-post-checks.md`, plus the failing command and its captured
+  output.
+- Contract, stated in the prompt: fix only what makes the failing commands pass. Minimal diff,
+  no refactoring, no new dependencies, no changes to the checks themselves. A check that is
+  wrong about the code is **reported, not edited** — silently rewriting a failing check to pass
+  is the one outcome this pass must never produce.
+- After it returns, re-run **only the commands that failed**, once. Record both results.
+- Whatever happens, there is no second attempt. The cap is 1 by design: an agent that cannot
+  fix a lint failure in one pass is not going to fix it in three, and the retry loop is the
+  single most expensive failure mode this pipeline has.
+
+Record in telemetry: `post_check_fix_attempted` (bool), `post_check_fix_resolved` (bool —
+whether the re-run passed), and the fix pass's own `phases[]` entry with `pass: "fix"`.
 
 ### Step 5 — Write telemetry and final summary
 
@@ -1589,7 +1647,9 @@ the Step R branch guard and `--git-path info/exclude` for the Step 2 exclusion),
 `git for-each-ref`, `git branch` (listing only), `git config --get` / `--get-regexp`,
 `git ls-remote --heads`, `git status --porcelain`, `git diff` (the Step 0c signals),
 `git rev-list --count`, `git check-ref-format`, `git flow version` (the F-2a CLI-availability
-probe), and `scripts/detect-git-flow.sh`.
+probe), and `scripts/detect-git-flow.sh`. Step 0c's rule-4 content check additionally
+pipes one of those reads — `git diff {BASE}...HEAD | grep '^+' | grep -nE '<pattern>'` —
+which stays read-only: `grep` over a diff, never over the working tree.
 
 **Read-only (Steps 3d-1 / 5)** — `bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-report.sh"
 {task_slug} --project-root .` (dev checkout: `plugins/sdlc/scripts/usage-report.sh`). It only

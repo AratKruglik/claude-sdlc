@@ -27,9 +27,10 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
 
    If the file is absent, seed it by copying the template shipped with this plugin — `${CLAUDE_PLUGIN_ROOT}/templates/cost-baseline.md` — to `<repo>/docs/cost-baseline.md`, then report the "not yet baselined" state it contains. This is the one write `/sdlc:doctor` performs; it creates a scaffold and never overwrites an existing file. If the template cannot be located, fall back to reporting "no baseline file and no template found" and continue.
 
-5. **Check model-routing integrity.** The pipeline's two enforcement layers (orchestrator Step 3b-3 and the `enforce-agent-model.sh` PreToolUse hook) are not the final word on which model a subagent runs. Claude Code resolves it in the order `CLAUDE_CODE_SUBAGENT_MODEL` → per-invocation parameter → frontmatter, so the environment variable silently overrides both. Report:
+5. **Check model-routing integrity.** Claude Code resolves a subagent's model in the order per-invocation parameter → agent `model:` frontmatter → `CLAUDE_CODE_SUBAGENT_MODEL` → session model. The pipeline's two enforcement layers (orchestrator Step 3b-3 and the `enforce-agent-model.sh` PreToolUse hook) write the first two, so `CLAUDE_CODE_SUBAGENT_MODEL` on its own does **not** override them. Report:
 
-   - `CLAUDE_CODE_SUBAGENT_MODEL` — read from the environment. If set to anything other than `inherit`, this is a **routing override**: every phase runs on that model regardless of agent frontmatter, and all cost estimates in this repo become meaningless. Report the value and flag it.
+   - `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` — read from the environment. When it is `1`, this is a **routing override**: Claude Code ignores every agent's frontmatter and the dispatch parameter alike, every phase runs on `CLAUDE_CODE_SUBAGENT_MODEL` (or the session model when that is unset), and all cost estimates in this repo become meaningless. **Warn.**
+   - `CLAUDE_CODE_SUBAGENT_MODEL` — read from the environment. Report the value as **informational** when `_FORCE` is off: it only fills in where neither the parameter nor the frontmatter is set, which for this pipeline is never. Do not warn on it alone; `inherit` is the same as unset. Warn only in combination with `_FORCE=1`, where it names the model everything will run on.
    - **Declared tiers per active agent.** For each agent named by the active stack profile, read `model:` (and `model_plan:` where present) from its `.md` frontmatter and list them, so the operator sees the intended routing next to any override.
    - **Plugin options in effect.** List every `CLAUDE_PLUGIN_OPTION_*` variable the `sdlc` plugin declares (`noninteractive`, `default_cost_cap_usd`, `stack_cache_ttl_hours`, `post_check_fix_attempts`) with its current value or "default", and flag when `SDLC_NONINTERACTIVE` in the environment overrides the `noninteractive` option.
 
@@ -121,9 +122,9 @@ Cost baseline (docs/cost-baseline.md, last updated 2026-05-04, 22 runs):
   note: subagent phases only — orchestrator overhead is not metered
 
 Model routing:
-  ⚠️  CLAUDE_CODE_SUBAGENT_MODEL=opus — OVERRIDES all model enforcement.
-      Every phase will run on opus regardless of agent frontmatter.
-      Cost estimates in README/telemetry do not apply while this is set.
+  ⚠️  CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 — OVERRIDES all model enforcement.
+      Every phase will run on opus (CLAUDE_CODE_SUBAGENT_MODEL) regardless of
+      agent frontmatter. Cost estimates in README/telemetry do not apply.
   declared tiers for active profile (laravel):
     business-analyst    opus
     laravel-architect   opus (plan) / sonnet (implement)
@@ -164,7 +165,7 @@ Heads-up:
      Run the install commands above, then retry.
 ```
 
-When `CLAUDE_CODE_SUBAGENT_MODEL` is unset (or `inherit`), print `✅ no routing override` in place of the warning.
+When `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is off, print `✅ no routing override` in place of the warning — plus, when `CLAUDE_CODE_SUBAGENT_MODEL` is set to something other than `inherit`, an informational line naming it and stating that it does not override the two layers on its own.
 
 In the Git flow section, flag these conditions instead of the plain `🎯` line when they apply:
 
@@ -225,6 +226,7 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
   },
   "model_routing": {
     "subagent_model_override": "opus",
+    "subagent_model_force": true,
     "override_active": true,
     "declared_tiers": {
       "business-analyst": { "model": "opus" },
@@ -307,7 +309,7 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
 
 `local_agent_shadowing` is `[]` when no collision exists. `run_marker.stale` is `null` when `present` is `false`; otherwise `true` when `age_seconds >= 21600` (6h, matching `enforce-agent-model.sh`'s `MARKER_MAX_AGE_SECONDS`), else `false`. `age_seconds` is measured from `updated_at` when present, else `started_at` — the same rule the hooks apply. `resumable` is `true` iff `schema_version >= 2`; `phase_status` is the file's object verbatim (`null` for a v1 marker).
 
-`would_abort_pipeline` is `true` iff any dependency with `policy=block` is missing. `model_routing.override_active` is `true` iff `CLAUDE_CODE_SUBAGENT_MODEL` is set to something other than `inherit`; `subagent_model_override` is `null` when unset.
+`would_abort_pipeline` is `true` iff any dependency with `policy=block` is missing. `model_routing.override_active` is `true` iff `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is `1` — that variable, not `CLAUDE_CODE_SUBAGENT_MODEL`, is what defeats the enforcement layers. `subagent_model_force` mirrors it as a boolean; `subagent_model_override` carries the `CLAUDE_CODE_SUBAGENT_MODEL` value (`null` when unset or `inherit`) and is informational on its own.
 
 ## Hard rules
 
