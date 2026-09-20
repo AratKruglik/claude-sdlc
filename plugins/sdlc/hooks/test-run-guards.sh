@@ -46,9 +46,18 @@ decision() {
 }
 reason()   { printf '%s' "$1" | jq -r '.hookSpecificOutput.permissionDecisionReason // ""' 2>/dev/null; }
 
+# Portable across BSD and GNU date. The BSD -v form is tried second because GNU date
+# accepts -v as an unknown option rather than failing loudly.
 iso_offset() {
-    # $1 like -10M or -8H
-    date -u -v"$1" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d "${1#-} ago" +%Y-%m-%dT%H:%M:%SZ
+    local off="$1" gnu_expr=""
+    case "$off" in
+        -*M) gnu_expr="${off#-}"; gnu_expr="${gnu_expr%M} minutes ago" ;;
+        -*H) gnu_expr="${off#-}"; gnu_expr="${gnu_expr%H} hours ago" ;;
+    esac
+    if [ -n "$gnu_expr" ] && date -u -d "$gnu_expr" +"%Y-%m-%dT%H:%M:%S+00:00" 2>/dev/null; then
+        return 0
+    fi
+    date -u -v"$off" +"%Y-%m-%dT%H:%M:%S+00:00"
 }
 
 # Sets the global PROJ. Called bare, not in $(...): the global must reach the caller.
