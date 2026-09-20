@@ -1165,6 +1165,13 @@ usually missing its closing fields. Treat that as a validation failure, not as s
 A retry after a `maxTurns` hit must narrow the scope (one aspect, or the failing subset)
 rather than re-issuing the same prompt — the cap will be reached again otherwise.
 
+**Post-implement check findings.** A stack's `post-implement-check.sh` hook runs its
+typecheck or linter once after each architect finishes and relays the output as a
+`systemMessage`. Treat that as a **retry hint for the implement pass**, not as a verdict:
+on a parallel-aspect run some diagnostics come from a peer's unfinished work. Re-dispatch
+the aspect with the relevant lines appended to the prompt; never edit the code yourself,
+and never fail a member on diagnostics outside its own aspect's paths.
+
 **Security fact-forcing.** Reject a security member that returns `STATUS: clean` while
 both `ENTRY_POINTS_CHECKED` and `CALLERS_TRACED` are empty. "Nothing found" is a
 conclusion; with no entry point read and no call site followed it is an absence of
