@@ -201,7 +201,7 @@ full-scan path, since a forced stack still has to be read from *some* `stack.md`
 as the sole match for 0b-aspects.
 
 Otherwise, resolve via a cache fast-path, same shape as Step 0a's dependency preflight —
-`scripts/detect-stack.py` is the exact same algorithm as the full scan below (it exists so a
+`scripts/detect-stack.sh` is the exact same algorithm as the full scan below (it exists so a
 `SessionStart` hook can precompute this once per session for free; see
 `hooks/session-start-stack-cache.sh`), and this step is just choosing whether to read its
 cached output or re-run the algorithm inline.
@@ -244,10 +244,10 @@ For each `stack.md`:
    - `file_contains: { path, pattern }` → `Read` the file, run regex.
 4. Score by `priority` (higher wins).
 
-This is the same logic `scripts/detect-stack.py` runs non-interactively; running it inline here
+This is the same logic `scripts/detect-stack.sh` runs non-interactively; running it inline here
 (rather than shelling out) is deliberate — a cache miss on `--stack=NAME` or a fresh repo is
 already the exception path, and keeping one obviously-correct inline algorithm as the source of
-truth is worth more than a second dependency on Python being present for every session.
+truth is worth more than a hard dependency on `jq` being present for every session.
 
 #### 0b-aspects — Per-aspect winner resolution
 
