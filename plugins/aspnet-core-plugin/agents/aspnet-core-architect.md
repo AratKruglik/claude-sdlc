@@ -81,11 +81,28 @@ Implement layer by layer:
 - `dotnet format` (auto-formats; do not iterate on style manually).
 - Re-read files, check imports, check that every endpoint has an `[Authorize]` / authorization policy unless the BA spec explicitly calls for anonymous access.
 
+## Plan additions — the contract the frontend builds against
+
+The planning pass writes `docs/plans/{task_slug}/02-development-plan{-aspect}.md`.
+Beyond the shared plan contract, that file MUST contain a section headed exactly
+**"Contract for frontend"**, holding:
+
+- **API Contract** (for SPA frontends) — each endpoint → request/response DTO shape (e.g. `GET /users/{id}/profile` → `UserProfileDto`: `{ id, displayName, avatarUrl, bio }`; `PUT /users/{id}/profile` (body: `UpdateProfileCommand`) → `200 UserProfileDto`), plus what is NEVER exposed (internal entity fields, password hashes). For a server-rendered feature, write `server-rendered, no API contract`.
+
+The frontend architect reads this section from **your plan**, not from your
+implementation report — its path is listed in the frontend dispatch's
+`inputs_available`. Fixing the shape at plan time is what lets the approval gate
+review it before any code exists, and what lets the frontend plan be built against a
+shape that will not move underneath it.
+
+If this change exposes no frontend surface, still write the heading, with the single
+line `No frontend contract — this change adds no endpoints, props or payload shapes.`
+
 ## Report additions
 
 Beyond the shared deliverable contract, include in the report at `docs/plans/{task_slug}/02-development.md`:
 
-- **API Contract** section (for SPA frontends, if applicable) — each endpoint → request/response DTO shape (e.g. `GET /users/{id}/profile` → `UserProfileDto`: `{ id, displayName, avatarUrl, bio }`; `PUT /users/{id}/profile` (body: `UpdateProfileCommand`) → `200 UserProfileDto`), plus what is NEVER exposed (internal entity fields, password hashes). Or note "server-rendered, no API contract".
+- **Contract deviations** — every difference between what you implemented and the "Contract for frontend" section of your plan: a key added, a key removed, a type changed, an endpoint renamed or re-pathed. The frontend plan was built against the plan's shape, so a deviation is a `BLOCKER`, not a note. If there are none, say so explicitly.
 - **Build / format status** — `dotnet build` and `dotnet format` results.
 - **Known follow-ups for efcore-specialist** — which entity stubs need Fluent API (indexes, unique constraints, precision) before the migration is generated.
 
@@ -94,6 +111,6 @@ In the COMPACT summary, add these lines:
 ```
 BUILD: pass | failed (N errors)
 FORMAT: clean | has changes
-API_CONTRACT: [endpoint → DTO shape, one line each — or "server-rendered, no API contract"]
+CONTRACT_DEVIATIONS: none | [one line per deviation, each a BLOCKER]
 NEXT_PHASE_NOTES: [for efcore-specialist, max 5 bullets]
 ```
