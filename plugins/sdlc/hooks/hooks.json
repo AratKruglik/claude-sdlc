@@ -17,6 +17,17 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-commit-guard.sh\" ]; then exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-commit-guard.sh\"; fi; f=\"${PWD}/plugins/sdlc/hooks/pre-commit-guard.sh\"; if [ -f \"$f\" ]; then exec bash \"$f\"; fi; exit 0'",
+            "description": "Guard git commit during a pipeline run: deny --no-verify, deny staged secrets (file:line in the reason), warn on debug leftovers outside test paths. No-op outside a run, so a human commit is never second-guessed.",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "SubagentStart": [

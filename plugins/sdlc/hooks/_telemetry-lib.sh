@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Shared helpers for the dispatch-telemetry hooks (dispatch-log.sh, subagent-usage.sh).
+# Shared helpers for every sdlc hook: the dispatch-telemetry pair (dispatch-log.sh,
+# subagent-usage.sh) and the run-scoped guards (config-protection.sh,
+# post-implement-check.sh, pre-commit-guard.sh).
 # Sourced, never executed. Every function is fail-open: on any doubt it returns
 # non-zero or an empty string and the caller exits 0 silently.
 #
@@ -71,8 +73,12 @@ resolve_project_root() {
 # $1 = project root. Prints the task_slug when a FRESH run marker exists, else returns 1.
 # Freshness keys on updated_at (refreshed by the orchestrator at every phase boundary)
 # and falls back to started_at for v1 markers.
-active_task_slug() {
-    local root="$1" marker json ts epoch now age slug
+# Prints the run state file when it exists and is fresh; non-zero otherwise. Freshness
+# is measured from updated_at, falling back to started_at — the orchestrator refreshes
+# updated_at at every phase boundary, so a long run stays armed while an abandoned one
+# ages out and every hook goes quiet on its own.
+fresh_state_json() {
+    local root="$1" marker json ts epoch now age
     marker="${root}/.claude/.sdlc-run-active.json"
     [ -f "$marker" ] || return 1
     json=$(cat "$marker" 2>/dev/null) || return 1
@@ -84,6 +90,12 @@ active_task_slug() {
     now=$(date -u +%s)
     age=$(( now - epoch ))
     { [ "$age" -ge 0 ] && [ "$age" -lt "$MARKER_MAX_AGE_SECONDS" ]; } || return 1
+    printf '%s' "$json"
+}
+
+active_task_slug() {
+    local root="$1" json slug
+    json=$(fresh_state_json "$root") || return 1
     slug=$(json_get "$json" "task_slug")
     [ -n "$slug" ] || return 1
     printf '%s' "$slug"

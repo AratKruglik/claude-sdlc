@@ -68,6 +68,14 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
      scripts resolve at `${CLAUDE_PLUGIN_ROOT}/hooks/` (or the dev-checkout path). Report which
      JSON tool they will use (`jq`, else `python3`, else "neither — telemetry disabled, every
      run will be `estimated`").
+   - **Run-scoped guards.** Confirm the `sdlc` plugin registers `pre-commit-guard.sh` on
+     `PreToolUse`/`Bash`, and that each installed stack plugin registers
+     `config-protection.sh` on `PreToolUse`/`Edit|Write` and `post-implement-check.sh` on
+     `SubagentStop`. For each stack plugin, print the protected globs and the check command it
+     passes, and whether that command resolves in **this** project — `node_modules/.bin/tsc`
+     absent is normal for a non-TypeScript repo and means the check is silently skipped, not
+     broken. All three guards are inert unless a fresh run state file exists, so report them as
+     "armed" only while one does.
    - **Last run.** Find the newest `docs/plans/*/_usage.jsonl` in the project. Run
      `scripts/usage-report.sh {slug} --project-root .` on it and report
      `usage_source_summary` (measured / unmeasured / not_started), `total_cost_usd`,
@@ -144,6 +152,8 @@ Run marker:
 
 Dispatch telemetry:
   hooks: ✅ SubagentStart + SubagentStop registered (jq available)
+  guards: ✅ pre-commit, config-protection (laravel: pint.json, phpstan.neon*),
+             post-implement (./vendor/bin/phpstan) — armed (run active)
   last run: add-subscription-billing — 6 dispatches, measured=6 unmeasured=0 not_started=0
     total $1.42 (phases) + $0.04 nested; no unknown model ids
   (or: last run: none — no docs/plans/*/_usage.jsonl in this project)

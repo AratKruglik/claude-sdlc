@@ -468,6 +468,33 @@ context afresh, and carrying over a previous feature's framing is a bias, not a 
 
 ---
 
+## Run-Scoped Guards
+
+Three hooks are **inert outside a pipeline run** and active only while a fresh
+`.claude/.sdlc-run-active.json` exists. That condition is the whole design: these guards exist
+to constrain agents working unattended, and a tool that second-guessed a human's own commit or
+config edit would be a bug.
+
+| Hook | Event | What it does |
+|---|---|---|
+| `pre-commit-guard.sh` | `PreToolUse` / `Bash` | Denies `git commit --no-verify` and staged secrets (API keys, AWS key ids, private key blocks, hardcoded credential literals), naming `file:line`. Warns — never denies — on `console.log` / `dd(` / `var_dump(` / `debugger` outside test paths. |
+| `config-protection.sh` | `PreToolUse` / `Edit\|Write` | Denies edits to the stack's tooling config (`pint.json`, `phpstan.neon*`, `eslint.config.*`, `ruff.toml`, `.editorconfig`, `checkstyle.xml`, …) — unless the run's `task_type` is `chore`, which is how tooling config is deliberately changed. |
+| `post-implement-check.sh` | `SubagentStop` | Runs the stack's typecheck or linter **once** after an architect finishes, over the diff against the base branch, and relays failures to the orchestrator as a retry hint (≤40 lines). Silent when the tool is not installed. |
+
+Why `config-protection` denies rather than warns: an agent that loosens a linter rule so its
+own diff passes has widened the project's standards to fit one feature, and a diff review is
+unlikely to catch a two-line config change sitting among source edits.
+
+Why `post-implement-check` is batched rather than per-edit: a typecheck after every `Edit`
+reports errors the next edit was about to fix, which trains everyone to ignore it. It also
+cannot block — `SubagentStop` has no deny — so a type error is routed into the orchestrator's
+implement-pass validation, not acted on by the hook.
+
+A removed secret is the fix, not the defect: the commit guard scans **added** lines only, so
+moving a key to an environment variable is never blocked.
+
+---
+
 ## Stack-Detection Caching
 
 Stack-profile detection (Step 0b in `pipeline-orchestrator/SKILL.md`) matches every installed plugin's `stack.md` against the current project — a Glob-then-Read-then-parse pass over every plugin, repeated on every `/sdlc:start` and `/sdlc:doctor` invocation.
