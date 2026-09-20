@@ -741,6 +741,22 @@ detect:
 # django-plugin:django-orm-patterns
 ```
 
+### Plugin evals
+
+`plugins/sdlc/evals/` holds four behavioural cases, run with
+`claude plugin eval plugins/sdlc --scaffold`:
+
+| Case | What it pins down |
+|---|---|
+| `empty-arguments` | `/sdlc:start` with no description asks and **stops** — it never guesses a feature and starts a multi-phase run |
+| `unknown-workflow` | `--workflow=<nonexistent>` halts instead of quietly falling back to `default` |
+| `stack-detection` | on a Laravel + Inertia/Vue fixture, `laravel` owns backend and `inertia-vue` owns frontend — not plain `vue` |
+| `qualified-dispatch` | dispatch is always `plugin:agent`, and a failed dispatch is **never** retried bare |
+
+These make real model calls, so they are a manual `workflow_dispatch` job rather than part of
+every PR — the rest of CI is deterministic and free, and mixing the two would make every PR
+wait on a paid, non-deterministic check.
+
 ### Schema validation
 
 ```bash
