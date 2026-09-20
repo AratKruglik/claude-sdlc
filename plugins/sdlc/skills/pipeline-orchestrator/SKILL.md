@@ -581,6 +581,7 @@ If present — `Read` and parse it. Recognized top-level keys:
 | `git` | object | **Already consumed by Step 0b-git** — recognized here so it is not reported as an unknown key. Do not re-apply it; the branch decision is settled by now. Shape documented in `references/GIT-FLOW.md` Step A-1. |
 | `agent_overrides` | object (phase → agent name) | Deliberately dispatch a different agent for that phase — e.g. a project-local `.claude/agents/{name}.md`. **REPLACES** `EFFECTIVE_PROFILE.agents_per_phase[phase]` for that phase and is added to the Step 2 run-marker `roster`, so the `enforce-agent-model.sh` PreToolUse hook allows it. Without this key, a project-local agent is off-roster for the run and the hook denies it — see Step 2 and Step 3c. |
 | `post_check_fix_attempts` | integer `0` or `1` | **REPLACES** the plugin option `CLAUDE_PLUGIN_OPTION_POST_CHECK_FIX_ATTEMPTS` (default `0`) for this project. Consumed by Step 4: `1` allows one minimal-diff fix pass by the development architect when a post-pipeline check fails; `0` keeps the report-only behaviour. |
+| `aspect_execution` | `sequential` (default) or `parallel-implement` | **Experimental.** Consumed by 3b-parallel-aspects. `sequential` runs each development aspect through both passes before the next begins. `parallel-implement` keeps the plan passes sequential and in canonical order, gates them all behind one approval, then dispatches the `backend` and `frontend` implementation passes concurrently — but only when the invariants in 3b-parallel-aspects hold; otherwise it falls back to sequential and prints the reason. |
 
 **Example `sdlc.local.yaml`:**
 
@@ -722,29 +723,44 @@ downstream steps. Phase names and their semantics are unchanged.
 
 This directory is the **single source of truth** for inter-phase communication. Agents read prior phase outputs from here, not from your context window.
 
-### Step 3 — Execute each phase
+### Step 3 — Execute each group
 
-For each phase in order, first determine if the phase is **aspect-agnostic** or **aspect-aware**:
+`CONTEXT.resolved_phases` is a list of **groups** (RESOLVER Step 2). A group is one pipeline
+step: `Phase {N}/{total}` numbers groups, and every member of a group shares that `N`. Most
+groups have one member and behave exactly as a sequential phase always did.
+
+Iterate groups in order. Within a group, first classify each member as **aspect-agnostic** or
+**aspect-aware**:
 
 - **Aspect-agnostic phases** (business_analysis, security, documentation): one agent runs, taking all prior phase outputs as context. Single execution per phase.
-- **Aspect-aware phases** (development; qa on multi-profile runs per the Step 1a qa fan-out rule): fan-out — orchestrator runs ONE agent per relevant aspect, sequentially. Default order: `database → backend → frontend → testing` (matches typical dependency direction; backend depends on database; frontend depends on backend's API contract).
+- **Aspect-aware phases** (development; qa on multi-profile runs per the Step 1a qa fan-out rule): fan-out — one agent per relevant aspect. Canonical order: `database → backend → frontend → testing` (matches typical dependency direction; backend depends on database; frontend depends on backend's API contract). The development phase always fans out **sequentially** unless the experimental `aspect_execution: parallel-implement` applies — see 3b-parallel-aspects.
 
-For each phase:
+**3a-group. Assemble the group's dispatch list.** Expand every member into its concrete
+dispatches (one per aspect for an aspect-aware member, one otherwise). A member whose
+aspect-aware fan-out yields no agent at all is dropped from the group with a note in telemetry;
+if that empties the group, skip the group and move on.
 
-**3a. Look up agent(s):**
+Every dispatch in the list carries the same `{N}`, its own `{phase_name}`, and its own
+`{aspect}`.
 
-- If `agents_per_phase[phase]` is a string: aspect-agnostic phase. Use that single agent.
-- If `agents_per_phase[phase]` is a map (`{aspect: agent_name}`): aspect-aware phase. Collect all `(aspect, agent_name)` pairs that have a non-empty agent. Iterate in canonical order.
+**3a-pre. MUST PRINT VERBATIM** at the start of a group, before dispatching:
 
-If for an aspect-aware phase NO aspect has an agent (all empty/missing), skip the phase with a note in telemetry.
+- Single member, aspect-agnostic — print nothing here; 3b-2's per-dispatch line is the banner.
+- Single member, aspect-aware:
 
-**3a-pre. MUST PRINT VERBATIM** at the start of an aspect-aware phase (before fan-out):
+  ```
+  ▶ Phase {N}/{total}: {phase_name} — fan-out across {count} aspects
+  ```
 
-```
-▶ Phase {N}/{total}: {phase_name} — fan-out across {count} aspects
-```
+- Two or more members:
 
-**3b. For each agent invocation** (one call for aspect-agnostic phase; iterate aspects in canonical order for aspect-aware phase):
+  ```
+  ▶ Phase {N}/{total}: {member names joined by " ∥ "} — {count} dispatches in parallel
+  ```
+
+**3b. For each dispatch in the group's list**, build the prompt (3b-1), print its label (3b-2)
+and resolve its model (3b-3). Build **every** dispatch in the group before spawning any of
+them.
 
 **3b-1. Build the prompt — cache-friendly two-section layout.**
 
@@ -869,6 +885,71 @@ Re-dispatches of Pass 1 after "request changes" keep the `[pass:plan]` marker �
 
 For aspect-aware fan-out, the canonical order remains: `database → backend → frontend → testing`. Each aspect completes both passes before the next aspect begins (the plan for backend may depend on what database-aspect implemented).
 
+**3b-parallel-aspects. Experimental: parallel implementation passes.**
+
+Applies only when `EFFECTIVE_PROFILE.aspect_execution == "parallel-implement"` (default
+`sequential`, Step 1b). This is **experimental**: the safety argument rests on file-set
+disjointness the orchestrator can check, plus prompt-level guardrails it cannot enforce. Leave
+it off unless you are deliberately testing it.
+
+**Plan passes never run in parallel.** The frontend plan is built against the backend plan's
+"Contract for frontend" section, so backend must plan first. Run all plan passes in canonical
+order, exactly as in 3b-special.
+
+**One approval gate for the whole phase.** Instead of a gate per aspect, print every aspect's
+plan summary, then ask once:
+
+```
+📋 Implementation plans ready for development ({aspects, comma-separated}).
+   Review: docs/plans/{task_slug}/02-development-plan-{aspect}.md (one per aspect)
+```
+
+Accept *approve* / *request changes {aspect}: {feedback}* / *abort [{aspect}]*. Requesting
+changes on `backend` invalidates the frontend plan too and re-plans both, because the frontend
+plan was derived from the backend contract that just changed. Record `approval_rounds` in
+telemetry.
+
+**Implementation passes run concurrently only for the `backend ∥ frontend` pair, and only when
+every invariant below holds.** Check them yourself, from the two approved plan files — this is
+a deterministic check on file lists, not a judgement call:
+
+1. **Different profiles own the two aspects.** One profile owning both means one agent, and an
+   agent cannot run concurrently with itself.
+2. **The plans' create/modify file sets are disjoint.** Any single path in both sets disqualifies
+   the pair — two agents editing one file in a shared working tree is a lost write, not a race
+   to reason about.
+3. **Neither plan touches a shared-fate file**: `package.json`, `composer.json`, any lockfile,
+   `Dockerfile*`, CI YAML, `.env*`, or a routes file both stacks register into. These serialize
+   the whole build even when the diffs look unrelated.
+
+If any invariant fails, fall back to sequential for this run and **print the reason**:
+
+```
+   ℹ️ aspect_execution=parallel-implement not applied: {which invariant failed, and the paths that failed it}
+      Running development aspects sequentially.
+```
+
+When the pair does run concurrently, both dispatches go in one message (3c-group), each keeps
+its own `[pass:implement]` marker, and the trailer of each prompt gains:
+
+```
+parallel_peer_aspects: {the other aspect}
+```
+
+with this fixed text appended to the `development_implement` base prompt:
+
+> A peer architect is editing a different part of this working tree at the same time. Type
+> errors, lint failures, missing imports and failing tests **outside your own aspect's paths**
+> are transient noise from work in progress — do not fix them, do not reformat them, do not
+> report them as findings. Run formatters and linters against your own files only, never
+> repo-wide. If a file you need is being changed by the peer, that is an invariant violation:
+> stop and report it rather than working around it.
+
+**Known limitation.** Invariants 2 and 3 constrain what the *plans* declare. Nothing prevents an
+agent from touching a file its plan did not mention, and tool-level interference (a repo-wide
+formatter, a build that writes generated files) is guarded only by the prompt text above. This
+is why the mode is experimental and off by default.
+
 **3c. Spawn the agent** via the `Agent` tool with `subagent_type` and the model resolved in 3b-3:
 
 ```
@@ -912,6 +993,24 @@ and ` [pass:verify]` are reserved for the security fix / QA verify sub-passes). 
 marker on a planning pass and the hook rewrites the model back to `model:`, silently
 undoing the tier split.
 
+**3c-group. Spawning a parallel group.** When the group has more than one dispatch, issue
+**all** of its `Agent` calls in a **single assistant message**. Several `Agent` calls in one
+message run concurrently in the foreground and share the working tree; issued in separate
+messages they run one after another, and the group silently degrades to sequential execution
+at full cost.
+
+- Never `run_in_background` for a phase agent. Parallel here means concurrent **foreground**
+  calls in one message — the orchestrator still blocks until every member returns. (The
+  `batch-pipeline` skill's background dispatch is a different mechanism for a different job and
+  is unaffected by this rule.)
+- Each member keeps its own `description` label, its own model tier, and its own telemetry row.
+  The hooks never see the group: they parse `description`, which carries phase, aspect and pass
+  per dispatch. Two members sharing one `{N}` is expected and harmless.
+- A member's own aspect fan-out (QA across aspects, for instance) is part of the same message —
+  one group, one message, however many dispatches it expands to.
+- Results arrive together. Process them in the group's declared member order, not in the order
+  they happen to complete, so a run is reproducible in its output.
+
 **3d. Save the COMPACT summary** returned by the agent to `CONTEXT.{phase}_output`. Verify the agent also wrote the detailed file to `docs/plans/{task_slug}/0X-{phase}.md` (use `Glob` to check). If the file is missing, ask the agent again to write it before proceeding.
 
 **3d-0. Update the state file.** Once the phase step is settled — after 3e passes, or the user
@@ -938,6 +1037,13 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-report.sh" {task_slug} --project-root 
 - `agent_id`, `started_at`, `completed_at`, `turns`, `pass` — copied from the record (`null` when estimated).
 - `compact_summary_chars` — `last_message_chars` from the record when measured, else `len(CONTEXT.{phase}_output)`. Convert to tokens (`chars / 4`) before comparing: the handoff budget is stated in **tokens** by every agent contract (≤2K for BA/QA/security, ≤3K for development). If `chars / 4 > 3000` (i.e. > 12000 chars), record `compact_handoff_violation: true` and emit a one-line stderr warning: `WARN: {phase} compact summary exceeded budget (~{chars/4} tokens > 3000)`. Do not abort. This counter is the pipeline's only sensor for model verbosity drift; a threshold ~4× too tight fires on every compliant run and destroys that signal.
 - For aspect-aware fan-out, push one entry **per dispatch** into `phases[]` with `phase` and `aspect` set; aspect-agnostic phases omit `aspect`. Development pushes one entry per pass (`pass: "plan"` / `"implement"`).
+- Every entry carries `group_index` — the index of the group it belongs to in
+  `resolved_phases`. Members of a parallel group share a `group_index` and a
+  `Phase {N}`, and that is how a reader tells "ran concurrently" from "ran one after
+  the other" once the run is over.
+- The security fix pass and the QA verify rerun (3d-security) push their own entries,
+  with `pass: "fix"` / `pass: "verify"` and the `group_index` of the security group,
+  plus the trailer counters `security_fix_pass` and `qa_verify_rerun`.
 
 Nested dispatches (a phase agent spawning `general-purpose` / `Explore` via a skill) are recorded by the hooks too, with `nested: true`; they are **not** `phases[]` entries. Their cost is summed by `usage-report.sh` into `nested_cost_usd` and surfaces in Step 5.
 
@@ -962,6 +1068,49 @@ Then ask the user: **continue** / **stop here**. On *stop*, skip all remaining p
 
 Never abort silently: a cap is a runaway guard, and a half-finished pipeline that vanishes without a word is worse than an expensive one. The check runs *after* a phase completes because per-phase cost is only known then — a cap cannot prevent the phase that breaches it, only the ones after.
 
+**3d-security. Security fix pass and QA verify rerun.** `security-analyst` is report-only, so
+its Critical and High findings are applied afterwards, by the agent that wrote the code. Run
+this immediately after the group containing the `security` member has been validated (3e), and
+before moving to the next group.
+
+Decide from two inputs: whether each member of the group **succeeded**, and the
+`ISSUES_FOUND: critical=N high=N` counts from the security compact summary.
+
+| Security member | `critical + high` | QA member | Fix pass | QA verify |
+|---|---|---|---|---|
+| succeeded | 0 | any | no | no |
+| succeeded | > 0 | succeeded or absent | **yes** | yes, only if `FIXES_APPLIED` is non-empty |
+| succeeded | > 0 | failed / skipped | **yes** | **no** — there is no passing baseline to re-verify against |
+| failed / skipped | unknown | any | **no** | **no** |
+
+A failed security review yields no trustworthy finding list, so nothing is fixed on its basis.
+That is the point of the first-column rule: the fix pass exists to apply a review, not to guess
+at one.
+
+**The fix pass.** One dispatch to the development-phase architect for the `backend` aspect (or
+the sole aspect when the run has one):
+
+- `description`: `Phase {N}/{total}: security [pass:fix]` — `{N}` is the security member's own
+  group number. `[pass:fix]` resolves `model:`, not `model_plan:`.
+- Input: `docs/plans/{task_slug}/04-security.md`, plus the must-fix list from the compact
+  summary.
+- Contract, stated in the prompt: apply exactly the prescribed fixes; minimal diff; no
+  refactoring, no reformatting, no new dependencies, no changes outside the files named in the
+  findings. A finding the architect believes is a false positive is **reported, not silently
+  skipped**.
+- Returns `FIXES_APPLIED: [file:line, …]` and `NOT_FIXED: [finding → reason]`.
+
+**The QA verify rerun.** Only when the fix pass reported at least one applied fix:
+
+- `description`: `Phase {N}/{total}: qa [pass:verify]`.
+- Contract: run the existing suite only. Write no new tests, change no test, change no source.
+  Report pass/fail counts and the failing test names.
+- A failure here is a regression introduced by the fix pass — surface it to the user with the
+  normal retry / skip / abort prompt rather than attempting another fix automatically.
+
+Both sub-passes get their own telemetry entries (`security_fix_pass`, `qa_verify_rerun` in the
+Step 5 trailer) and their own `phase_status` keys, `security/fix` and `qa/verify`.
+
 **3e. Validate phase output:**
 - BA phase: must contain acceptance criteria or scope bullets.
 - Development phase: must list files changed.
@@ -981,7 +1130,23 @@ usually missing its closing fields. Treat that as a validation failure, not as s
 A retry after a `maxTurns` hit must narrow the scope (one aspect, or the failing subset)
 rather than re-issuing the same prompt — the cap will be reached again otherwise.
 
+**Security fact-forcing.** Reject a security member that returns `STATUS: clean` while
+both `ENTRY_POINTS_CHECKED` and `CALLERS_TRACED` are empty. "Nothing found" is a
+conclusion; with no entry point read and no call site followed it is an absence of
+analysis wearing the same words. Re-dispatch once, naming the changed files' entry
+points explicitly.
+
 If validation fails, **do not proceed** — ask the user how to handle (retry, skip, abort).
+
+**Failure inside a parallel group is per member.** Validate each member's output separately and
+apply retry / skip / abort to **that member only** — a failing security review does not
+invalidate a QA pass that returned cleanly, and re-dispatching the whole group would pay for
+the healthy member twice. Ask once per failed member, in the group's declared member order.
+
+The cost cap (3d-3) is evaluated **once per group**, after every member has returned. A cap
+cannot prevent the step that breaches it, and members of a group are dispatched together, so
+checking mid-group is not possible even in principle.
+
 
 ### Step 4 — Run post-pipeline checks
 
@@ -1339,16 +1504,18 @@ Focus on OWASP Top 10:
 - Components with known vulnerabilities
 - Insufficient logging
 
-Fix Critical and High severity issues directly (Edit/Write).
-For Medium issues, document them as recommendations without fixing.
-Skip Low/Info unless trivially safe to fix.
+You are report-only — you have no Edit tool. Do not change code.
+For every Critical and High finding, prescribe the exact change instead:
+file, line, and what to do there. A separate fix pass by the
+development-phase architect applies them.
 
 Write detailed security report to: docs/plans/{task_slug}/04-security.md
 
 RETURN ONLY a COMPACT summary (≤2K tokens):
 - Issues found (severity breakdown: Critical / High / Medium / Low)
-- Fixes applied (file:line references)
+- Must-fix list (file:line per Critical/High finding)
 - Outstanding recommendations
+- ENTRY_POINTS_CHECKED and CALLERS_TRACED (see your agent file)
 ```
 
 ### documentation
@@ -1402,6 +1569,11 @@ You **never**:
   deny rule enforce; the orchestrator must not route around it by improvising a name.
 - Dispatch a phase agent with `run_in_background`. Every phase in Step 3 is synchronous
   by design (see "Execution model" above) — a backgrounded dispatch skips the Step 3d
+  artifact-file validation and the Step 3d-1 telemetry capture for that phase entirely.
+  A parallel group is not an exception: its members are concurrent **foreground** calls
+  issued in one message (3c-group), and the orchestrator still blocks until all of them
+  return. (`batch-pipeline` is a separate skill with a separate execution model and is
+  not governed by this rule.)
   artifact-file validation and the Step 3d-1 telemetry capture for that phase entirely.
 - Commit, merge, rebase, force-push, tag, or delete a branch. Branch *creation* (below) is the
   only history-shaping act the orchestrator performs; committing belongs to the documentation

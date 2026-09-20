@@ -2,6 +2,7 @@ name: refactor
 description: Code refactoring — skip BA, restructure code without changing external behavior.
 phases:
   - development
-  - qa
-  - security
+  - parallel:
+      - qa
+      - security
   - documentation
