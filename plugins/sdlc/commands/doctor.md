@@ -34,7 +34,7 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
 
    This step reads the environment and agent files only — it changes nothing.
 
-6. **Check for local-agent shadowing and a stale run marker.**
+6. **Check for local-agent shadowing and the run state file.**
 
    - **Shadowing.** `Glob <repo>/.claude/agents/*.md` and `~/.claude/agents/*.md`. For
      each file whose basename (minus `.md`) matches the bare name of any agent in the
@@ -45,13 +45,17 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
      dispatched an unqualified `subagent_type`. See `pipeline-orchestrator/SKILL.md`
      Step 3c for the qualified-dispatch fix and Step 2 for the run-marker enforcement
      this collision is normally caught by.
-   - **Stale run marker.** Check `<repo>/.claude/.sdlc-run-active.json`. If present,
-     read `started_at` and compare to now. If older than 6 hours (the same threshold
-     `enforce-agent-model.sh` uses to treat a marker as inactive), report it as stale —
-     it is inert for enforcement purposes but indicates a crashed or force-quit
-     `/sdlc:start` run; suggest `rm .claude/.sdlc-run-active.json`. If younger than 6
-     hours, report it as an apparently active run (informational — doctor does not
-     treat this as an error).
+   - **Run state file.** Check `<repo>/.claude/.sdlc-run-active.json`. If present, read
+     `schema_version` (absent = v1 marker), `task_slug`, `started_at`, `updated_at`,
+     `resume_count` and `phase_status`, and compare `updated_at // started_at` to now — the
+     same rule `enforce-agent-model.sh` and the telemetry hooks use. Report:
+     - **fresh (< 6h)** → an apparently active run: print the phase-status summary
+       (`N completed / M`) and note that `/sdlc:start` will offer to resume it. Informational.
+     - **stale (≥ 6h), v2** → a crashed or force-quit run that is **resumable**: print the
+       summary and suggest `/sdlc:start --resume` (or `rm .claude/.sdlc-run-active.json` to
+       discard it).
+     - **stale, v1** (no `schema_version`) → a pre-2.0 leftover; not resumable; suggest `rm`.
+     Doctor never deletes or edits the file.
 
    This step reads the filesystem only — it changes nothing.
 
@@ -170,7 +174,11 @@ In the Git flow section, flag these conditions instead of the plain `🎯` line 
 - `⚠️  model=git-flow but git-flow CLI unavailable — falling back to git checkout -b. Install git-flow (AVH edition) to use "git flow {subcommand} start".`
 - `⚠️  model=git-flow but repo not initialized (no gitflow.branch.master/develop) — falling back to git checkout -b. Run "git flow init" to use the CLI path.`
 
-When no local-agent name collides with the active profile, print `✅ no local-agent shadowing detected` in place of the warning list. When a run marker exists and is fresh (< 6h), print `🏃 run marker active (task_slug={task_slug}, started {N}m ago) — a pipeline appears to be running`. When it exists and is stale (≥ 6h), print `⚠️  stale run marker (started {N}h ago, task_slug={task_slug}) — likely a crashed run. Remove with: rm .claude/.sdlc-run-active.json`.
+When no local-agent name collides with the active profile, print `✅ no local-agent shadowing detected` in place of the warning list. For the run state file:
+
+- fresh (< 6h): `🏃 run "{task_slug}" active (started {N}m ago, last update {M}m ago, {done}/{total} phase steps) — /sdlc:start will offer to resume it`
+- stale (≥ 6h), v2: `⚠️  interrupted run "{task_slug}" (last update {N}h ago, {done}/{total} phase steps) — resumable with: /sdlc:start --resume   (or discard: rm .claude/.sdlc-run-active.json)`
+- stale, v1 marker (no `schema_version`): `⚠️  stale pre-2.0 run marker (started {N}h ago, task_slug={task_slug}) — not resumable. Remove with: rm .claude/.sdlc-run-active.json`
 
 If a section is absent (no baseline file, no missing deps, etc.) say so explicitly with one line — never silently omit a section.
 
@@ -231,10 +239,15 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
   ],
   "run_marker": {
     "present": false,
+    "schema_version": null,
     "stale": null,
+    "resumable": null,
     "task_slug": null,
     "started_at": null,
-    "age_seconds": null
+    "updated_at": null,
+    "age_seconds": null,
+    "resume_count": null,
+    "phase_status": null
   },
   "dispatch_telemetry": {
     "hooks_registered": true,
@@ -291,7 +304,7 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
 
 `git_flow.source` is `"config"` when a `git:` block exists in `.claude/sdlc.local.yaml` (with the overridden keys listed in `config_override_keys`), otherwise `"detection"`. `git_flow.detected` is the verbatim `detect-git-flow.sh` output, always freshly computed. Every `cache.*` field is `null` when `cache.present` is `false`. `git_flow.branch_creation_method` mirrors `references/GIT-FLOW.md` Step F-2a: `"git-flow-cli"` only when `detected.model == "git-flow"` and both `detected.git_flow_cli_available` and `detected.git_flow_initialized` are `true`, else `"checkout-b"` — this field does not account for the task-type restriction in F-2a-4 (bugfix/fix/refactor/docs/chore always use `checkout-b` even when the other three conditions hold), since doctor has no task description to classify.
 
-`local_agent_shadowing` is `[]` when no collision exists. `run_marker.stale` is `null` when `present` is `false`; otherwise `true` when `age_seconds >= 21600` (6h, matching `enforce-agent-model.sh`'s `MARKER_MAX_AGE_SECONDS`), else `false`.
+`local_agent_shadowing` is `[]` when no collision exists. `run_marker.stale` is `null` when `present` is `false`; otherwise `true` when `age_seconds >= 21600` (6h, matching `enforce-agent-model.sh`'s `MARKER_MAX_AGE_SECONDS`), else `false`. `age_seconds` is measured from `updated_at` when present, else `started_at` — the same rule the hooks apply. `resumable` is `true` iff `schema_version >= 2`; `phase_status` is the file's object verbatim (`null` for a v1 marker).
 
 `would_abort_pipeline` is `true` iff any dependency with `policy=block` is missing. `model_routing.override_active` is `true` iff `CLAUDE_CODE_SUBAGENT_MODEL` is set to something other than `inherit`; `subagent_model_override` is `null` when unset.
 
