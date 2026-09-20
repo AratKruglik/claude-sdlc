@@ -360,7 +360,19 @@ Model tier is currently static per agent. A better fit would escalate on task pr
 feature touching authentication, payments, or concurrency, or exceeding a file-count threshold,
 warrants Opus for implementation too, while a CRUD endpoint does not.
 
-Not implemented here. It needs a decision on how the BA phase signals complexity in a
+**Half-closed in v2.0.0.** The machine-readable complexity signal now exists — the BA
+compact summary's `COMPLEXITY:` line — and the recipe schema can consume it
+declaratively: a phase member may carry `when: complexity == large` (or `!=`), evaluated
+once after BA returns, per RESOLVER Step 4b. That covers *dropping* a phase on a small
+task.
+
+What remains open is **escalating a model tier** on the same signal. `when:` removes
+members; it does not re-tier one. Doing that needs a place in the recipe to declare the
+escalation and a rule for how it interacts with `model_plan`, which is its own change.
+The constraint below still holds for it.
+
+The original framing, kept because the constraint outlives the gap: it needs a decision
+on how the BA phase signals complexity in a
 machine-readable way, plus a `workflow.schema.json` extension to declare the rule
 declaratively — enough design surface to belong in its own change. The escalation must stay
 deterministic and declared in the recipe, not inferred at dispatch time, or runs stop being
@@ -384,3 +396,38 @@ reproducible.
   `docs/plans/{slug}/_telemetry.json`: Opus phase costs down ~3× against the old table, no
   `compact_handoff_violation` on compliant summaries, and `opus` on the plan pass with `sonnet`
   on the implement pass in `docs/plans/_model-enforcement.log`.
+
+---
+
+## 10. v2.0.0 — measured telemetry supersedes these estimates
+
+Every cost figure in this document was derived from assumed token volumes: the `Agent` tool
+result carries no usage data, so the orchestrator estimated tokens as `chars / 4`. Section 7's
+table is that arithmetic, and the two rows it flags as uncertain (the Dev plan pass, Security
+at `xhigh`) were never measurable at all.
+
+As of v2.0.0 they are measured. Hooks read each finished subagent's own transcript, dedupe by
+`message.id`, and price the result from `references/pricing.json`; `usage-report.sh` attributes
+each dispatch to its phase, aspect and pass. `docs/plans/{slug}/_telemetry.json` now carries
+real numbers, and `docs/cost-baseline.md` aggregates fully-measured runs.
+
+**Treat this document as the reasoning, and your own baseline as the numbers.** Where the two
+disagree, the baseline is right: it was measured on your codebase, and this table was estimated
+for one that is not yours.
+
+Three consequences for routing decisions:
+
+- **`maxTurns` values are unmeasured.** Architects 120, database specialists and QA 60, BA and
+  security 80, docs 30 were chosen from phase shape, not data. Telemetry now records real turn
+  counts per dispatch, so these should be recalibrated downward wherever the distribution says
+  they can be — a ceiling nobody ever reaches bounds nothing.
+- **Nested cost was previously invisible.** A phase agent spawning `Explore` or a superpowers
+  skill spends real money that no earlier version could see. It now lands in `nested_cost_usd`,
+  separate from `total_cost_usd` so `cost_scope` stays truthful. Expect the true per-run figure
+  to exceed every estimate in §7 for that reason alone.
+- **Security's tiering rests on a job that changed.** `opus/xhigh` was justified by security
+  being the phase whose failures nothing else catches. That still holds, but the agent is now
+  **report-only**: it finds and prescribes, and the development architect applies the fix under
+  a minimal-diff contract on its own `model:` tier, followed by a QA verify rerun. The expensive
+  reasoning is spent on detection, and the mechanical edit runs at Sonnet — which is the right
+  split, and was not possible while one agent did both.

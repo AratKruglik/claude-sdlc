@@ -2,7 +2,18 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v1.5.0** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external. **Git-flow aware:** the pipeline detects your branching model *and your existing naming convention*, classifies the task type, proposes a branch, and targets the PR at the right base — see [Git Flow Awareness](#git-flow-awareness). Workflow auto-selection is now implemented. Cost-optimized: model tiering + `effort` per-subagent, **two-tier development phase** (Opus plans, Sonnet implements), enforced workflow cost caps, file-scoped format hooks, shared architect conventions (~1,600 lines of boilerplate deduped), per-aspect QA fan-out on full-stack runs. See [MODEL-ROUTING.md](MODEL-ROUTING.md) for the routing audit behind the cost model.
+**v2.0.0** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external.
+
+What is new in 2.0.0, and why each one is a breaking change:
+
+- **[Measured telemetry](#measured-telemetry)** — per-phase cost and tokens are now read from each subagent's own transcript by hooks, not estimated at `chars / 4`. `_telemetry.json` changes shape, and `docs/cost-baseline.md` becomes populatable for the first time.
+- **[Resuming a run](#resuming-a-run)** — the run marker becomes a state file, and `/sdlc:start --resume` continues a crashed or compacted run at the phase it reached instead of paying for it twice.
+- **[Parallel phases](#pipeline-phases)** — QA and security run as one step. `Phase N/total` now counts pipeline *steps*, so both members share an `N`, and workflow recipes gain a `parallel` construct.
+- **Security is report-only** — `security-analyst` has no `Edit` tool. Critical and High findings are applied by the development architect in a fix pass, then re-verified by QA.
+- **[Run-scoped guards](#run-scoped-guards)** — three hooks that deny staged secrets, `--no-verify`, and mid-run edits to tooling config, all inert outside a pipeline run.
+- **Agent frontmatter** — `skills:`, `maxTurns:` and `memory: project` across every agent, and the `Skill` tool is now actually in their allowlists, which it never was.
+
+**Git-flow aware:** the pipeline detects your branching model *and your existing naming convention*, classifies the task type, proposes a branch, and targets the PR at the right base — see [Git Flow Awareness](#git-flow-awareness). Cost-optimized: model tiering + `effort` per-subagent, **two-tier development phase** (Opus plans, Sonnet implements), enforced workflow cost caps, file-scoped format hooks, shared architect conventions, per-aspect QA fan-out on full-stack runs. See [MODEL-ROUTING.md](MODEL-ROUTING.md) for the routing audit behind the cost model, and [CHANGELOG.md](CHANGELOG.md) for the full upgrade notes.
 
 ---
 
@@ -468,6 +479,80 @@ context afresh, and carrying over a previous feature's framing is a bias, not a 
 
 ---
 
+## Measured Telemetry
+
+Until v2.0.0 every per-phase cost figure in this repo was an estimate: the `Agent` tool result
+carries no usage data, so the orchestrator divided the returned characters by four and called
+it tokens. That made `docs/cost-baseline.md` unpopulatable and the workflow cost caps a
+comparison against a guess.
+
+Three hooks now measure it instead, while a run's state file is fresh:
+
+- `dispatch-log.sh` records every `Agent` dispatch (`PreToolUse`) and the `agent_id` Claude Code
+  assigns it (`SubagentStart`)
+- `subagent-usage.sh` (`SubagentStop`) reads the finished subagent's own transcript, sums its
+  usage **deduplicated by `message.id`**, and prices it from [`references/pricing.json`](plugins/sdlc/references/pricing.json)
+
+All three append to `docs/plans/{slug}/_usage.jsonl`. The orchestrator only reads it, via
+`scripts/usage-report.sh`, which pairs dispatches with their results and attributes them to a
+phase, aspect and pass.
+
+The dedupe matters: one API response spans several transcript lines carrying the same
+`message.id`, and summing them naively inflates the total roughly 2.5–3×. A cost report that is
+wrong by 3× is worse than no report, because it looks authoritative.
+
+Nested dispatches — a phase agent spawning `Explore` or a superpowers skill — are measured too
+and land in `nested_cost_usd`. That is real pipeline spend no earlier version could see.
+`total_cost_usd` keeps its old meaning (phase dispatches only) so `cost_scope` stays truthful,
+and `total_cost_usd_including_nested` carries the full figure.
+
+Where a transcript cannot be found, the row is written anyway with
+`usage_source: transcript_missing` and null tokens. A run with any estimated row is not
+baseline-grade, and `usage_source_summary` in `_telemetry.json` says so.
+
+> `total_cost_usd` is a **floor**, not the bill. Only subagent spawns are metered — the
+> orchestrator's own consumption (this skill's body, stack detection, workflow resolution, the
+> approval-gate exchanges) runs on the session model and is invisible to any hook.
+
+---
+
+## Resuming a Run
+
+A pipeline run costs real money in its first phases. Before v2.0.0 a crash, a disconnect or a
+context compaction mid-Dev lost all of it: the run's state lived only in the session.
+
+`.claude/.sdlc-run-active.json` is now a state file (schema v2) holding the decisions a rerun
+cannot re-derive — resolved phases, stack profiles, git-flow choices, the workflow and why it
+was chosen, the cost cap, and a `phase_status` map updated at every phase boundary. It stays
+under ~2 KB: anything deterministic from disk is recomputed rather than stored.
+
+```bash
+claude                      # after a crash, in the same repo
+/sdlc:start --resume
+```
+
+The orchestrator prints what it found, re-enters at the first group with unfinished members,
+and dispatches only those. A development aspect that was `planned` goes straight to the
+approval gate; one that was `approved` goes straight to the implementation pass. Nothing
+already completed is paid for twice.
+
+Two guards make this safe rather than merely convenient:
+
+- **Branch check.** Resume halts if `HEAD` is not the branch the run recorded. Resuming a
+  half-finished feature onto the wrong branch would interleave two changes with no warning.
+- **Plan-file check.** `planned` means the plan pass returned — but if the file it should have
+  written is missing, the run crashed between those two moments, and the plan pass re-runs
+  rather than presenting an approval gate for a plan that does not exist.
+
+Starting a fresh run while a state file is still fresh prompts three ways — *resume*, *start
+fresh* (which archives any colliding `docs/plans/{slug}/`), or *abort* — so a second run never
+silently overwrites the first one's artefacts.
+
+`/sdlc:doctor` reports the state file's age and `phase_status` summary, including when it is
+stale.
+
+---
+
 ## Run-Scoped Guards
 
 Three hooks are **inert outside a pipeline run** and active only while a fresh
@@ -561,36 +646,106 @@ Development-phase agents carry a second tier in `model_plan` — resolved for th
 
 > High `effort` on Opus is the most expensive combination, so only the two leverage agents use it — BA and Security, where reasoning quality propagates into every later phase. Security sits one rung higher (`xhigh`) because its failures are the only ones the pipeline cannot detect on its own.
 
-### Estimated cost for a medium feature
+### What a run actually costs
 
-Assumes a medium feature, split roughly by phase workload below. Sonnet pricing includes an introductory discount through 2026-08-31 ($2/$10 per MTok in/out vs. the $3/$15 standard rate) — both are shown since most runs during the discount window will land closer to the lower figure.
+**Short answer: a medium feature costs roughly $4–10, and about $6 is the central case.**
+A small fix lands near $2.50, a large one can pass $15. The figure below is a model, not a
+quote — but it is built the way the pipeline actually bills, which the table this replaced was
+not.
 
-| Phase | Agent | Model | Est. input / output tokens | Cost (standard) | Cost (intro, thru 2026-08-31) |
-|---|---|---|---|---|---|
-| BA | business-analyst | opus/high | 40K / 3K | ~$0.28 | ~$0.28 |
-| Dev — plan | stack architect | opus | 80K / 4K | ~$0.50 | ~$0.50 |
-| Dev — implement | stack architect | sonnet/medium | 250K / 8K | ~$0.87 | ~$0.58 |
-| QA | qa-engineer | sonnet/medium (≤3 attempts) | 100K / 5K | ~$0.38 | ~$0.25 |
-| Security | security-analyst | opus/xhigh | 40K / 6K | ~$0.35 | ~$0.35 |
-| Docs | document-writer | haiku/low | 15K / 2K | ~$0.03 | ~$0.03 |
-| **Total** | | | **525K / 28K** | **~$2.40** | **~$1.98** |
+#### Why the old estimate was wrong by 2–3×
 
-Per-MTok list prices used above: opus $5 in / $0.50 cached / $25 out; sonnet $3 / $0.30 / $15; haiku $1 / $0.10 / $5.
+The previous table modelled each phase as **one API request**: ~40K tokens in, ~3K out. That is
+not how an agentic dispatch bills. An agent runs a loop, and **every turn re-sends the entire
+conversation so far**. A 45-turn implementation pass whose context grows by ~2.5K tokens a turn
+bills over 3 million input tokens, not 250K — most of them at the cache-read rate, but still
+billed.
 
-Two rows carry real uncertainty. The **Dev plan pass** has no measured token volume yet — 80K/4K is an assumption. **Security at `xhigh`** bills thinking tokens at the output rate, and how much `xhigh` adds has not been measured here; the row assumes output roughly doubles. Both are replaced by real numbers once `docs/cost-baseline.md` is populated.
+So the dominant term is not the model tier. It is **turns × context size**, and because context
+grows as the loop runs, cost is roughly **quadratic in dispatch length**:
 
-This is roughly 30% above the previous single-tier estimate, and the trade is deliberate: the argument is cost per *completed* task, not per run. A development pass that starts from a weak plan gets redone and drags QA and security with it, which costs more than the delta. To opt out on any agent, set `model_plan: sonnet` or drop the field — that agent reverts to single-tier behaviour with no other changes.
+| Turns and per-turn growth | With caching | Cache cold |
+|---|---|---|
+| ×0.6 (small task) | $2.77 | $6.50 |
+| ×0.8 | $4.22 | $12.26 |
+| **×1.0 (medium — the model below)** | **$6.04** | **$20.88** |
+| ×1.3 | $9.87 | $41.81 |
+| ×1.6 (large) | $14.94 | $72.91 |
 
-Actual cost varies with codebase size, diff scope, and QA retry count — treat this as an order-of-magnitude estimate, not a quote. It also excludes the orchestrator's own token use; see `docs/cost-baseline.md`.
+That curve is why `maxTurns` exists, why the QA iteration cap is 3, and why "one fewer phase"
+saves more than "one cheaper model". A dispatch that runs 60% longer costs 2.5× more, not 60%
+more.
+
+#### The model
+
+Medium feature, single backend stack (Laravel), Opus plans / Sonnet implements.
+
+| Phase | Tier | Turns | Cache write | Cache read | Output | Cached | Cold |
+|---|---|---:|---:|---:|---:|---:|---:|
+| business_analysis | opus | 14 | 44K | 299K | 10.5K | $0.69 | $1.77 |
+| development — plan | opus | 20 | 77K | 789K | 16K | $1.27 | $4.38 |
+| development — implement | sonnet | 45 | 128K | 3,157K | 43.5K | $1.39 | $6.78 |
+| qa | sonnet | 30 | 78K | 1,160K | 26.5K | $0.69 | $2.59 |
+| security | opus | 22 | 69K | 756K | 36K | $1.71 | $4.70 |
+| security `[pass:fix]` ×0.35 | sonnet | 15 | 16K | 149K | 3.7K | $0.11 | $0.35 |
+| qa `[pass:verify]` ×0.30 | sonnet | 8 | 4K | 18K | 1.3K | $0.03 | $0.05 |
+| documentation | haiku | 10 | 22K | 106K | 5.5K | $0.07 | $0.14 |
+| nested (`Explore`, skills) ×2 | haiku | 6 | 39K | 105K | 6.4K | $0.09 | $0.14 |
+| **Total** | | | | | | **$6.04** | **$20.88** |
+
+**Which end is realistic.** Turns inside one dispatch are seconds apart, so the 5-minute cache
+holds and the **cached column is the normal case**. The cold column is what a run costs when
+caching does not engage — and it is the honest upper bound, so it is shown rather than buried.
+
+#### What is measured and what is assumed
+
+Being explicit about this is the point; the estimate this replaces was not.
+
+| Input | Source |
+|---|---|
+| Prices per MTok | **Measured** — [`references/pricing.json`](plugins/sdlc/references/pricing.json), verified against Anthropic's pricing page |
+| Static prompt prefix per dispatch | **Measured** — byte counts of the actual agent, skill, `stack.md` and base-prompt files |
+| Tokenizer ratio | **Measured rule** — Opus 5 and Sonnet 5 use a newer tokenizer producing ~30% more tokens for the same text (≈3.1 chars/token); Haiku 4.5 uses the previous one (≈4 chars/token) |
+| Turns per dispatch | **Assumed** — 14/20/45/30/22/10, all well under each agent's `maxTurns` |
+| Context growth per turn | **Assumed** — 1.5K–3.5K tokens, one file read or tool result |
+| Fix-pass firing rate | **Assumed** — 35% of runs find a Critical or High issue |
+| Nested dispatches | **Assumed** — two per run |
+
+The last four rows are where your numbers will diverge from these. They are also exactly what
+[measured telemetry](#measured-telemetry) now records, so **replace this table with your own
+`docs/cost-baseline.md` as soon as you have one.**
+
+#### What v2.0.0 added to the bill
+
+Three of these are new costs, and one of them is the price of fixing a bug:
+
+- **Convention skills now actually load.** No agent had `Skill` in its `tools:` allowlist
+  before v2.0.0, so `architect-conventions` and every stack's convention skills — about 31K
+  characters, ~10K tokens for a Laravel run — never reached the agent. They do now. That is a
+  real increase, and it buys the guidance the architects were always documented as having.
+- **Nested dispatches became visible.** `Explore` and superpowers skills spawned by a phase
+  agent were always paid for and never counted. They are a line item now (`nested_cost_usd`),
+  not a new expense.
+- **Security fix pass and QA verify rerun** are genuinely new dispatches, but conditional and
+  cheap — about $0.14 combined at the assumed firing rates, against an `opus/xhigh` review that
+  no longer spends Opus output tokens writing the fix itself.
+
+#### Cost caps were recalibrated against this model
+
+`hotfix` previously capped at **$2.50** against a modelled healthy cost of **$2.45** — it would
+have fired on normal runs, which is the one thing its own comment says a runaway guard must
+never do. It is now **$8.00**. `docs-only` moved from $0.20 to $0.40 for the same reason, with
+less margin at stake.
 
 ### Additional cost levers
 
 - **Skip-rules:** typo-fix, whitespace-only, config-only, lightweight-no-db — skip unnecessary phases automatically.
 - **QA hard cap:** max 3 attempts to fix failing tests, then STOP.
 - **Compact handoffs:** each agent returns a ≤2–3K-token summary.
-- **Prompt caching:** stable system prompts (no timestamps, slugs, or dynamic content) → ~60% cache hit rate on Sonnet.
+- **Prompt caching:** stable system prompts (no timestamps, slugs, or dynamic content) keep the prefix cacheable. The model above shows what this is worth: **$6 cached against $21 cold** on the same run. Anything that varies per dispatch in the stable prefix silently costs 3×.
 - **Workflow cost caps:** `caps.max_total_cost_usd` in a recipe halts the run (with confirmation) once the running total crosses it. Set as a runaway guard, not a routine blocker.
-- **Fewer spawns beat cheaper spawns.** The dominant cost driver is the per-phase subagent spawn, so removing an unnecessary phase saves more than re-tiering one. Skip-rules are the strongest lever here; adding a cheap agent to feed an expensive one usually loses.
+- **`maxTurns` ceilings:** a bounded dispatch cannot run away. Because cost is roughly quadratic in dispatch length, a cap is worth more than it looks — and the current values are unmeasured starting points that telemetry should now tighten.
+- **Shorter dispatches beat cheaper models.** The dominant cost driver is not the tier, it is turns × context. Removing a phase, or ending a dispatch two turns earlier, saves more than re-tiering one. Skip-rules are the strongest lever here; adding a cheap agent to feed an expensive one usually loses, because it adds a whole context-accumulating loop to save a per-token rate.
 
 ---
 
@@ -760,12 +915,17 @@ wait on a paid, non-deterministic check.
 ### Schema validation
 
 ```bash
-# Validate plugin.json
-npx check-jsonschema --schemafile schemas/plugin.schema.json .claude-plugin/plugin.json
+# Everything at once: 19 stack.md frontmatters, 24 plugin.json, 5 workflow recipes
+bash scripts/ci/validate-schemas.sh
 
-# Validate stack.md frontmatter
-npx check-jsonschema --schemafile schemas/stack.schema.json <(yq '.frontmatter' stack.md)
+# Plus the two other declarative checks CI runs
+bash scripts/ci/check-readme-drift.sh   # README agent table vs agent frontmatter
+bash scripts/ci/check-links.sh          # relative markdown links resolve
 ```
+
+Requires `jq`, the mikefarah `yq` v4 binary, and Node (for `ajv-cli`). The previous
+recipe here piped `yq '.frontmatter'` into `check-jsonschema`, which never worked —
+`yq` has no `.frontmatter` key for a markdown file.
 
 ---
 
@@ -822,8 +982,15 @@ npx check-jsonschema --schemafile schemas/stack.schema.json <(yq '.frontmatter' 
 
 ## Requirements
 
-- Claude Code (latest)
-- API Tier 2+ or Claude Max — a medium feature uses ~445K input tokens; Pro plan rate limits will throttle the pipeline.
+- Claude Code v2.1.257 or later (earlier builds resolve the subagent model in a different
+  order — see [Model Enforcement](#model-enforcement))
+- `jq` — required for measured telemetry, the stack cache and the run-scoped guards. Without
+  it those features degrade silently rather than failing: telemetry rows fall back to
+  `estimated`, the cache is skipped, the guards allow. The pipeline still runs.
+- API Tier 2+ or Claude Max. A medium feature bills several **million** input tokens once
+  the agentic loop's per-turn context re-sends are counted (see [What a run actually
+  costs](#what-a-run-actually-costs)) — most of them at the cache-read rate, but Pro-plan
+  rate limits will throttle the pipeline well before cost becomes the constraint.
 - A Git repository for `document-writer` (PR creation).
 
 ## License
