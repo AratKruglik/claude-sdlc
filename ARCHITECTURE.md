@@ -614,7 +614,7 @@ Examples (post-Phase 5):
 
 **Current Workaround (v0.0.1) for non-Vue Laravel projects:** via `<project>/.claude/sdlc.local.yaml` `extra_phase_prompts` or `CLAUDE.md` — see details in `PROJECT_INTEGRATION.md` §8.
 
-**Full architecture, alternatives considered, and migration path:** [`docs/decisions/ADR-014-aspect-tagged-profiles.md`](./docs/decisions/ADR-014-aspect-tagged-profiles.md).
+**Full architecture, alternatives considered, and migration path:** ADR-014 (aspect-tagged profiles), summarised in §10.5 above.
 
 ---
 
