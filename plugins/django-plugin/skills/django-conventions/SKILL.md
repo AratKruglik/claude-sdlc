@@ -14,6 +14,8 @@ description: |
   - Django ORM model field finalization and migration patterns — see django-plugin:django-orm-patterns.
   - Python language idioms (type hints, dataclasses, enums) — see python-foundation:python-conventions.
   - Testing patterns — see python-foundation:pytest-testing.
+user-invocable: false
+paths: ["**/*.py", "**/templates/**"]
 ---
 
 # Django Conventions

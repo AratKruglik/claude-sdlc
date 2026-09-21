@@ -14,6 +14,8 @@ description: |
   - General React conventions (see react-conventions).
   - State management testing patterns specific to a store lib (see react-state-management).
   - Form-specific testing (apply react-forms patterns inside test).
+user-invocable: false
+paths: ["**/*.test.{ts,tsx,js,jsx}", "src/**/__tests__/**"]
 ---
 
 # React Testing Patterns

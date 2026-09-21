@@ -117,18 +117,27 @@ seed is the command's only write, and it never overwrites an existing file.
 `README.md` claimed without qualification: *"The pipeline guarantees that tier is actually used
 — regardless of the session-level default model."*
 
-Claude Code resolves a subagent's model in the order **`CLAUDE_CODE_SUBAGENT_MODEL` →
-per-invocation parameter → frontmatter**
-([docs](https://code.claude.com/docs/en/sub-agents)). That environment variable sits *above*
-both enforcement layers — the orchestrator's dispatch parameter and the frontmatter the hook
-reads — so when it is set, every phase silently runs on whatever it names and no layer can
-tell. An organization `availableModels` allowlist can likewise cause a value to be skipped in
-favour of the inherited model.
+Claude Code resolves a subagent's model in the order **per-invocation parameter →
+frontmatter → `CLAUDE_CODE_SUBAGENT_MODEL` → session model**
+([docs](https://code.claude.com/docs/en/sub-agents)). Both enforcement layers write one of
+the first two, so that environment variable *alone* never overrides them.
+
+**Corrected in v2.0.0.** This section previously stated the reverse order —
+`CLAUDE_CODE_SUBAGENT_MODEL` first — and so did README, SKILL, doctor and the hook header.
+That was accurate for Claude Code before v2.1.251, where the variable did sit above both
+layers; it stopped being true and the repo did not follow. The real override is
+**`CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`** (v2.1.257+), which makes Claude Code ignore the
+dispatch parameter and every agent's `model:` frontmatter, running every phase on
+`CLAUDE_CODE_SUBAGENT_MODEL` — or on the session model when that is unset. An organization
+`availableModels` allowlist can likewise cause a value to be skipped in favour of the
+inherited model.
 
 This is the trap flagged in `model-analis.md` §5, and it was unchecked anywhere in the repo.
 
-**Fixed:** `/sdlc:doctor` now reports the variable and the declared tier of every active agent;
-the guarantee in `README.md` and `SKILL.md` now carries the condition.
+**Fixed:** `/sdlc:doctor` reports `CLAUDE_CODE_SUBAGENT_MODEL` as informational and warns
+only when `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is on — the distinction that makes the report
+actionable rather than alarming; the guarantee in `README.md` and `SKILL.md` carries the
+condition.
 
 ### D6 — Tier vocabulary was narrower than the tool accepts ✅ fixed
 
@@ -351,7 +360,19 @@ Model tier is currently static per agent. A better fit would escalate on task pr
 feature touching authentication, payments, or concurrency, or exceeding a file-count threshold,
 warrants Opus for implementation too, while a CRUD endpoint does not.
 
-Not implemented here. It needs a decision on how the BA phase signals complexity in a
+**Half-closed in v2.0.0.** The machine-readable complexity signal now exists — the BA
+compact summary's `COMPLEXITY:` line — and the recipe schema can consume it
+declaratively: a phase member may carry `when: complexity == large` (or `!=`), evaluated
+once after BA returns, per RESOLVER Step 4b. That covers *dropping* a phase on a small
+task.
+
+What remains open is **escalating a model tier** on the same signal. `when:` removes
+members; it does not re-tier one. Doing that needs a place in the recipe to declare the
+escalation and a rule for how it interacts with `model_plan`, which is its own change.
+The constraint below still holds for it.
+
+The original framing, kept because the constraint outlives the gap: it needs a decision
+on how the BA phase signals complexity in a
 machine-readable way, plus a `workflow.schema.json` extension to declare the rule
 declaratively — enough design surface to belong in its own change. The escalation must stay
 deterministic and declared in the recipe, not inferred at dispatch time, or runs stop being
@@ -367,9 +388,46 @@ reproducible.
   without `model_plan` → falls back to `model`.
 - **Schema** — validate `hotfix.yaml` and `docs-only.yaml` against
   `schemas/workflow.schema.json`.
-- **Doctor** — run `/sdlc:doctor`, then run it again with `CLAUDE_CODE_SUBAGENT_MODEL` set and
-  confirm the override warning appears.
+- **Doctor** — run `/sdlc:doctor`; with `CLAUDE_CODE_SUBAGENT_MODEL` set alone it must report
+  the value as informational and **not** warn, since that variable no longer overrides the
+  two layers. Set `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` and confirm the override warning
+  appears.
 - **End to end** — run `/sdlc:start` on a small feature and check
   `docs/plans/{slug}/_telemetry.json`: Opus phase costs down ~3× against the old table, no
   `compact_handoff_violation` on compliant summaries, and `opus` on the plan pass with `sonnet`
   on the implement pass in `docs/plans/_model-enforcement.log`.
+
+---
+
+## 10. v2.0.0 — measured telemetry supersedes these estimates
+
+Every cost figure in this document was derived from assumed token volumes: the `Agent` tool
+result carries no usage data, so the orchestrator estimated tokens as `chars / 4`. Section 7's
+table is that arithmetic, and the two rows it flags as uncertain (the Dev plan pass, Security
+at `xhigh`) were never measurable at all.
+
+As of v2.0.0 they are measured. Hooks read each finished subagent's own transcript, dedupe by
+`message.id`, and price the result from `references/pricing.json`; `usage-report.sh` attributes
+each dispatch to its phase, aspect and pass. `docs/plans/{slug}/_telemetry.json` now carries
+real numbers, and `docs/cost-baseline.md` aggregates fully-measured runs.
+
+**Treat this document as the reasoning, and your own baseline as the numbers.** Where the two
+disagree, the baseline is right: it was measured on your codebase, and this table was estimated
+for one that is not yours.
+
+Three consequences for routing decisions:
+
+- **`maxTurns` values are unmeasured.** Architects 120, database specialists and QA 60, BA and
+  security 80, docs 30 were chosen from phase shape, not data. Telemetry now records real turn
+  counts per dispatch, so these should be recalibrated downward wherever the distribution says
+  they can be — a ceiling nobody ever reaches bounds nothing.
+- **Nested cost was previously invisible.** A phase agent spawning `Explore` or a superpowers
+  skill spends real money that no earlier version could see. It now lands in `nested_cost_usd`,
+  separate from `total_cost_usd` so `cost_scope` stays truthful. Expect the true per-run figure
+  to exceed every estimate in §7 for that reason alone.
+- **Security's tiering rests on a job that changed.** `opus/xhigh` was justified by security
+  being the phase whose failures nothing else catches. That still holds, but the agent is now
+  **report-only**: it finds and prescribes, and the development architect applies the fix under
+  a minimal-diff contract on its own `model:` tier, followed by a QA verify rerun. The expensive
+  reasoning is spent on detection, and the mechanical edit runs at Sonnet — which is the right
+  split, and was not possible while one agent did both.

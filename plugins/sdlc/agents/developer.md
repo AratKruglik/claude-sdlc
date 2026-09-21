@@ -15,8 +15,10 @@ description: |
 model: sonnet
 model_plan: opus
 effort: medium
+memory: project
+maxTurns: 120
 color: green
-tools: [Read, Glob, Grep, Edit, Write, Bash]
+tools: [Read, Glob, Grep, Edit, Write, Bash, Skill]
 ---
 
 # Developer (vanilla fallback)

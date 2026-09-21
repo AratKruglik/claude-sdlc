@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "description": "Single source of truth for per-model list prices used by hooks/subagent-usage.sh to price measured token usage, and referenced (not restated) by README.md and pipeline-orchestrator/SKILL.md. Prices are USD per million tokens. cache_write_multiplier and cache_read_multiplier scale the input price for cache_creation_input_tokens and cache_read_input_tokens respectively. `match` is evaluated top to bottom against the lowercased model id from the transcript; the first regex hit selects the tier. A model id that matches nothing is priced as null and flagged with pricing_note so a confident wrong number is never written.",
+  "updated": "2026-09-18",
+  "tiers": {
+    "opus": {
+      "input": 5.0,
+      "output": 25.0,
+      "cache_write_multiplier": 1.25,
+      "cache_read_multiplier": 0.10
+    },
+    "sonnet": {
+      "input": 2.0,
+      "output": 10.0,
+      "cache_write_multiplier": 1.25,
+      "cache_read_multiplier": 0.10
+    },
+    "haiku": {
+      "input": 1.0,
+      "output": 5.0,
+      "cache_write_multiplier": 1.25,
+      "cache_read_multiplier": 0.10
+    },
+    "fable": {
+      "input": 10.0,
+      "output": 50.0,
+      "cache_write_multiplier": 1.25,
+      "cache_read_multiplier": 0.10
+    },
+    "fable-5-1": {
+      "input": 10.0,
+      "output": 50.0,
+      "cache_write_multiplier": 1.25,
+      "cache_read_multiplier": 0.025
+    }
+  },
+  "match": [
+    {
+      "pattern": "fable-5-1|mythos-5-1",
+      "tier": "fable-5-1"
+    },
+    {
+      "pattern": "fable|mythos",
+      "tier": "fable"
+    },
+    {
+      "pattern": "haiku",
+      "tier": "haiku"
+    },
+    {
+      "pattern": "opus",
+      "tier": "opus"
+    },
+    {
+      "pattern": "sonnet",
+      "tier": "sonnet"
+    }
+  ],
+  "_comment": "Per-MTok prices, verified against platform.claude.com/docs/en/about-claude/pricing on 2026-09-20. Tier aliases map the model ID a dispatch actually ran on (match[], FIRST hit wins, so specific patterns precede generic ones). Sonnet 5 sits at 2/10: the launch introductory rate became the standard price and the scheduled increase to 3/15 was cancelled. Fable 5.1 and Mythos 5.1 read cache at 0.025x, every other tier at 0.1x."
+}

@@ -14,6 +14,8 @@ description: |
   - General Next.js conventions (see nextjs-conventions).
   - Specific data-fetching APIs and caching (see nextjs-data-fetching).
   - Routing (see nextjs-routing).
+user-invocable: false
+paths: ["app/**", "src/app/**"]
 ---
 
 # RSC + Server Actions Patterns

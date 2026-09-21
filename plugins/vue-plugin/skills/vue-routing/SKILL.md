@@ -15,6 +15,8 @@ description: |
   - State management (see vue-state-management).
   - Forms (see vue-forms).
   - Testing routes (see vue-testing).
+user-invocable: false
+paths: ["src/**/*.vue", "src/**/*.ts"]
 ---
 
 # Vue Router v4 Patterns

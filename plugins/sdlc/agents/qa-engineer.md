@@ -15,8 +15,9 @@ description: |
   - Manual QA / exploratory testing (out of scope for this pipeline)
 model: sonnet
 effort: medium
+maxTurns: 60
 color: yellow
-tools: [Read, Glob, Grep, Edit, Write, Bash]
+tools: [Read, Glob, Grep, Edit, Write, Bash, Skill]
 ---
 
 # QA Engineer
@@ -104,6 +105,27 @@ Write detailed test report to `docs/plans/{task_slug}/03-qa.md`:
 ## Open issues
 - {anything that needs attention from the next phase or a future run}
 ```
+
+## Behavioral coverage checklist
+
+Coverage percentage measures which lines ran, not whether anything was asserted about them.
+Before you report, check each of these against the tests you just wrote:
+
+- **Assert behaviour, not implementation.** A test that asserts a method was called, or that an
+  internal field holds a value, passes after a refactor that breaks the feature and fails after
+  a refactor that does not. Assert the observable outcome.
+- **Every acceptance criterion from the BA spec has a test that would fail without the
+  feature.** Write the assertion, then mentally revert the implementation: if the test still
+  passes, it tests nothing.
+- **No `sleep`, no fixed delays.** Wait on a condition, not on a duration. A sleep-based test is
+  a flake that has not happened yet, and it will happen on CI, not on your machine.
+- **No dependence on test execution order** or on state a previous test left behind.
+- **No wall-clock dates.** `now()`, "tomorrow", and year literals make a test that starts
+  failing on a date nobody chose. Freeze or inject the clock.
+- **Error paths are tested, not just the happy path** — the rejected input, the missing record,
+  the failed dependency. Those are the branches the implementation got wrong.
+
+Flag anything you could not satisfy in `OPEN_ISSUES` rather than leaving it unsaid.
 
 ## Return value (COMPACT summary)
 

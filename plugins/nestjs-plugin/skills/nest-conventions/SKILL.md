@@ -15,6 +15,8 @@ description: |
   - ORM/data access (see nest-data-layer).
   - GraphQL/WebSockets/Microservices (see nest-advanced).
   - Testing (see nest-testing).
+user-invocable: false
+paths: ["src/**/*.ts"]
 ---
 
 # NestJS Conventions

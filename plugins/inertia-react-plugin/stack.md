@@ -54,7 +54,7 @@ For development phase, inject:
    - `<Link href='...' method='...' as='button'>` — Inertia link, prevents full-page reload.
    - `router.visit()`, `router.post()` for programmatic navigation.
    Pages in `resources/js/Pages/`, layouts via per-component pattern: `Component.layout = (page) => <AppLayout>{page}</AppLayout>`.
-   Props are typed from the Laravel controller: read the props contract in `docs/plans/{task_slug}/02-development-backend.md` (left by laravel-architect).
+   Props are typed from the Laravel controller: read the "Contract for frontend" section of `docs/plans/{task_slug}/02-development-plan-backend.md` (left by laravel-architect at plan time).
    TypeScript: `import type { PageProps } from '@inertiajs/core'`; page component props extend `PageProps`.
    Detect UI library (use what's installed; do not introduce new): shadcn/ui, MUI, Ant Design, Chakra UI, Radix UI.
    Apply skills: react-plugin:react-conventions, react-plugin:react-state-management, react-plugin:react-forms, js-foundation:typescript-patterns, js-foundation:npm-patterns.

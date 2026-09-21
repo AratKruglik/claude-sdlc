@@ -1,6 +1,6 @@
 {
   "name": "php-foundation",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "description": "Shared PHP foundation skills for the SDLC marketplace. Contains stack-agnostic conventions: php-conventions (modern PHP 8.x idioms — readonly properties, enums, match, constructor promotion, strict_types, PSR-12), composer-tooling (PSR-4 autoloading, version constraints, scripts, platform requirements) and php-testing (PHPUnit + Pest, data providers, test doubles, fixtures, coverage). Referenced by laravel-plugin and symfony-plugin. No agent, no stack profile — pure shared library.",
   "author": {
     "name": "Oleksii Kruhlyk",
@@ -8,6 +8,17 @@
   },
   "license": "MIT",
   "homepage": "https://github.com/AratKruglik/claude-sdlc",
-  "keywords": ["php", "composer", "phpunit", "pest", "psr-12", "shared", "foundation", "sdlc"],
-  "dependencies": ["sdlc"]
+  "keywords": [
+    "php",
+    "composer",
+    "phpunit",
+    "pest",
+    "psr-12",
+    "shared",
+    "foundation",
+    "sdlc"
+  ],
+  "dependencies": [
+    "sdlc"
+  ]
 }

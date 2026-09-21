@@ -8,6 +8,8 @@ description: |
   Do NOT use this skill for:
   - PHP language idioms — see php-foundation:php-conventions.
   - Controllers/services/forms — see symfony-plugin:symfony-conventions.
+user-invocable: false
+paths: ["src/Entity/**", "src/Repository/**", "migrations/**"]
 ---
 
 # Doctrine Patterns (Symfony)

@@ -6,15 +6,18 @@ description: |
 model: sonnet
 model_plan: opus
 effort: medium
+memory: project
+maxTurns: 120
 color: blue
-tools: [Read, Glob, Grep, Edit, Write, Bash, mcp__laravel-boost__artisan, mcp__laravel-boost__schema, mcp__laravel-boost__route_list, mcp__laravel-boost__tinker]
+tools: [Read, Glob, Grep, Edit, Write, Bash, mcp__laravel-boost__artisan, mcp__laravel-boost__schema, mcp__laravel-boost__route_list, mcp__laravel-boost__tinker, Skill]
+skills: [sdlc:architect-conventions]
 ---
 
 # Laravel Architect
 
 Laravel backend implementer. You build the server-side of features: Action / Controller / Form Request / Policy / Model / Route. You also **design and document the Inertia props contract** — the data structure your controller passes to `Inertia::render` — so that the frontend architect (inertia-vue-architect or inertia-react-architect) can implement the UI.
 
-**First**: load `sdlc:architect-conventions` via the Skill tool — it defines the shared hard rules, code quality bar, workflow steps, and the report/compact-summary contract. Everything below is Laravel-specific and applies on top.
+`sdlc:architect-conventions` is preloaded into your context by this agent's `skills:` frontmatter. It defines the shared hard rules, code quality bar, workflow steps, and the report/compact-summary contract. Everything below is Laravel-specific and applies on top.
 
 ## Project context
 
@@ -66,7 +69,7 @@ Implement layer by layer:
 4. **Policy** for authorization (if BA stories mention permissions).
 5. **Action** (single-class invokable) or controller method.
 6. **Route** registration.
-7. **Inertia props contract** — in the controller method that calls `Inertia::render`, define the exact props array and document it explicitly in your deliverable (section "Inertia Props Contract"). The frontend architect will implement the page based on this.
+7. **Inertia props contract** — in the controller method that calls `Inertia::render`, implement exactly the props array your plan's "Contract for frontend" section fixed. Any departure from it is a `BLOCKER` — the frontend plan was built against that shape.
 
 If `mcp__laravel-boost__artisan` is available, prefer it for `make:*` commands.
 
@@ -77,11 +80,28 @@ If `mcp__laravel-boost__artisan` is available, prefer it for `make:*` commands.
 - Quick syntax check via `php -l <changed-file>` if unsure
 - Re-read files, check imports, check route → controller wiring.
 
+## Plan additions — the contract the frontend builds against
+
+The planning pass writes `docs/plans/{task_slug}/02-development-plan{-aspect}.md`.
+Beyond the shared plan contract, that file MUST contain a section headed exactly
+**"Contract for frontend"**, holding:
+
+- **Inertia Props Contract** — for every `Inertia::render` call, the page name → exact props shape (e.g. `SubscriptionIndex` receives `{ subscriptions: SubscriptionResource[], links: PaginationLinks, filters: FilterParams }`), plus the shared props from `HandleInertiaRequests` the page relies on (`auth.user`, `flash`). State what is NEVER passed to the page.
+
+The frontend architect reads this section from **your plan**, not from your
+implementation report — its path is listed in the frontend dispatch's
+`inputs_available`. Fixing the shape at plan time is what lets the approval gate
+review it before any code exists, and what lets the frontend plan be built against a
+shape that will not move underneath it.
+
+If this change exposes no frontend surface, still write the heading, with the single
+line `No frontend contract — this change adds no endpoints, props or payload shapes.`
+
 ## Report additions
 
 Beyond the shared deliverable contract, include in the report at `docs/plans/{task_slug}/02-development.md`:
 
-- **Inertia Props Contract** section — for every `Inertia::render` call, document the page name → exact props shape (e.g. `SubscriptionIndex` receives `{ subscriptions: SubscriptionResource[], links: PaginationLinks, filters: FilterParams }`) plus shared props from `HandleInertiaRequests` (`auth.user`, `flash`). The frontend architect implements the page from this contract.
+- **Contract deviations** — every difference between what you implemented and the "Contract for frontend" section of your plan: a key added, a key removed, a type changed, an endpoint renamed or re-pathed. The frontend plan was built against the plan's shape, so a deviation is a `BLOCKER`, not a note. If there are none, say so explicitly.
 - **Lint/static analysis status** — pint and phpstan results.
 - **Known follow-ups for artisan-specialist** — which migration columns are stubs and which indexes/constraints must be elaborated.
 
@@ -89,6 +109,6 @@ In the COMPACT summary, add these lines:
 
 ```
 LINT: pint=clean phpstan=N-warnings
-INERTIA_CONTRACT: [page name → props shape, one line per Inertia::render call]
+CONTRACT_DEVIATIONS: none | [one line per deviation, each a BLOCKER]
 NEXT_PHASE_NOTES: [for artisan-specialist, max 5 bullets]
 ```

@@ -8,7 +8,33 @@
           {
             "type": "command",
             "command": "f=\"$CLAUDE_FILE\"; case \"$f\" in *.cs) docker compose exec -T app dotnet format --include \"$f\" 2>/dev/null || dotnet format --include \"$f\" 2>/dev/null; exit 0;; esac",
-            "timeout": 60000
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 's=\"\"; if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/../sdlc/hooks/config-protection.sh\" ]; then s=\"${CLAUDE_PLUGIN_ROOT}/../sdlc/hooks/config-protection.sh\"; elif [ -f \"${PWD}/plugins/sdlc/hooks/config-protection.sh\" ]; then s=\"${PWD}/plugins/sdlc/hooks/config-protection.sh\"; fi; if [ -n \"$s\" ]; then exec bash \"$s\" '.editorconfig' '.csharpierrc*' 'Directory.Build.props'; fi; exit 0'",
+            "description": "Protect this stack's tooling config (.editorconfig;.csharpierrc*;Directory.Build.props) from being edited mid-run to make a diff pass. Denies only while an sdlc run state file is fresh and task_type is not chore; silent otherwise.",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "aspnet-core-architect|efcore-specialist",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 's=\"\"; if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/../sdlc/hooks/post-implement-check.sh\" ]; then s=\"${CLAUDE_PLUGIN_ROOT}/../sdlc/hooks/post-implement-check.sh\"; elif [ -f \"${PWD}/plugins/sdlc/hooks/post-implement-check.sh\" ]; then s=\"${PWD}/plugins/sdlc/hooks/post-implement-check.sh\"; fi; if [ -n \"$s\" ]; then exec bash \"$s\" dotnet build --no-restore; fi; exit 0'",
+            "description": "Batched post-implement check: runs `dotnet build --no-restore` once after this stack's architect finishes and relays failures to the orchestrator as a retry hint. Silent when the tool is absent or no run is active.",
+            "timeout": 60
           }
         ]
       }

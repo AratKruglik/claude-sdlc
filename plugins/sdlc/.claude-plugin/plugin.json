@@ -1,6 +1,6 @@
 {
   "name": "sdlc",
-  "version": "1.5.0",
+  "version": "2.0.0",
   "description": "Universal SDLC orchestrator with stack provider auto-discovery. Owns the pipeline; framework plugins register themselves via stack.md profiles. Git-flow aware: detects the project's branching model and branch-naming convention, classifies the task type, proposes a branch, and targets the PR at the right base. Includes 5 cost-tiered default agents (BA Opus, Dev Sonnet, QA Sonnet with iteration cap, Sec Opus, Docs Haiku). Slash command: /sdlc:start \"<feature>\".",
   "author": {
     "name": "Oleksii Kruhlyk",
@@ -14,5 +14,39 @@
     "pipeline",
     "git-flow",
     "ai-assisted-engineering"
-  ]
+  ],
+  "userConfig": {
+    "noninteractive": {
+      "type": "boolean",
+      "title": "Non-interactive (headless) mode",
+      "description": "Run /sdlc:start without interactive prompts (branch gate auto-resolves, policy failures become machine-readable output). The SDLC_NONINTERACTIVE environment variable, when set, wins over this option.",
+      "default": false
+    },
+    "default_cost_cap_usd": {
+      "type": "number",
+      "title": "Default cost cap (USD)",
+      "description": "Runaway guard applied to every run whose workflow recipe declares no caps.max_total_cost_usd. 0 disables it. The recipe value, when present, wins.",
+      "default": 0,
+      "min": 0
+    },
+    "stack_cache_ttl_hours": {
+      "type": "number",
+      "title": "Stack-detection cache TTL (hours)",
+      "description": "How long /sdlc:start trusts the SessionStart-hook stack-detection cache before re-scanning installed plugins. Lower it on machines where plugins change often.",
+      "default": 6,
+      "min": 1,
+      "max": 168
+    },
+    "post_check_fix_attempts": {
+      "type": "number",
+      "title": "Post-pipeline check fix attempts",
+      "description": "When a post-pipeline check fails, dispatch the development architect for at most this many minimal-diff fix passes (0 = report only, 1 = one attempt). A project may override it in .claude/sdlc.local.yaml.",
+      "default": 0,
+      "min": 0,
+      "max": 1
+    }
+  },
+  "experimental": {
+    "evals": "evals"
+  }
 }

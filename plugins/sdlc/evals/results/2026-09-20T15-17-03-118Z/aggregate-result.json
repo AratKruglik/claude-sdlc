@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.278",
+  "startedAt": "2026-09-20T15:17:03.118Z",
+  "durationSeconds": 0,
+  "costUsd": 0,
+  "partial": true,
+  "partialReason": "cost_ceiling",
+  "suite": {
+    "root": "/Users/oleksii/Projects/claude-sdlc/plugins/sdlc",
+    "ablation": "with-without",
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "sdlc",
+        "version": "2.0.0",
+        "path": "/Users/oleksii/Projects/claude-sdlc/plugins/sdlc"
+      }
+    ]
+  },
+  "cases": [],
+  "aggregates": {
+    "casesTotal": 0,
+    "casesPassed": 0,
+    "overallScore": 0,
+    "overallPassRate": 0
+  }
+}

@@ -13,6 +13,8 @@ description: |
   - Framework-specific idioms (Eloquent, Doctrine, Symfony services, Laravel facades — those live in framework plugin skills).
   - Composer / autoloading / dependency management — see php-foundation:composer-tooling.
   - Testing patterns — see php-foundation:php-testing.
+user-invocable: false
+paths: ["**/*.php"]
 ---
 
 # PHP Conventions (stack-agnostic, PHP 8.1+)

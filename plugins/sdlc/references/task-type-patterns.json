@@ -8,7 +8,16 @@
     "note": "Plain \\b is banned here: ECMAScript \\w is [A-Za-z0-9_], so \\b never asserts a boundary next to a Cyrillic character, with or without the u flag. These Unicode property escapes are the replacement and work for both scripts. Right boundary is applied to whole, non-inflecting tokens (English roots, Ukrainian adverbs); left-boundary-only stems are used deliberately where Ukrainian inflection must still match (e.g. рефактор catches рефакторинг, рефакторити, рефакторингу, ...).",
     "requires_flag": "u"
   },
-  "precedence": ["hotfix", "release", "bugfix", "fix", "refactor", "docs", "chore", "feature"],
+  "precedence": [
+    "hotfix",
+    "release",
+    "bugfix",
+    "fix",
+    "refactor",
+    "docs",
+    "chore",
+    "feature"
+  ],
   "types": {
     "hotfix": {
       "patterns": [
@@ -92,6 +101,22 @@
         "(?<![\\p{L}\\p{N}])реалізу",
         "(?<![\\p{L}\\p{N}])створ",
         "(?<![\\p{L}\\p{N}])нов(ий|а|е|і)(?![\\p{L}\\p{N}])"
+      ]
+    }
+  },
+  "skip_rules": {
+    "typo_fix": {
+      "description": "Consumed by pipeline-orchestrator SKILL.md Step 0c-2 skip-rule 1. A match, combined with LOC_TOUCHED < 30, skips the business_analysis phase and uses $ARGUMENTS directly as the development spec. Same compile contract as .types: complete ECMAScript regex sources, compiled with .flags. Unanchored on purpose — \"fix the typo in the header\" is the same task as \"typo in the header\" — with the LOC ceiling, not the wording, doing the real gating. Two stems carry no left boundary at all: Ukrainian verbal prefixes attach directly to them (переформатувати, відформатувати, перейменувати), so a left boundary would make the pattern match only the bare stem — which is the form nobody writes.",
+      "patterns": [
+        "(?<![\\p{L}\\p{N}])typos?(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])misspell",
+        "(?<![\\p{L}\\p{N}])rename\\s+\\S+\\s+to(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])reformat",
+        "(?<![\\p{L}\\p{N}])formatting(?![\\p{L}\\p{N}])",
+        "(?<![\\p{L}\\p{N}])опечатк",
+        "(?<![\\p{L}\\p{N}])одрук",
+        "форматув",
+        "перейменув"
       ]
     }
   }

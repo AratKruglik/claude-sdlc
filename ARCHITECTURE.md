@@ -16,9 +16,9 @@
 │  │                                                      │  │
 │  │  Phase 1: BA          → core's business-analyst      │  │
 │  │  Phase 2: Dev         → ⚡ DISPATCH to stack provider│  │
-│  │  Phase 3: QA          → core's qa-engineer           │  │
-│  │  Phase 4: Security    → core's security-analyst      │  │
-│  │  Phase 5: Docs/PR     → core's document-writer       │  │
+│  │  Phase 3: QA ∥ Sec    → qa-engineer ∥ security-analyst│  │
+│  │            (one step; both share Phase 3/4)           │  │
+│  │  Phase 4: Docs/PR     → core's document-writer       │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                            ▲                                │
 │                            │ reads stack profiles           │
@@ -224,7 +224,7 @@ For security phase, inject:
 ### 4.1. Algorithm (8 Steps)
 
 ```
-Step 0a · Load declared external plugin dependencies (DEPENDENCIES.md)
+Step 0a · Load declared external plugin dependencies (runtime-dependencies.json)
 Step 0b · Detect stack profile via Glob ~/.claude/plugins/cache/**/stack.md
 Step 1  · Parse selected profile
 Step 2  · Determine phase order (baseline + extras)
@@ -383,7 +383,11 @@ Expected cache hit rate with stable prompts: 60% on Sonnet, 40% on Opus → ~30%
 ### 6.4. Skip-rules and Phase Parallelism
 
 - **Skip-rules** (§4.3) reduce the cost of trivial tasks by 2–3×.
-- **Security ∥ QA parallelism** (V2) — they have no interdependencies. Cuts wall-clock time in half. Implementation scheduled for Phase 6+.
+- **Security ∥ QA parallelism** — **implemented in v2.0.0.** They read the same finished diff
+  and write no common files, so a workflow recipe expresses them as one `{parallel: […]}`
+  group and the orchestrator dispatches both in a single assistant message. `Phase N/total`
+  counts groups from here on, so the two members share an `N`. Failure, retry and skip are
+  per member; the cost cap is checked once, after the group returns.
 
 ### 6.5. Telemetry for Cost Discipline
 
@@ -482,7 +486,8 @@ In headless mode (env SDLC_NONINTERACTIVE=true):
   - graceful-degrade → silent
 ```
 
-Implementation details + JSON Schema are in `DEPENDENCIES.md`. The short version is in v1.0.
+Implementation details live in `plugins/sdlc/runtime-dependencies.json` and Step 0a of
+`pipeline-orchestrator/SKILL.md`.
 
 ### 7.5. What We Do NOT Do Regarding Dependencies
 
@@ -594,7 +599,7 @@ That's it. On the next `/sdlc:start` run, the core orchestrator will find the ne
 
 ---
 
-## 10.5. Profile Composition for Multi-Aspect Projects (Phase 4-5 Evolution)
+## 10.5. Profile Composition for Multi-Aspect Projects (implemented)
 
 > **Current Limitation:** The orchestrator on Step 0b selects a **single** profile (the one with the highest priority among matches). This works for single-stack projects but **breaks on a typical Laravel project** that has both a backend (`composer.json`) and a frontend (`package.json` with Vue/React/Livewire). Currently, the `laravel-plugin` conceals this limitation via a monolithic `laravel-architect` ("Full-stack Laravel + Inertia + Vue"). This is a silent issue for other frontend options.
 
@@ -610,15 +615,24 @@ Examples (post-Phase 5):
 | Laravel API-only | `laravel-plugin` only (frontend slot empty) |
 | Pure Next.js (no PHP) | `nextjs-plugin` only |
 
-**`laravel-plugin` will be split** in Phase 5: backend and database aspects will remain, while frontend (Inertia+Vue) will move to a dedicated `inertia-vue-plugin`. The current `laravel-architect` will become backend-only; Inertia/Vue domain knowledge will live in the new `inertia-vue-architect`.
+**`laravel-plugin` was split** as planned: it owns the backend and database aspects, while
+the frontend moved to `inertia-vue-plugin` and `inertia-react-plugin`. `laravel-architect`
+is backend-only and fixes the Inertia props contract at plan time, in the "Contract for
+frontend" section of its plan, which the Inertia architect reads.
 
-**Current Workaround (v0.0.1) for non-Vue Laravel projects:** via `<project>/.claude/sdlc.local.yaml` `extra_phase_prompts` or `CLAUDE.md` — see details in `PROJECT_INTEGRATION.md` §8.
+**Non-Vue, non-React Laravel projects** (Livewire, Blade-only) match `laravel-plugin` alone
+with the frontend aspect left empty. Add per-phase guidance through
+`<project>/.claude/sdlc.local.yaml` `extra_phase_prompts` until a Livewire profile exists.
 
-**Full architecture, alternatives considered, and migration path:** [`docs/decisions/ADR-014-aspect-tagged-profiles.md`](./docs/decisions/ADR-014-aspect-tagged-profiles.md).
+**Full architecture, alternatives considered, and migration path:** ADR-014 (aspect-tagged profiles), summarised in §10.5 above.
 
 ---
 
-## 11. Conscious Limitations of v1.0
+## 11. Conscious Limitations (reviewed at v2.0.0)
+
+Two of the rows below were deliberate v1.0 deferrals that v2.0.0 closed; they are struck
+through rather than deleted, because what was deferred and why it was reconsidered is part
+of the record. The rest still stand.
 
 | What We Avoid | Why |
 |---|---|
@@ -628,7 +642,7 @@ Examples (post-Phase 5):
 | Override mechanisms in framework plugins | Profile composition covers all use cases. Overrides lead to a cascade of pain. |
 | Project-level config for dep-policy | Manifest is sufficient. |
 | Custom CLI installer | Native `/plugin install` provides necessary leverage. |
-| Security ∥ QA Parallelism | V2 — complex orchestration. In v1.0, sequential execution is more reliable. |
+| Security ∥ QA Parallelism | ~~V2~~ **Shipped in v2.0.0** — see §6.4. The orchestration turned out to be small: a group is several foreground `Agent` calls in one message. |
 | 4-layer dep check (lint/doctor/preflight/runtime) | One-shot preflight check in the orchestrator. The rest is overengineering. |
 
 ---
@@ -662,5 +676,6 @@ All of these systems have scaled for decades because the contract of "registrati
 
 > **Framework plugins do not override the core. They register themselves via a declarative profile (`stack.md`) and provide specialized agents/skills. The core pipeline reads the profiles and composes execution. Cost discipline is built into the design, not optimized post-factum.**
 
-Step-by-step implementation details — `IMPLEMENTATION_PLAN.md`.  
-External dependencies (superpowers, etc.) — `DEPENDENCIES.md` (requires simplification for this architecture).
+Contributing a stack plugin — [`CONTRIBUTING.md`](CONTRIBUTING.md).  
+External dependencies — `plugins/sdlc/runtime-dependencies.json`.  
+Model routing and the cost model — [`MODEL-ROUTING.md`](MODEL-ROUTING.md).

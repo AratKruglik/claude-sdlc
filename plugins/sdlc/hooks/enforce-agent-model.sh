@@ -16,8 +16,10 @@ set -uo pipefail
 # (full IDs and `inherit` are legal there); this allowlist deliberately is not.
 #
 # NOTE: this hook cannot make enforcement absolute. Claude Code resolves a subagent's model
-# in the order CLAUDE_CODE_SUBAGENT_MODEL → per-invocation parameter → frontmatter, so that
-# environment variable overrides the value we write here. `/sdlc:doctor` reports when it is set.
+# in the order per-invocation parameter -> frontmatter -> CLAUDE_CODE_SUBAGENT_MODEL ->
+# session model. This hook writes the parameter, so that variable alone never overrides it.
+# CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 (Claude Code v2.1.257+) does: it makes Claude Code
+# ignore the parameter and the frontmatter alike. `/sdlc:doctor` reports when it is set.
 tier_to_model() {
     case "$1" in
         opus|sonnet|haiku|fable) echo "$1" ;;
@@ -118,13 +120,17 @@ marker_path="${project_root}/.claude/.sdlc-run-active.json"
 # development phase. An off-roster PLUGIN agent stays governed by prompt text only.
 MARKER_MAX_AGE_SECONDS=21600  # 6h — a crashed run must not wedge every later dispatch
 
+# Freshness keys on `updated_at` — refreshed by the orchestrator at every phase boundary
+# (state file v2) so a resumed or long run stays enforced — and falls back to `started_at`
+# for v1 markers. The variable keeps its historical name; it is "the timestamp the marker
+# is judged by", whichever field supplied it.
 marker_active=false
 roster_json="[]"
 phase_agents_json="{}"
 
 if [ -f "$marker_path" ]; then
     if command -v jq >/dev/null 2>&1; then
-        started_at=$(jq -r '.started_at // empty' "$marker_path" 2>/dev/null)
+        started_at=$(jq -r '.updated_at // .started_at // empty' "$marker_path" 2>/dev/null)
         roster_json=$(jq -c '.roster // []' "$marker_path" 2>/dev/null || echo '[]')
         phase_agents_json=$(jq -c '.phase_agents // {}' "$marker_path" 2>/dev/null || echo '{}')
     elif command -v python3 >/dev/null 2>&1; then
@@ -132,7 +138,7 @@ if [ -f "$marker_path" ]; then
 import json
 try:
     d = json.load(open('${marker_path}'))
-    print(d.get('started_at',''))
+    print(d.get('updated_at') or d.get('started_at',''))
 except Exception:
     print('')
 " 2>/dev/null)

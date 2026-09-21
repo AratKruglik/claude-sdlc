@@ -14,6 +14,8 @@ description: |
   - General RN conventions (see rn-conventions).
   - Web-React testing (see react-plugin:react-testing — different jsdom setup).
   - Plain Node testing patterns (see nodejs-plugin equivalents).
+user-invocable: false
+paths: ["**/*.test.{ts,tsx,js,jsx}", "__tests__/**"]
 ---
 
 # React Native Testing

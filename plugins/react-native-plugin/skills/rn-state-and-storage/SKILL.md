@@ -15,6 +15,8 @@ description: |
   - Platform-specific code (see rn-platform-specific).
   - Navigation (see rn-navigation).
   - Testing state/storage (see rn-testing).
+user-invocable: false
+paths: ["**/*.tsx", "**/*.ts"]
 ---
 
 # State Management and Storage in RN

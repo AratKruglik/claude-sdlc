@@ -78,13 +78,18 @@ them as interchangeable is what broke this resolver twice:
   the `task_type` classification that rule 3 exists to trust. It remains meaningful only in
   rule 4's match scan, where no `task_type` mapping exists yet to defer to.
 
+
 Search path for the resolved name (in order, first match wins):
 
 ```text
+<project>/.claude/sdlc-workflows/{WORKFLOW_NAME}.yaml     ← project-local, wins
 ~/.claude/plugins/cache/sdlc/workflows/{WORKFLOW_NAME}.yaml
 ```
 
-*(Iteration 4+: also search `<project>/.claude/sdlc-workflows/` for project-local recipes.)*
+A project-local file is validated against `schemas/workflow.schema.json` exactly like a
+shipped one — it is not trusted more for being local. When one is used, Step 5's line
+appends ` (project-local)` so the operator can see that the pipeline they are watching is
+not the one this plugin ships.
 
 If no file is found, the behaviour depends on which Step 1 rule produced the name. A rule that
 inferred the name must degrade; a rule that was told the name must halt.
@@ -94,7 +99,8 @@ inferred the name must degrade; a rule that was told the name must halt.
 
   ```text
   ❌ Workflow '{WORKFLOW_NAME}' not found.
-     Searched: ~/.claude/plugins/cache/sdlc/workflows/{WORKFLOW_NAME}.yaml
+     Searched: <project>/.claude/sdlc-workflows/{WORKFLOW_NAME}.yaml
+               ~/.claude/plugins/cache/sdlc/workflows/{WORKFLOW_NAME}.yaml
      Available: {list all *.yaml in the workflows/ directory via Glob, excluding test-fixtures/}
      Omit --workflow=NAME to use the default workflow.
   ```
@@ -119,14 +125,22 @@ present, types match, and no unknown properties exist). If validation fails → 
    File: {file_path}
 ```
 
-Extract `phases` array. Normalize each element to `{name: string, when?: string}`:
+Extract the `phases` array and normalize it into an ordered list of **groups**. A group is the
+unit the pipeline dispatches and numbers; a plain phase is a group of one.
 
-- String element `"foo"` → `{name: "foo"}`
-- Object element `{name: "foo", when: "..."}` → keep as-is
+- String element `"foo"` → group `[{name: "foo"}]`
+- Object element `{name: "foo", when: "..."}` → group `[{name: "foo", when: "..."}]`
+- Object element `{parallel: [m1, m2, …]}` → group `[normalize(m1), normalize(m2), …]`, each
+  member normalized by the two rules above. Groups do not nest — the schema rejects a
+  `parallel` inside a `parallel`, so this recursion is one level deep by construction.
 
-## Step 3: Acyclic validation (Iteration 0)
+Record each member's group index. `resolved_phases` is therefore a list of lists, which is also
+the shape the run state file stores.
 
-Extract the list of phase names: `phase_names = [p.name for p in phases]`.
+## Step 3: Acyclic validation
+
+Flatten the groups and extract the list of phase names:
+`phase_names = [m.name for group in groups for m in group]`.
 
 If any name appears more than once → **HALT**:
 
@@ -136,19 +150,26 @@ If any name appears more than once → **HALT**:
    File: {file_path}
 ```
 
+The check runs over the **flattened** list, so `{parallel: [qa, qa]}` and a `qa` that appears
+both inside a group and outside it are both caught. Members of one group are concurrent, not
+repeated, so being in the same group is not itself a duplicate.
+
 *(Iteration 1+: when `after:` edges are introduced, also run a topological sort and
 detect back-edges. Until then, duplicate-name detection is sufficient.)*
 
 ## Step 4: Build the resolved phase list
 
-Start with the normalized `phases` from Step 2 (already in order for Iteration 0).
+Start with the normalized groups from Step 2 (already in order).
 
 ### Insert extra_phases from stack profiles
 
 For each entry in `EFFECTIVE_PROFILE.extra_phases` (merged in Step 1a):
 
-- Find the index of the phase named `extra_phase.after` in the list.
-- If found: insert the extra phase immediately after that index.
+- Find the group containing a member named `extra_phase.after`.
+- If found: insert the extra phase as **its own group** immediately after that group — never
+  as a member of it. A stack profile declares a dependency ("after development"), not a
+  statement that its phase is safe to run concurrently with that group's members, and the
+  orchestrator must not infer the second from the first.
 - If not found: skip with a one-line warning:
 
 ```text
@@ -158,30 +179,85 @@ For each entry in `EFFECTIVE_PROFILE.extra_phases` (merged in Step 1a):
 
 ### Conflict detection after insertion
 
-After all extra_phases have been inserted, re-run the acyclic check from Step 3
-on the merged list. If any phase name now appears more than once → **HALT**:
+After all extra_phases have been inserted, re-run the flattened acyclic check from Step 3. If
+any phase name now appears more than once → **HALT**:
 
 ```text
 ❌ Workflow '{workflow_name}' after merging stack extra_phases contains duplicate
    phase '{duplicate_name}'. Check the stack profile's extra_phases declaration.
 ```
 
+### Step 4b: Evaluate `when:` conditions
+
+A member may carry `when:` — a condition evaluated **after** the business-analysis phase has
+returned, not at resolve time, because its only input is BA output. Until then the member is
+carried unevaluated.
+
+Grammar, exactly (anything else is a recipe error → **HALT** with the offending string):
+
+```text
+complexity == small | medium | large
+complexity != small | medium | large
+```
+
+The value comes from the BA compact summary's `COMPLEXITY:` line. Evaluate every pending
+`when:` once, immediately after BA is validated:
+
+| Situation | Result |
+|---|---|
+| condition true | member runs |
+| condition false | member is removed, logged as `{rule: "when", phase_skipped, reason: "when: {expr} was false (complexity={value})"}` |
+| BA was skipped or produced no `COMPLEXITY:` line | **member runs** |
+
+The last row is the important one. An unevaluated condition is unknown, not false, and the
+failure mode of guessing wrong differs sharply by direction: running a phase that was not
+needed costs one phase, while skipping a phase that was needed ships the gap silently. This is
+the same principle Step 1b applies to unmeasurable `match` constraints.
+
+Removal is per member, so the Step 4 collapse table applies again afterwards: a group reduced
+to one member becomes a plain phase, and an emptied group is dropped.
+
 ### Apply skip_phases
 
-Sources: Step 0c skip-rules + Step 1b sdlc.local.yaml.
+Sources: Step 0c skip-rules + Step 1b `sdlc.local.yaml`.
 
-Remove all phases whose `name` is in the combined skip set.
+Remove every **member** whose `name` is in the combined skip set. Removal is per member, not
+per group: skipping `security` out of `{parallel: [qa, security]}` leaves `qa`, it does not
+drop QA along with it.
+
+Then collapse the groups:
+
+| Members left in a group | Result |
+|---|---|
+| 2 or more | stays a parallel group |
+| exactly 1 | becomes a plain phase — a one-member group is dispatched and printed exactly like a sequential phase, with no `∥` in its banner |
+| 0 | the group is removed from the list entirely |
+
+Collapsing before numbering is what keeps `{N}/{total}` honest: a run that skipped security
+must say `Phase 3/4: qa`, not `Phase 3/4: qa ∥ …` with one member.
 
 ## Step 5: Persist and announce
 
-Store the resolved list as `CONTEXT.resolved_phases[]`. Persist `WORKFLOW_NAME` in
+Store the resolved groups as `CONTEXT.resolved_phases[]` — a list of lists, one inner list per
+group, which is the same shape the run state file persists. Persist `WORKFLOW_NAME` in
 `CONTEXT.active_workflow` and the Step 1 deciding rule in
 `CONTEXT.workflow_selection_reason`.
+
+`{total}` in every `Phase {N}/{total}` label is the number of **groups**, not the number of
+phases. Members of one group share an `N` and are distinguished by their own phase name and
+aspect (`Phase 3/4: qa — frontend`, `Phase 3/4: security`). This is deliberate: `N` identifies
+a pipeline step, and the members of a group are one step.
 
 Print a new line **at Step 1c** (not part of the earlier Step 0b block):
 
 ```text
-   workflow: {WORKFLOW_NAME}  ({N} phases after skips, selected by {workflow_selection_reason})
+   workflow: {WORKFLOW_NAME}{ (project-local) if resolved from <project>/.claude/sdlc-workflows/}  ({N} steps after skips, selected by {workflow_selection_reason})
+```
+
+When any group has more than one member, add a second line naming them:
+
+```text
+   parallel: {comma-separated "a ∥ b" per multi-member group}
 ```
 
 Examples of the reason field: `flag`, `config`, `task_type=hotfix`, `match:docs-only`,

@@ -4,7 +4,10 @@
   "title": "WorkflowRecipe",
   "description": "Declarative SDLC workflow recipe — a named ordered list of phases with optional match rules and budget caps.",
   "type": "object",
-  "required": ["name", "phases"],
+  "required": [
+    "name",
+    "phases"
+  ],
   "additionalProperties": false,
   "properties": {
     "name": {
@@ -50,26 +53,30 @@
     "phases": {
       "type": "array",
       "minItems": 1,
-      "description": "Ordered list of phases to execute. Each element is either a phase-name string or an object with name + optional when.",
+      "description": "Ordered list of pipeline steps. Each element is a phase-name string, an object with name + optional when, or a {parallel: [...]} group whose members run concurrently. Phase numbering (Phase N/total) counts steps, so every member of a group shares one N.",
       "items": {
         "oneOf": [
           {
-            "type": "string",
-            "description": "Phase name shorthand — equivalent to {name: <value>}.",
-            "minLength": 1
+            "$ref": "#/$defs/phaseMember/oneOf/0"
+          },
+          {
+            "$ref": "#/$defs/phaseMember/oneOf/1"
           },
           {
             "type": "object",
-            "required": ["name"],
+            "description": "A parallel group: members dispatched concurrently as one pipeline step. Groups do not nest.",
+            "required": [
+              "parallel"
+            ],
             "additionalProperties": false,
             "properties": {
-              "name": {
-                "type": "string",
-                "minLength": 1
-              },
-              "when": {
-                "type": "string",
-                "description": "Conditional expression evaluated after BA output (Iteration 3+). Example: 'complexity == large'."
+              "parallel": {
+                "type": "array",
+                "minItems": 2,
+                "description": "Two or more phases to run concurrently. A one-member group is expressed as a plain phase instead.",
+                "items": {
+                  "$ref": "#/$defs/phaseMember"
+                }
               }
             }
           }
@@ -87,6 +94,35 @@
           "description": "Pipeline halts (with user confirmation) if estimated cost exceeds this value."
         }
       }
+    }
+  },
+  "$defs": {
+    "phaseMember": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Phase name shorthand — equivalent to {name: <value>}.",
+          "minLength": 1
+        },
+        {
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "when": {
+              "type": "string",
+              "description": "Conditional expression evaluated after BA output (Iteration 3+). Example: 'complexity == large'."
+            }
+          }
+        }
+      ],
+      "description": "A single phase: a name string, or {name, when}."
     }
   }
 }

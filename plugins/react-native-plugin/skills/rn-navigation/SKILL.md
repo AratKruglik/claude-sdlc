@@ -15,6 +15,8 @@ description: |
   - Platform-specific differences (see rn-platform-specific).
   - State / storage (see rn-state-and-storage).
   - Testing navigation (see rn-testing).
+user-invocable: false
+paths: ["**/*.tsx", "**/*.ts"]
 ---
 
 # React Native Navigation

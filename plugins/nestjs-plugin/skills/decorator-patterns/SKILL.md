@@ -14,6 +14,8 @@ description: |
   - General module/DI patterns (see nest-conventions).
   - GraphQL-specific decorators (see nest-advanced).
   - ORM entity decorators (see nest-data-layer).
+user-invocable: false
+paths: ["src/**/*.ts"]
 ---
 
 # NestJS Decorator Patterns

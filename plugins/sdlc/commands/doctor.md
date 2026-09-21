@@ -17,24 +17,26 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
 
 2. **Run the same preflight algorithm as Step 0a in `pipeline-orchestrator/SKILL.md`** (Step 0a-2 through 0a-3 — enumerate available skills via `mcp__skills__list_skills` with FS fallback to `~/.claude/plugins/cache/{plugin}/skills/{skill}/SKILL.md`, then compute per-dependency status). DO NOT enforce policy in `/sdlc:doctor` — `block` does NOT exit here. Just collect status.
 
-3. **Locate active stack profiles.** Doctor always computes this **fresh** — same discipline as its git-flow check below ("a doctor that echoes a stale cache cannot diagnose a stale cache"): run `scripts/detect-stack.py --repo .` (resolve the path the same three-way way as every other script: `${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.py`, then the installed cache copy, then `<repo>/plugins/sdlc/scripts/detect-stack.py` in a development checkout). This is the exact same algorithm `pipeline-orchestrator/SKILL.md` Step 0b runs — reusing the script instead of re-deriving the Glob+Read+parse sequence by hand keeps this command from silently drifting out of sync with it.
+3. **Locate active stack profiles.** Doctor always computes this **fresh** — same discipline as its git-flow check below ("a doctor that echoes a stale cache cannot diagnose a stale cache"): run `scripts/detect-stack.sh --repo .` (resolve the path the same three-way way as every other script: `${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.sh`, then the installed cache copy, then `<repo>/plugins/sdlc/scripts/detect-stack.sh` in a development checkout). This is the exact same algorithm `pipeline-orchestrator/SKILL.md` Step 0b runs — reusing the script instead of re-deriving the Glob+Read+parse sequence by hand keeps this command from silently drifting out of sync with it.
 
-   If `python3` is unavailable, fall back to the inline algorithm (Glob `~/.claude/plugins/cache/**/stack.md`, parse frontmatter, evaluate detect rules) — the same fallback Step 0b's full scan uses.
+   If `jq` is unavailable, fall back to the inline algorithm (Glob `~/.claude/plugins/cache/**/stack.md`, parse frontmatter, evaluate detect rules) — the same fallback Step 0b's full scan uses.
 
-   Separately, check whether `~/.claude/.sdlc-stack-cache/{sha1(realpath(cwd))[:16]}.json` exists (the file the `SessionStart` hook writes) and report its age. If it disagrees with the fresh detection above (different `primary_profile.stack`, or different `aspect_ties`), flag it exactly like the git-flow cache-disagreement check — that is a repo whose installed-plugin set or detectable files changed since the hook last ran. Doctor reports the disagreement; it does not decide which one `/sdlc:start` will trust (Step 0b's own trust rules do that).
+   Separately, check whether `${CLAUDE_PLUGIN_DATA}/stack-cache/{sha1(realpath(cwd))[:16]}.json` (fallback `~/.claude/.sdlc-stack-cache/`) exists (the file the `SessionStart` hook writes) and report its age. If it disagrees with the fresh detection above (different `primary_profile.stack`, or different `aspect_ties`), flag it exactly like the git-flow cache-disagreement check — that is a repo whose installed-plugin set or detectable files changed since the hook last ran. Doctor reports the disagreement; it does not decide which one `/sdlc:start` will trust (Step 0b's own trust rules do that).
 
 4. **Read cost baseline.** Try `<repo>/docs/cost-baseline.md`. If it has a fenced JSON block tagged `summary` (e.g. ```` ```json summary ````) parse and extract `avg_cost_per_medium_run_usd`, `p90_cost_per_medium_run_usd`, `cache_hit_ratio`, `runs_aggregated`.
 
    If the file is absent, seed it by copying the template shipped with this plugin — `${CLAUDE_PLUGIN_ROOT}/templates/cost-baseline.md` — to `<repo>/docs/cost-baseline.md`, then report the "not yet baselined" state it contains. This is the one write `/sdlc:doctor` performs; it creates a scaffold and never overwrites an existing file. If the template cannot be located, fall back to reporting "no baseline file and no template found" and continue.
 
-5. **Check model-routing integrity.** The pipeline's two enforcement layers (orchestrator Step 3b-3 and the `enforce-agent-model.sh` PreToolUse hook) are not the final word on which model a subagent runs. Claude Code resolves it in the order `CLAUDE_CODE_SUBAGENT_MODEL` → per-invocation parameter → frontmatter, so the environment variable silently overrides both. Report:
+5. **Check model-routing integrity.** Claude Code resolves a subagent's model in the order per-invocation parameter → agent `model:` frontmatter → `CLAUDE_CODE_SUBAGENT_MODEL` → session model. The pipeline's two enforcement layers (orchestrator Step 3b-3 and the `enforce-agent-model.sh` PreToolUse hook) write the first two, so `CLAUDE_CODE_SUBAGENT_MODEL` on its own does **not** override them. Report:
 
-   - `CLAUDE_CODE_SUBAGENT_MODEL` — read from the environment. If set to anything other than `inherit`, this is a **routing override**: every phase runs on that model regardless of agent frontmatter, and all cost estimates in this repo become meaningless. Report the value and flag it.
+   - `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` — read from the environment. When it is `1`, this is a **routing override**: Claude Code ignores every agent's frontmatter and the dispatch parameter alike, every phase runs on `CLAUDE_CODE_SUBAGENT_MODEL` (or the session model when that is unset), and all cost estimates in this repo become meaningless. **Warn.**
+   - `CLAUDE_CODE_SUBAGENT_MODEL` — read from the environment. Report the value as **informational** when `_FORCE` is off: it only fills in where neither the parameter nor the frontmatter is set, which for this pipeline is never. Do not warn on it alone; `inherit` is the same as unset. Warn only in combination with `_FORCE=1`, where it names the model everything will run on.
    - **Declared tiers per active agent.** For each agent named by the active stack profile, read `model:` (and `model_plan:` where present) from its `.md` frontmatter and list them, so the operator sees the intended routing next to any override.
+   - **Plugin options in effect.** List every `CLAUDE_PLUGIN_OPTION_*` variable the `sdlc` plugin declares (`noninteractive`, `default_cost_cap_usd`, `stack_cache_ttl_hours`, `post_check_fix_attempts`) with its current value or "default", and flag when `SDLC_NONINTERACTIVE` in the environment overrides the `noninteractive` option.
 
    This step reads the environment and agent files only — it changes nothing.
 
-6. **Check for local-agent shadowing and a stale run marker.**
+6. **Check for local-agent shadowing and the run state file.**
 
    - **Shadowing.** `Glob <repo>/.claude/agents/*.md` and `~/.claude/agents/*.md`. For
      each file whose basename (minus `.md`) matches the bare name of any agent in the
@@ -45,17 +47,43 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
      dispatched an unqualified `subagent_type`. See `pipeline-orchestrator/SKILL.md`
      Step 3c for the qualified-dispatch fix and Step 2 for the run-marker enforcement
      this collision is normally caught by.
-   - **Stale run marker.** Check `<repo>/.claude/.sdlc-run-active.json`. If present,
-     read `started_at` and compare to now. If older than 6 hours (the same threshold
-     `enforce-agent-model.sh` uses to treat a marker as inactive), report it as stale —
-     it is inert for enforcement purposes but indicates a crashed or force-quit
-     `/sdlc:start` run; suggest `rm .claude/.sdlc-run-active.json`. If younger than 6
-     hours, report it as an apparently active run (informational — doctor does not
-     treat this as an error).
+   - **Run state file.** Check `<repo>/.claude/.sdlc-run-active.json`. If present, read
+     `schema_version` (absent = v1 marker), `task_slug`, `started_at`, `updated_at`,
+     `resume_count` and `phase_status`, and compare `updated_at // started_at` to now — the
+     same rule `enforce-agent-model.sh` and the telemetry hooks use. Report:
+     - **fresh (< 6h)** → an apparently active run: print the phase-status summary
+       (`N completed / M`) and note that `/sdlc:start` will offer to resume it. Informational.
+     - **stale (≥ 6h), v2** → a crashed or force-quit run that is **resumable**: print the
+       summary and suggest `/sdlc:start --resume` (or `rm .claude/.sdlc-run-active.json` to
+       discard it).
+     - **stale, v1** (no `schema_version`) → a pre-2.0 leftover; not resumable; suggest `rm`.
+     Doctor never deletes or edits the file.
 
    This step reads the filesystem only — it changes nothing.
 
-7. **Check the git branching model.** Run `${CLAUDE_PLUGIN_ROOT}/scripts/detect-git-flow.sh` (falling back to `<repo>/plugins/sdlc/scripts/detect-git-flow.sh` in a development checkout) and report what `/sdlc:start` would decide. Always run it **fresh** — never read the cache for this report. A doctor that echoes a stale cache cannot diagnose a stale cache.
+7. **Check dispatch telemetry.** Two read-only observations:
+
+   - **Hook wiring.** Confirm the plugin's `hooks/hooks.json` registers `SubagentStart` and
+     `SubagentStop` entries pointing at `dispatch-log.sh` / `subagent-usage.sh`, and that the
+     scripts resolve at `${CLAUDE_PLUGIN_ROOT}/hooks/` (or the dev-checkout path). Report which
+     JSON tool they will use (`jq`, else `python3`, else "neither — telemetry disabled, every
+     run will be `estimated`").
+   - **Run-scoped guards.** Confirm the `sdlc` plugin registers `pre-commit-guard.sh` on
+     `PreToolUse`/`Bash`, and that each installed stack plugin registers
+     `config-protection.sh` on `PreToolUse`/`Edit|Write` and `post-implement-check.sh` on
+     `SubagentStop`. For each stack plugin, print the protected globs and the check command it
+     passes, and whether that command resolves in **this** project — `node_modules/.bin/tsc`
+     absent is normal for a non-TypeScript repo and means the check is silently skipped, not
+     broken. All three guards are inert unless a fresh run state file exists, so report them as
+     "armed" only while one does.
+   - **Last run.** Find the newest `docs/plans/*/_usage.jsonl` in the project. Run
+     `scripts/usage-report.sh {slug} --project-root .` on it and report
+     `usage_source_summary` (measured / unmeasured / not_started), `total_cost_usd`,
+     `nested_cost_usd`, and any dispatch with `pricing_note: "unknown model"` (a model id
+     missing from `references/pricing.json` — the one case where a maintainer must act). If
+     no log exists, say so; a project that has never run `/sdlc:start` has none.
+
+8. **Check the git branching model.** Run `${CLAUDE_PLUGIN_ROOT}/scripts/detect-git-flow.sh` (falling back to `<repo>/plugins/sdlc/scripts/detect-git-flow.sh` in a development checkout) and report what `/sdlc:start` would decide. Always run it **fresh** — never read the cache for this report. A doctor that echoes a stale cache cannot diagnose a stale cache.
 
    Report:
 
@@ -69,7 +97,7 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
 
    This step reads the filesystem and runs read-only git plumbing. It creates no branch and writes no cache.
 
-8. **Render output.** Default = human-readable table. With `--json` flag, emit a single valid JSON object to stdout and exit.
+9. **Render output.** Default = human-readable table. With `--json` flag, emit a single valid JSON object to stdout and exit.
 
 ## Human output format
 
@@ -102,9 +130,9 @@ Cost baseline (docs/cost-baseline.md, last updated 2026-05-04, 22 runs):
   note: subagent phases only — orchestrator overhead is not metered
 
 Model routing:
-  ⚠️  CLAUDE_CODE_SUBAGENT_MODEL=opus — OVERRIDES all model enforcement.
-      Every phase will run on opus regardless of agent frontmatter.
-      Cost estimates in README/telemetry do not apply while this is set.
+  ⚠️  CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 — OVERRIDES all model enforcement.
+      Every phase will run on opus (CLAUDE_CODE_SUBAGENT_MODEL) regardless of
+      agent frontmatter. Cost estimates in README/telemetry do not apply.
   declared tiers for active profile (laravel):
     business-analyst    opus
     laravel-architect   opus (plan) / sonnet (implement)
@@ -122,6 +150,15 @@ Local-agent shadowing:
 Run marker:
   ✅ no .claude/.sdlc-run-active.json present
 
+Dispatch telemetry:
+  hooks: ✅ SubagentStart + SubagentStop registered (jq available)
+  guards: ✅ pre-commit, config-protection (laravel: pint.json, phpstan.neon*),
+             post-implement (./vendor/bin/phpstan) — armed (run active)
+  last run: add-subscription-billing — 6 dispatches, measured=6 unmeasured=0 not_started=0
+    total $1.42 (phases) + $0.04 nested; no unknown model ids
+  (or: last run: none — no docs/plans/*/_usage.jsonl in this project)
+  (or: ⚠️  2 dispatches priced null — model id 'claude-foo-6' missing from references/pricing.json)
+
 Git flow:
   source: detection (no `git:` block in .claude/sdlc.local.yaml)
   🎯 model: github-flow (confidence=high) — topology:no-develop-branch, topology:prefix-histogram
@@ -138,7 +175,7 @@ Heads-up:
      Run the install commands above, then retry.
 ```
 
-When `CLAUDE_CODE_SUBAGENT_MODEL` is unset (or `inherit`), print `✅ no routing override` in place of the warning.
+When `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is off, print `✅ no routing override` in place of the warning — plus, when `CLAUDE_CODE_SUBAGENT_MODEL` is set to something other than `inherit`, an informational line naming it and stating that it does not override the two layers on its own.
 
 In the Git flow section, flag these conditions instead of the plain `🎯` line when they apply:
 
@@ -149,7 +186,11 @@ In the Git flow section, flag these conditions instead of the plain `🎯` line 
 - `⚠️  model=git-flow but git-flow CLI unavailable — falling back to git checkout -b. Install git-flow (AVH edition) to use "git flow {subcommand} start".`
 - `⚠️  model=git-flow but repo not initialized (no gitflow.branch.master/develop) — falling back to git checkout -b. Run "git flow init" to use the CLI path.`
 
-When no local-agent name collides with the active profile, print `✅ no local-agent shadowing detected` in place of the warning list. When a run marker exists and is fresh (< 6h), print `🏃 run marker active (task_slug={task_slug}, started {N}m ago) — a pipeline appears to be running`. When it exists and is stale (≥ 6h), print `⚠️  stale run marker (started {N}h ago, task_slug={task_slug}) — likely a crashed run. Remove with: rm .claude/.sdlc-run-active.json`.
+When no local-agent name collides with the active profile, print `✅ no local-agent shadowing detected` in place of the warning list. For the run state file:
+
+- fresh (< 6h): `🏃 run "{task_slug}" active (started {N}m ago, last update {M}m ago, {done}/{total} phase steps) — /sdlc:start will offer to resume it`
+- stale (≥ 6h), v2: `⚠️  interrupted run "{task_slug}" (last update {N}h ago, {done}/{total} phase steps) — resumable with: /sdlc:start --resume   (or discard: rm .claude/.sdlc-run-active.json)`
+- stale, v1 marker (no `schema_version`): `⚠️  stale pre-2.0 run marker (started {N}h ago, task_slug={task_slug}) — not resumable. Remove with: rm .claude/.sdlc-run-active.json`
 
 If a section is absent (no baseline file, no missing deps, etc.) say so explicitly with one line — never silently omit a section.
 
@@ -195,6 +236,7 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
   },
   "model_routing": {
     "subagent_model_override": "opus",
+    "subagent_model_force": true,
     "override_active": true,
     "declared_tiers": {
       "business-analyst": { "model": "opus" },
@@ -210,10 +252,27 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
   ],
   "run_marker": {
     "present": false,
+    "schema_version": null,
     "stale": null,
+    "resumable": null,
     "task_slug": null,
     "started_at": null,
-    "age_seconds": null
+    "updated_at": null,
+    "age_seconds": null,
+    "resume_count": null,
+    "phase_status": null
+  },
+  "dispatch_telemetry": {
+    "hooks_registered": true,
+    "json_tool": "jq",
+    "last_run": {
+      "task_slug": "add-subscription-billing",
+      "dispatches": 6,
+      "usage_source_summary": { "measured": 6, "unmeasured": 0, "not_started": 0, "running": 0 },
+      "total_cost_usd": 1.42,
+      "nested_cost_usd": 0.04,
+      "unknown_model_ids": []
+    }
   },
   "git_flow": {
     "source": "detection",
@@ -254,17 +313,17 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
 }
 ```
 
-`stack.session_cache.present` is `false` (with `age_seconds`, `cached_primary`, and `agrees_with_fresh_detection` all `null`) when `~/.claude/.sdlc-stack-cache/{hash}.json` does not exist — this is the normal state before the `SessionStart` hook has run once, or when it is disabled. `active_profile`/`primary_priority`/`all_installed` always reflect the **fresh** scan, never the cache.
+`stack.session_cache.present` is `false` (with `age_seconds`, `cached_primary`, and `agrees_with_fresh_detection` all `null`) when `${CLAUDE_PLUGIN_DATA}/stack-cache/{hash}.json` does not exist — this is the normal state before the `SessionStart` hook has run once, or when it is disabled. `active_profile`/`primary_priority`/`all_installed` always reflect the **fresh** scan, never the cache.
 
 `git_flow.source` is `"config"` when a `git:` block exists in `.claude/sdlc.local.yaml` (with the overridden keys listed in `config_override_keys`), otherwise `"detection"`. `git_flow.detected` is the verbatim `detect-git-flow.sh` output, always freshly computed. Every `cache.*` field is `null` when `cache.present` is `false`. `git_flow.branch_creation_method` mirrors `references/GIT-FLOW.md` Step F-2a: `"git-flow-cli"` only when `detected.model == "git-flow"` and both `detected.git_flow_cli_available` and `detected.git_flow_initialized` are `true`, else `"checkout-b"` — this field does not account for the task-type restriction in F-2a-4 (bugfix/fix/refactor/docs/chore always use `checkout-b` even when the other three conditions hold), since doctor has no task description to classify.
 
-`local_agent_shadowing` is `[]` when no collision exists. `run_marker.stale` is `null` when `present` is `false`; otherwise `true` when `age_seconds >= 21600` (6h, matching `enforce-agent-model.sh`'s `MARKER_MAX_AGE_SECONDS`), else `false`.
+`local_agent_shadowing` is `[]` when no collision exists. `run_marker.stale` is `null` when `present` is `false`; otherwise `true` when `age_seconds >= 21600` (6h, matching `enforce-agent-model.sh`'s `MARKER_MAX_AGE_SECONDS`), else `false`. `age_seconds` is measured from `updated_at` when present, else `started_at` — the same rule the hooks apply. `resumable` is `true` iff `schema_version >= 2`; `phase_status` is the file's object verbatim (`null` for a v1 marker).
 
-`would_abort_pipeline` is `true` iff any dependency with `policy=block` is missing. `model_routing.override_active` is `true` iff `CLAUDE_CODE_SUBAGENT_MODEL` is set to something other than `inherit`; `subagent_model_override` is `null` when unset.
+`would_abort_pipeline` is `true` iff any dependency with `policy=block` is missing. `model_routing.override_active` is `true` iff `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is `1` — that variable, not `CLAUDE_CODE_SUBAGENT_MODEL`, is what defeats the enforcement layers. `subagent_model_force` mirrors it as a boolean; `subagent_model_override` carries the `CLAUDE_CODE_SUBAGENT_MODEL` value (`null` when unset or `inherit`) and is informational on its own.
 
 ## Hard rules
 
-- **Effectively read-only.** Do NOT install plugins, run pipelines, or modify any existing file. The single exception is seeding `docs/cost-baseline.md` from the shipped template when that file does not exist (step 4) — a create-if-absent scaffold, never an overwrite. Step 6 (shadowing check, run-marker staleness) never deletes the marker itself — it only reports and suggests the `rm` command; the operator runs it. Step 7 never creates a branch, never fetches, and never writes the git-flow cache.
+- **Effectively read-only.** Do NOT install plugins, run pipelines, or modify any existing file. The single exception is seeding `docs/cost-baseline.md` from the shipped template when that file does not exist (step 4) — a create-if-absent scaffold, never an overwrite. Step 6 (shadowing check, run-marker staleness) never deletes the marker itself — it only reports and suggests the `rm` command; the operator runs it. Step 7 only reads `_usage.jsonl` through `usage-report.sh`. Step 8 never creates a branch, never fetches, and never writes the git-flow cache.
 - **Do not enforce policy.** A missing `block` dep here is just reported, not actioned.
 - **Reuse, don't reimplement.** The dependency-status algorithm is described in `pipeline-orchestrator/SKILL.md` Step 0a-2 / 0a-3. If those steps change, this command's behavior must follow — this command is documentation that delegates to those steps, not a parallel implementation.
 - **Exit code semantics with `--json`:** exit 0 normally; exit 1 only if the runtime-dependencies.json file itself is malformed JSON (parse error). Missing-but-blocking deps still exit 0 — report them in the JSON and let the caller decide.

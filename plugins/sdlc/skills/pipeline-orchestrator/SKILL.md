@@ -24,13 +24,28 @@ You are the SDLC Pipeline Orchestrator. You coordinate specialist agents to deli
 
 This algorithm runs **synchronously in the current session** — there is no detached or autonomous background process. The user stays engaged through Steps 0-2 and every phase boundary below, including the interactive plan/approve/request-changes/abort gate in the development phase (Step 3b-special). `SDLC_NONINTERACTIVE=true` (headless mode) only changes how policy failures and prompts are surfaced (machine-readable output vs. interactive text) — it does not make execution detached or asynchronous.
 
+A run is **resumable**: Step 2 writes a state file (`.claude/.sdlc-run-active.json`, schema v2) and every phase boundary updates it, so a session lost to compaction, a crash or a closed terminal can be continued with `/sdlc:start --resume` from the first unfinished phase (Step R) instead of paying for the completed ones again.
+
 ---
 
 ## Inputs
 
-- `$ARGUMENTS` — feature description from `/sdlc:start`. May contain `--stack=NAME` override.
+- `$ARGUMENTS` — feature description from `/sdlc:start`. May contain `--stack=NAME` override, or `--resume` (Step R) in which case the description may be empty.
 - Current project working directory.
 - Installed plugins under `~/.claude/plugins/cache/**`.
+- `<project>/.claude/.sdlc-run-active.json` — the state file of an in-progress run, if any (Step R / Step 2).
+- Plugin options (see below), delivered by Claude Code as `CLAUDE_PLUGIN_OPTION_*` environment variables.
+
+### Plugin options (`userConfig`)
+
+Declared in the plugin manifest; the user sets them when enabling the plugin. Every option reaches this skill and the hooks as an environment variable named `CLAUDE_PLUGIN_OPTION_<KEY>` (key uppercased). An explicit project or environment setting always wins over the option:
+
+| Option | Env var | Default | Read at | Overridden by |
+|---|---|---|---|---|
+| `noninteractive` | `CLAUDE_PLUGIN_OPTION_NONINTERACTIVE` | `false` | Step 0a-1 | `SDLC_NONINTERACTIVE` (env) |
+| `default_cost_cap_usd` | `CLAUDE_PLUGIN_OPTION_DEFAULT_COST_CAP_USD` | `0` (off) | Step 1c | `caps.max_total_cost_usd` in the recipe |
+| `stack_cache_ttl_hours` | `CLAUDE_PLUGIN_OPTION_STACK_CACHE_TTL_HOURS` | `6` | Step 0b | `--redetect-stack` |
+| `post_check_fix_attempts` | `CLAUDE_PLUGIN_OPTION_POST_CHECK_FIX_ATTEMPTS` | `0` | Step 4 | `post_check_fix_attempts` in `sdlc.local.yaml` |
 
 ---
 
@@ -52,6 +67,86 @@ This single rule replaces the per-agent bilingual trigger keywords that were use
 
 ## Algorithm — 8 Steps
 
+### Step R — Resume check (before anything else)
+
+`Read` `<project>/.claude/.sdlc-run-active.json`. This is the state file Step 2 writes and every
+phase boundary updates (3d-0). Decide how to proceed:
+
+| State file | `--resume` given | Action |
+|---|---|---|
+| absent | no | Continue to Step 0a (normal start). |
+| absent | yes | HALT: `❌ Nothing to resume — no .claude/.sdlc-run-active.json in this project.` |
+| present, `schema_version` < 2 | any | It is a v1 marker (no `phase_status`), i.e. a crashed pre-2.0 run. Cannot resume. Ask **start fresh** (delete it, continue to 0a) / **abort**. Headless: start fresh, one stderr line. |
+| present, v2, `updated_at` older than 6h | any | Stale — a crashed or force-quit run. Print `⚠️ Stale run "{slug}" found (last update {age} ago)` and ask **resume** / **start fresh** / **abort**. Headless: start fresh. |
+| present, v2, fresh | yes | Resume (R-1 … R-5). |
+| present, v2, fresh | no | 🚨 **MUST PRINT VERBATIM** and ask — never silently start a second run on top of an active one: |
+
+```
+⏸️  An SDLC run is already in progress in this project:
+   task:     "{task_slug}"  (started {started_at}, last update {updated_at})
+   branch:   {git_flow.branch_name}
+   progress: {N completed}/{M} phase steps
+   resume / start fresh / abort ?
+```
+
+- **resume** → R-1 … R-5.
+- **start fresh** → if `$ARGUMENTS` produces the same `task_slug` as the state file, move
+  `docs/plans/{task_slug}/` to `docs/plans/_archive/{task_slug}-{YYYYMMDDTHHMMSSZ}/` so the
+  old artifacts are not silently overwritten; delete the state file; continue to Step 0a.
+- **abort** → stop. Nothing written.
+- Headless mode (`SDLC_NONINTERACTIVE=true`) without `--resume`: start fresh, one stderr line
+  `WARN: stale/active run "{slug}" archived — starting fresh`. With `--resume`: resume.
+
+**R-1. Branch guard.** `git rev-parse --abbrev-ref HEAD` must equal `state.git_flow.branch_name`.
+Otherwise HALT — resuming on the wrong branch is the one way `--resume` can damage work:
+
+```
+❌ Cannot resume "{task_slug}": the run lives on branch {branch_name}, current branch is {current}.
+   git checkout {branch_name}   — then /sdlc:start --resume
+   or /sdlc:start "<description>" to start a fresh run.
+```
+
+**R-2. Load CONTEXT from the state file** — every key Step 2 persisted (`task_slug`, `arguments`,
+`flags`, `stack`, `git_flow.*` → `CONTEXT.base_branch` / `branch_name` / `pr_base_branch` /
+`task_type` / `requires_back_merge` / `diff_scope`, `narrative_language`, `headless_mode`,
+`active_workflow`, `workflow_selection_reason`, `max_total_cost_usd`, `resolved_phases`,
+`skip_rules_applied`, `phase_status`, `cost_cap_overridden`). **Skip Steps 0a, 0b, 0b-git, 0c,
+1c and 2 entirely** — their decisions are what the file holds. Re-run only Step 1a/1b (parse the
+profiles named in `state.stack.active_profiles` + `sdlc.local.yaml`) to rebuild
+`EFFECTIVE_PROFILE`; it is deterministic from disk and too large to persist.
+
+For every phase step whose status is `completed`, set `CONTEXT.{phase}_output` to the literal
+`(resumed — read docs/plans/{task_slug}/0X-{phase}.md)`. Agents already read prior outputs from
+the file system, never from the orchestrator's context (compact-handoff contract), so nothing
+downstream needs the lost summaries.
+
+**R-3. Refresh the state file:** `updated_at = now`, `resume_count += 1`, `resumed_at = now`.
+This is also what re-arms the hooks — `enforce-agent-model.sh` and the telemetry hooks judge
+freshness by `updated_at`.
+
+**R-4. MUST PRINT VERBATIM:**
+
+```
+↩️  Resuming "{task_slug}" — {N completed}/{M} phase steps done, resume #{resume_count}
+   workflow: {active_workflow} · branch: {branch_name} → PR base {pr_base_branch}
+   {phase[/aspect]}: {status}
+   ...one line per entry in phase_status...
+```
+
+**R-5. Enter Step 3** at the first group in `resolved_phases` that has a member whose status is
+not `completed` / `skipped` / `skipped-cost-cap`, and dispatch **only those members**. Per status:
+
+| `phase_status` value | What Step 3 does with it |
+|---|---|
+| `pending` | run normally |
+| `planned` (development aspect) | `Glob` the plan file `02-development-plan{-aspect}.md`; if present → go straight to the approval gate (3b-special); if absent (crashed between agent start and file write) → re-run the plan pass |
+| `approved` (development aspect) | run the implementation pass only |
+| `failed` | ask the user: retry / skip / abort, exactly as a fresh failure would |
+| `completed`, `skipped`, `skipped-cost-cap` | do not dispatch |
+
+Phase numbering (`Phase N/total`) is unchanged — it comes from `resolved_phases`, not from what
+is left to run. Steps 4 and 5 run as usual at the end; Step 5 records `resumed: true`.
+
 ### Step 0a — External plugin dependency preflight
 
 Aggregate runtime dependencies from **every installed plugin's `runtime-dependencies.json`**, not just core. This allows framework plugins to declare their own external skill needs.
@@ -60,12 +155,12 @@ Aggregate runtime dependencies from **every installed plugin's `runtime-dependen
 
 **Algorithm (with cache fast-path):**
 
-The preflight result is cached in `~/.claude/.sdlc-deps-preflight.json` to avoid repeating 11+ tool calls on every `/sdlc:start` invocation.
+The preflight result is cached in `${CLAUDE_PLUGIN_DATA}/deps-preflight.json` (the plugin data directory Claude Code provides; fall back to `~/.claude/.sdlc-deps-preflight.json` when the variable is unset, e.g. a dev checkout) to avoid repeating 11+ tool calls on every `/sdlc:start` invocation.
 
 **Fast-path (cache hit):**
 
 1. If `$ARGUMENTS` contains `--force-preflight`, skip to full scan below.
-2. Read `~/.claude/.sdlc-deps-preflight.json` (1 tool call).
+2. Read `${CLAUDE_PLUGIN_DATA}/deps-preflight.json` (1 tool call).
 3. If the file exists AND `all_satisfied == true`:
    - Load `results` into `CONTEXT` (set `CONTEXT.{plugin}_unavailable = true` for any `"missing"` entries).
    - Print: `🔧 Dependency preflight: cached (all satisfied)`
@@ -83,7 +178,7 @@ The preflight result is cached in `~/.claude/.sdlc-deps-preflight.json` to avoid
 
 **Write cache stamp** (after full scan completes without `block` abort):
 
-Write `~/.claude/.sdlc-deps-preflight.json`:
+Write `${CLAUDE_PLUGIN_DATA}/deps-preflight.json`:
 
 ```json
 {
@@ -103,6 +198,7 @@ Write `~/.claude/.sdlc-deps-preflight.json`:
 
 ```
 HEADLESS = (env SDLC_NONINTERACTIVE == "true" OR "1")
+       OR (env SDLC_NONINTERACTIVE unset AND env CLAUDE_PLUGIN_OPTION_NONINTERACTIVE == "true")
 ```
 
 Persist in `CONTEXT.headless_mode` for telemetry. Affects UX of policy enforcement below (interactive prompts vs. machine-readable JSON to stdout, warnings to stderr, etc.).
@@ -201,7 +297,7 @@ full-scan path, since a forced stack still has to be read from *some* `stack.md`
 as the sole match for 0b-aspects.
 
 Otherwise, resolve via a cache fast-path, same shape as Step 0a's dependency preflight —
-`scripts/detect-stack.py` is the exact same algorithm as the full scan below (it exists so a
+`scripts/detect-stack.sh` is the exact same algorithm as the full scan below (it exists so a
 `SessionStart` hook can precompute this once per session for free; see
 `hooks/session-start-stack-cache.sh`), and this step is just choosing whether to read its
 cached output or re-run the algorithm inline.
@@ -210,9 +306,9 @@ cached output or re-run the algorithm inline.
 
 1. If `$ARGUMENTS` includes `--redetect-stack`, skip to the full scan below.
 2. Compute the cache path: `sha1(realpath(project_root))[:16] + ".json"` under
-   `~/.claude/.sdlc-stack-cache/`. `Read` it (1 tool call).
+   `${CLAUDE_PLUGIN_DATA}/stack-cache/` (fallback when the variable is unset: `~/.claude/.sdlc-stack-cache/`). `Read` it (1 tool call).
 3. Trust it when **all** hold: `schema_version == 1`; `repo` field matches
-   `realpath(project_root)`; `detected_at` is younger than 6h (matching the run-marker
+   `realpath(project_root)`; `detected_at` is younger than `stack_cache_ttl_hours` (plugin option `CLAUDE_PLUGIN_OPTION_STACK_CACHE_TTL_HOURS`, default 6h — matching the run-marker
    staleness window elsewhere in this pipeline); `aspect_ties` is `{}` (a recorded tie must
    still reach the operator — see step 4).
 4. If `aspect_ties` is non-empty, do **not** silently pick a winner — this is the one
@@ -244,10 +340,10 @@ For each `stack.md`:
    - `file_contains: { path, pattern }` → `Read` the file, run regex.
 4. Score by `priority` (higher wins).
 
-This is the same logic `scripts/detect-stack.py` runs non-interactively; running it inline here
+This is the same logic `scripts/detect-stack.sh` runs non-interactively; running it inline here
 (rather than shelling out) is deliberate — a cache miss on `--stack=NAME` or a fresh repo is
 already the exception path, and keeping one obviously-correct inline algorithm as the source of
-truth is worth more than a second dependency on Python being present for every session.
+truth is worth more than a hard dependency on `jq` being present for every session.
 
 #### 0b-aspects — Per-aspect winner resolution
 
@@ -396,10 +492,36 @@ Apply rules in order. A phase already removed by an earlier rule cannot be re-re
 
 | # | Rule | Signal | Action |
 |---|---|---|---|
-| 1 | `typo-fix` | `$ARGUMENTS` matches `/^(typo\|fix typo\|rename .* to\|format)/i` AND `LOC_TOUCHED < 30` | Skip `business_analysis`. Use `$ARGUMENTS` directly as spec for `development`. |
+| 1 | `typo-fix` | `$ARGUMENTS` matches any pattern in `references/task-type-patterns.json` → `skip_rules.typo_fix.patterns` (compiled with that file's `flags`) AND `LOC_TOUCHED < 30` | Skip `business_analysis`. Use `$ARGUMENTS` directly as spec for `development`. |
 | 2 | `whitespace-only` | `WHITESPACE_ONLY == true` | Skip `business_analysis` AND `qa`. Development is still required (a maintainer should look at the changes), but BA and QA add no value over a `pint`/`prettier` post-check. |
 | 3 | `config-only` | `CONFIG_ONLY == true` AND `LOC_TOUCHED < 200` | Skip `qa`. Config files have no executable behavior to test; post-pipeline checks (lint, schema validators) cover them. |
-| 4 | `lightweight-no-db` | `LOC_TOUCHED < 50` AND `HAS_MIGRATIONS == false` AND no path matches `/(auth\|password\|crypt\|secret\|token\|jwt\|session)/i` | Skip `security`. Inject an inline secret-leak check directive into the `development` phase prompt instead (developer scans diff for hardcoded secrets via `grep` for known patterns and reports findings in the compact summary). |
+| 4 | `lightweight-no-db` | `LOC_TOUCHED < 50` AND `HAS_MIGRATIONS == false` AND **neither** the path check nor the content check below finds anything | Skip `security`. Inject an inline secret-leak check directive into the `development` phase prompt instead (developer scans diff for hardcoded secrets via `grep` for known patterns and reports findings in the compact summary). |
+
+
+**Rule 4's two checks.** Skipping the security phase is the most consequential skip in the
+table — a missed vulnerability is silent, unlike a missed test. So rule 4 fires only when
+**both** checks come back empty, and either one finding anything is enough to keep security in
+the pipeline.
+
+*Path check* — any changed path matching, case-insensitively:
+
+```
+auth|password|crypt|secret|token|jwt|session|upload|exec|shell|raw|query|fetch|http|storage|serializ
+```
+
+*Content check* — the **added** lines of the diff, so that deleting a dangerous call does not
+keep the phase alive for no reason:
+
+```bash
+git diff {BASE}...HEAD | grep '^+' | grep -nE 'DB::raw|eval\(|exec\(|shell_exec|child_process|subprocess|pickle|unserialize'
+```
+
+A hit in either check means the rule **does not fire** and security runs. Record which check
+fired and the matching path or pattern in `skip_rules_applied[]`'s reason field for the rule
+that did fire, so a reader can tell "no risk signal" from "not checked".
+
+Both lists are deliberately broad. The cost of a false negative here is a shipped
+vulnerability; the cost of a false positive is one extra security phase on a small diff.
 
 If a skip-rule disables a phase that the active stack profile maps to a per-aspect agent map, ALL aspects of that phase are skipped (skip-rules operate at phase granularity, not aspect granularity).
 
@@ -484,6 +606,8 @@ If present — `Read` and parse it. Recognized top-level keys:
 | `convention_skills_extra` | array of strings | APPENDS to `convention_skills`. |
 | `git` | object | **Already consumed by Step 0b-git** — recognized here so it is not reported as an unknown key. Do not re-apply it; the branch decision is settled by now. Shape documented in `references/GIT-FLOW.md` Step A-1. |
 | `agent_overrides` | object (phase → agent name) | Deliberately dispatch a different agent for that phase — e.g. a project-local `.claude/agents/{name}.md`. **REPLACES** `EFFECTIVE_PROFILE.agents_per_phase[phase]` for that phase and is added to the Step 2 run-marker `roster`, so the `enforce-agent-model.sh` PreToolUse hook allows it. Without this key, a project-local agent is off-roster for the run and the hook denies it — see Step 2 and Step 3c. |
+| `post_check_fix_attempts` | integer `0` or `1` | **REPLACES** the plugin option `CLAUDE_PLUGIN_OPTION_POST_CHECK_FIX_ATTEMPTS` (default `0`) for this project. Consumed by Step 4: `1` allows one minimal-diff fix pass by the development architect when a post-pipeline check fails; `0` keeps the report-only behaviour. |
+| `aspect_execution` | `sequential` (default) or `parallel-implement` | **Experimental.** Consumed by 3b-parallel-aspects. `sequential` runs each development aspect through both passes before the next begins. `parallel-implement` keeps the plan passes sequential and in canonical order, gates them all behind one approval, then dispatches the `backend` and `frontend` implementation passes concurrently — but only when the invariants in 3b-parallel-aspects hold; otherwise it falls back to sequential and prints the reason. |
 
 **Example `sdlc.local.yaml`:**
 
@@ -557,7 +681,9 @@ Summary:
 5. **Persist and print (RESOLVER.md Step 5):** store as `CONTEXT.resolved_phases[]`,
    persist `WORKFLOW_NAME` in `CONTEXT.active_workflow`, print one line at Step 1c.
 6. **Persist the cost cap:** store `caps.max_total_cost_usd` (when the recipe declares
-   one) in `CONTEXT.max_total_cost_usd`, otherwise `null`. Enforced in Step 3d-3.
+   one) in `CONTEXT.max_total_cost_usd`. When the recipe declares none, use the plugin option
+   `CLAUDE_PLUGIN_OPTION_DEFAULT_COST_CAP_USD` if it is set and greater than 0, otherwise `null`.
+   The recipe value always wins over the option. Enforced in Step 3d-3.
 
 The resolved `CONTEXT.resolved_phases[]` replaces the hardcoded list for all
 downstream steps. Phase names and their semantics are unchanged.
@@ -567,54 +693,100 @@ downstream steps. Phase names and their semantics are unchanged.
 1. Generate `task_slug` from `$ARGUMENTS`: lowercase, alphanumerics + dashes, max 40 chars.
 2. Create directory `docs/plans/{task_slug}/` if it does not exist.
 3. Create `docs/plans/{task_slug}/_brief.md` with the original `$ARGUMENTS`.
-4. **Write the run marker** — this is what lets the `enforce-agent-model.sh` PreToolUse
-   hook tell a legitimate phase-agent dispatch from an off-roster project-local agent
-   (e.g. a `.claude/agents/tester.md` that happens to look like a better fit than
-   `qa-engineer`). Order matters — exclude before write:
-   1. If `.git/info/exclude` exists and does not already contain the line
-      `.claude/.sdlc-run-active.json`, append it (idempotent; a no-op if the project
-      already ignores `.claude/` wholesale). This keeps the marker out of any commit
-      the document-writer phase creates, without touching the project's own `.gitignore`.
+4. **Write the run state file** `.claude/.sdlc-run-active.json` (schema v2). It serves three
+   consumers at once: the `enforce-agent-model.sh` PreToolUse hook (roster: a legitimate
+   phase-agent dispatch vs. an off-roster project-local agent such as `.claude/agents/tester.md`),
+   the telemetry hooks (`task_slug` + freshness gate), and Step R (everything a resumed session
+   needs to continue). Order matters — exclude before write:
+   1. Exclude it from version control **worktree-safely**: `git rev-parse --git-path info/exclude`
+      gives the right path both in a normal checkout (`.git/info/exclude`) and in a worktree,
+      where `.git` is a file. If that file does not already contain the line
+      `.claude/.sdlc-run-active.json`, append it (idempotent; a no-op if the project already
+      ignores `.claude/` wholesale). This keeps the state file out of any commit the
+      document-writer phase creates without touching the project's own `.gitignore`.
    2. Compute `roster` = every agent named in `EFFECTIVE_PROFILE.agents_per_phase`
       (flattened across aspect-aware phases) plus every value in `agent_overrides`
       from `sdlc.local.yaml` (Step 1b), each qualified as `{plugin_name}:{agent_name}`.
-   3. Write `.claude/.sdlc-run-active.json`:
+   3. Compute `phase_status` — one key per **phase step**: `{phase}` for aspect-agnostic
+      phases, `{phase}/{aspect}` for each aspect of an aspect-aware phase — all `"pending"`.
+   4. Write the file. Persist **decisions**, not derived data: anything deterministic from
+      disk (the merged `EFFECTIVE_PROFILE`, injections, convention skills) is recomputed on
+      resume, so the file stays small (a few KB) and cheap to update.
       ```json
       {
+        "schema_version": 2,
         "task_slug": "{task_slug}",
-        "started_at": "{ISO 8601 UTC timestamp}",
+        "started_at": "{ISO 8601 UTC}",
+        "updated_at": "{ISO 8601 UTC — refreshed at every phase boundary}",
+        "arguments": "{cleaned $ARGUMENTS}",
+        "flags": { "stack": null, "type": null, "workflow": null, "redetect_git_flow": false, "redetect_stack": false, "force_preflight": false },
         "roster": ["sdlc:business-analyst", "sdlc:qa-engineer", "..."],
-        "phase_agents": { "{phase_name}": "{qualified_agent}", "...": "..." }
+        "phase_agents": { "{phase_name}": "{qualified_agent}", "...": "..." },
+        "stack": { "primary": "laravel", "active_profiles": { "backend": "laravel", "frontend": "inertia-vue", "database": "laravel" }, "profile_source": "laravel-plugin/stack.md", "forced": false },
+        "git_flow": { "...the same object Step 5 writes to _telemetry.json — model, task_type, branch_name, base_branch, pr_base_branch, requires_back_merge, diff_scope, ..." : "..." },
+        "narrative_language": "uk",
+        "headless_mode": false,
+        "active_workflow": "default",
+        "workflow_selection_reason": "fallback",
+        "max_total_cost_usd": null,
+        "resolved_phases": [["business_analysis"], ["development"], ["database"], ["qa"], ["security"], ["documentation"]],
+        "skip_rules_applied": [],
+        "phase_status": { "business_analysis": "pending", "development/backend": "pending", "development/frontend": "pending", "database": "pending", "qa": "pending", "security": "pending", "documentation": "pending" },
+        "cost_cap_overridden": false,
+        "aborted_at_phase": null,
+        "resume_count": 0
       }
       ```
-   4. This file is project-local (not `~/.claude/`) so `/sdlc:batch`'s parallel
-      worktree-isolated pipelines each get their own marker without colliding.
+      `resolved_phases` is a list of **groups** (each a list of phase names); today every group has
+      one member — the shape is chosen so parallel groups can be expressed without a schema change.
+      `roster`, `phase_agents`, `task_slug`, `started_at` keep their v1 meaning: `enforce-agent-model.sh`
+      reads exactly those and judges freshness by `updated_at // started_at`.
+   5. This file is project-local (not `~/.claude/`) so `/sdlc:batch`'s parallel
+      worktree-isolated pipelines each get their own state file without colliding.
+   6. Any later update to this file (3b-special, 3d-0, Step 5) is a targeted `Edit` of the
+      changed keys plus `updated_at` — never a full rewrite, and never from a hook: hooks only
+      *read* it. The orchestrator is the single writer.
 
 This directory is the **single source of truth** for inter-phase communication. Agents read prior phase outputs from here, not from your context window.
 
-### Step 3 — Execute each phase
+### Step 3 — Execute each group
 
-For each phase in order, first determine if the phase is **aspect-agnostic** or **aspect-aware**:
+`CONTEXT.resolved_phases` is a list of **groups** (RESOLVER Step 2). A group is one pipeline
+step: `Phase {N}/{total}` numbers groups, and every member of a group shares that `N`. Most
+groups have one member and behave exactly as a sequential phase always did.
+
+Iterate groups in order. Within a group, first classify each member as **aspect-agnostic** or
+**aspect-aware**:
 
 - **Aspect-agnostic phases** (business_analysis, security, documentation): one agent runs, taking all prior phase outputs as context. Single execution per phase.
-- **Aspect-aware phases** (development; qa on multi-profile runs per the Step 1a qa fan-out rule): fan-out — orchestrator runs ONE agent per relevant aspect, sequentially. Default order: `database → backend → frontend → testing` (matches typical dependency direction; backend depends on database; frontend depends on backend's API contract).
+- **Aspect-aware phases** (development; qa on multi-profile runs per the Step 1a qa fan-out rule): fan-out — one agent per relevant aspect. Canonical order: `database → backend → frontend → testing` (matches typical dependency direction; backend depends on database; frontend depends on backend's API contract). The development phase always fans out **sequentially** unless the experimental `aspect_execution: parallel-implement` applies — see 3b-parallel-aspects.
 
-For each phase:
+**3a-group. Assemble the group's dispatch list.** Expand every member into its concrete
+dispatches (one per aspect for an aspect-aware member, one otherwise). A member whose
+aspect-aware fan-out yields no agent at all is dropped from the group with a note in telemetry;
+if that empties the group, skip the group and move on.
 
-**3a. Look up agent(s):**
+Every dispatch in the list carries the same `{N}`, its own `{phase_name}`, and its own
+`{aspect}`.
 
-- If `agents_per_phase[phase]` is a string: aspect-agnostic phase. Use that single agent.
-- If `agents_per_phase[phase]` is a map (`{aspect: agent_name}`): aspect-aware phase. Collect all `(aspect, agent_name)` pairs that have a non-empty agent. Iterate in canonical order.
+**3a-pre. MUST PRINT VERBATIM** at the start of a group, before dispatching:
 
-If for an aspect-aware phase NO aspect has an agent (all empty/missing), skip the phase with a note in telemetry.
+- Single member, aspect-agnostic — print nothing here; 3b-2's per-dispatch line is the banner.
+- Single member, aspect-aware:
 
-**3a-pre. MUST PRINT VERBATIM** at the start of an aspect-aware phase (before fan-out):
+  ```
+  ▶ Phase {N}/{total}: {phase_name} — fan-out across {count} aspects
+  ```
 
-```
-▶ Phase {N}/{total}: {phase_name} — fan-out across {count} aspects
-```
+- Two or more members:
 
-**3b. For each agent invocation** (one call for aspect-agnostic phase; iterate aspects in canonical order for aspect-aware phase):
+  ```
+  ▶ Phase {N}/{total}: {member names joined by " ∥ "} — {count} dispatches in parallel
+  ```
+
+**3b. For each dispatch in the group's list**, build the prompt (3b-1), print its label (3b-2)
+and resolve its model (3b-3). Build **every** dispatch in the group before spawning any of
+them.
 
 **3b-1. Build the prompt — cache-friendly two-section layout.**
 
@@ -651,8 +823,9 @@ detailed_output_path: docs/plans/{task_slug}/0X-{phase}{-aspect_suffix}.md
 inputs_available:
   - docs/plans/{task_slug}/_brief.md
   - {list of prior phase output files, including earlier-aspect outputs
-    from the SAME phase (e.g. 02-development-database.md before running
-    development-backend)}
+    from the SAME phase — both the implementation report and the plan
+    (e.g. 02-development-database.md, then 02-development-plan-backend.md
+    and 02-development-backend.md, before running development-frontend).}
 phase_command_overrides:
   {phase_command_overrides[phase] as a key:value list, or "none"}
 availability_flags:
@@ -668,16 +841,28 @@ The two `===` delimiters are part of the prompt — agents are instructed (via t
 **3b-2. MUST PRINT VERBATIM** before spawning each agent:
 
 ```
-▶ Phase {N}/{total}: {phase_name}{IF aspect-aware: " — " + aspect}{IF development: " — " + pass} → {agent_name} ({model_tier})
+▶ {dispatch_label} → {agent_name} ({model_tier})
+```
+
+where `{dispatch_label}` is **exactly the string passed as `description` in 3c**:
+
+```
+Phase {N}/{total}: {phase_name}{aspect_marker}{pass_marker}
+  aspect_marker = " — {aspect}"          (aspect-aware dispatches only)
+  pass_marker   = " [pass:plan]" | " [pass:implement]" | " [pass:fix]" | " [pass:verify]"
+                                         (development passes; security fix / QA verify sub-passes)
 ```
 
 Examples:
 - Aspect-agnostic: `▶ Phase 1/6: business_analysis → business-analyst (opus)`
-- Development, plan pass: `▶ Phase 2/6: development — backend — plan → laravel-architect (opus)`
-- Development, implement pass: `▶ Phase 2/6: development — backend — implement → laravel-architect (sonnet)`
+- Development, plan pass: `▶ Phase 2/6: development — backend [pass:plan] → laravel-architect (opus)`
+- Development, implement pass: `▶ Phase 2/6: development — backend [pass:implement] → laravel-architect (sonnet)`
 - Aspect-aware: `▶ Phase 3/6: qa — frontend → qa-engineer (sonnet)`
 
-This is a contract with the user. Do not skip.
+Print and `description` carry the identical label: the label is what the telemetry hooks
+(`hooks/dispatch-log.sh`) parse to attribute measured usage to a phase, aspect and pass, and what
+`enforce-agent-model.sh` parses to pick the frontmatter field. This is a contract with the user
+and with the hooks. Do not skip, do not paraphrase.
 
 **3b-3. Resolve model from agent frontmatter** — before spawning, read the agent's `.md` file (`plugins/**/agents/{agent_name}.md`) and resolve `{model_tier}`:
 
@@ -686,7 +871,16 @@ This is a contract with the user. Do not skip.
 
 This resolved tier is what you print in 3b-2 and pass to `Agent()` in 3c. Pass the tier **as-is** (`opus`, `sonnet`, `haiku`, or `fable`) — the Agent tool's `model` parameter accepts only these short aliases; a full model ID (e.g. `claude-haiku-4-5-20251001`) fails schema validation and the dispatch silently falls back to the session model. (Agent *frontmatter* does accept full IDs and `inherit`; the dispatch parameter does not. Do not confuse the two.) If the file is missing or `model:` is absent, warn inline and fall back to `sonnet`.
 
-> **Enforcement is not absolute.** Model resolution order in Claude Code is `CLAUDE_CODE_SUBAGENT_MODEL` → per-invocation parameter → frontmatter. When that environment variable is set, it overrides both this step and the PreToolUse hook, and every phase silently runs on whatever it names. An organization `availableModels` allowlist can likewise skip a value and fall back to the inherited model. `/sdlc:doctor` reports both conditions — run it before trusting a cost estimate.
+> **What this step actually controls.** Claude Code resolves a subagent's model in the order
+> per-invocation `model` parameter → agent `model:` frontmatter → `CLAUDE_CODE_SUBAGENT_MODEL`
+> → session model. This step writes the first, the PreToolUse hook writes it too, and the
+> frontmatter is the second — so `CLAUDE_CODE_SUBAGENT_MODEL` alone never overrides either.
+> The one override that does is `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` (v2.1.257+): it makes
+> Claude Code ignore both the parameter and the frontmatter, and every phase runs on
+> `CLAUDE_CODE_SUBAGENT_MODEL` (or the session model if that is unset). An organization
+> `availableModels` allowlist can likewise skip a value. `/sdlc:doctor` reports both — run it
+> before trusting a cost estimate. (Before v2.1.251 the variable came first; that is the
+> behaviour this note used to describe.)
 
 **3b-special. Development phase two-pass execution**
 
@@ -697,9 +891,9 @@ The two passes have different economics and therefore **different model tiers**.
 **Pass 1 — Planning:**
 
 1. Use base prompt `development_plan` (instead of `development`).
-2. Resolve the model via `model_plan:` per 3b-3. Set `description` to `Phase {N}/{total}: {phase_name} [pass:plan]`.
+2. Resolve the model via `model_plan:` per 3b-3. Set `description` to `Phase {N}/{total}: {phase_name}{aspect_marker} [pass:plan]`.
 3. Spawn the agent. It reads the BA spec + codebase and writes an implementation plan to `docs/plans/{task_slug}/02-development-plan{-aspect_suffix}.md`.
-4. Agent returns a plan summary.
+4. Agent returns a plan summary. Set `phase_status["development/{aspect}"] = "planned"` (+ `updated_at`) in the state file — a resumed session then re-enters the gate below instead of re-planning.
 
 **Approval gate:**
 
@@ -710,14 +904,14 @@ The two passes have different economics and therefore **different model tiers**.
       Review: docs/plans/{task_slug}/02-development-plan{-aspect_suffix}.md
    ```
 3. Ask the user: **approve** / **request changes** / **abort**.
-   - If **approve**: proceed to Pass 2.
+   - If **approve**: set `phase_status["development/{aspect}"] = "approved"` in the state file, then proceed to Pass 2.
    - If **request changes**: re-dispatch Pass 1 with user feedback appended to the prompt. Repeat until approved or aborted.
-   - If **abort**: mark this aspect (or entire development phase if aspect-agnostic) as skipped in telemetry. Continue to the next phase.
+   - If **abort**: mark this aspect (or entire development phase if aspect-agnostic) as skipped in telemetry and `phase_status`. Continue to the next phase.
 
 **Pass 2 — Implementation:**
 
 1. Use base prompt `development_implement` (instead of `development`).
-2. Resolve the model via `model:` per 3b-3. Set `description` to `Phase {N}/{total}: {phase_name} [pass:implement]`.
+2. Resolve the model via `model:` per 3b-3. Set `description` to `Phase {N}/{total}: {phase_name}{aspect_marker} [pass:implement]`.
 3. Spawn the agent. It reads the approved plan and implements the code.
 4. Agent writes the implementation report to `docs/plans/{task_slug}/02-development{-aspect_suffix}.md`.
 5. Standard validation (3e) applies: output must list files changed.
@@ -726,13 +920,78 @@ Re-dispatches of Pass 1 after "request changes" keep the `[pass:plan]` marker �
 
 For aspect-aware fan-out, the canonical order remains: `database → backend → frontend → testing`. Each aspect completes both passes before the next aspect begins (the plan for backend may depend on what database-aspect implemented).
 
+**3b-parallel-aspects. Experimental: parallel implementation passes.**
+
+Applies only when `EFFECTIVE_PROFILE.aspect_execution == "parallel-implement"` (default
+`sequential`, Step 1b). This is **experimental**: the safety argument rests on file-set
+disjointness the orchestrator can check, plus prompt-level guardrails it cannot enforce. Leave
+it off unless you are deliberately testing it.
+
+**Plan passes never run in parallel.** The frontend plan is built against the backend plan's
+"Contract for frontend" section, so backend must plan first. Run all plan passes in canonical
+order, exactly as in 3b-special.
+
+**One approval gate for the whole phase.** Instead of a gate per aspect, print every aspect's
+plan summary, then ask once:
+
+```
+📋 Implementation plans ready for development ({aspects, comma-separated}).
+   Review: docs/plans/{task_slug}/02-development-plan-{aspect}.md (one per aspect)
+```
+
+Accept *approve* / *request changes {aspect}: {feedback}* / *abort [{aspect}]*. Requesting
+changes on `backend` invalidates the frontend plan too and re-plans both, because the frontend
+plan was derived from the backend contract that just changed. Record `approval_rounds` in
+telemetry.
+
+**Implementation passes run concurrently only for the `backend ∥ frontend` pair, and only when
+every invariant below holds.** Check them yourself, from the two approved plan files — this is
+a deterministic check on file lists, not a judgement call:
+
+1. **Different profiles own the two aspects.** One profile owning both means one agent, and an
+   agent cannot run concurrently with itself.
+2. **The plans' create/modify file sets are disjoint.** Any single path in both sets disqualifies
+   the pair — two agents editing one file in a shared working tree is a lost write, not a race
+   to reason about.
+3. **Neither plan touches a shared-fate file**: `package.json`, `composer.json`, any lockfile,
+   `Dockerfile*`, CI YAML, `.env*`, or a routes file both stacks register into. These serialize
+   the whole build even when the diffs look unrelated.
+
+If any invariant fails, fall back to sequential for this run and **print the reason**:
+
+```
+   ℹ️ aspect_execution=parallel-implement not applied: {which invariant failed, and the paths that failed it}
+      Running development aspects sequentially.
+```
+
+When the pair does run concurrently, both dispatches go in one message (3c-group), each keeps
+its own `[pass:implement]` marker, and the trailer of each prompt gains:
+
+```
+parallel_peer_aspects: {the other aspect}
+```
+
+with this fixed text appended to the `development_implement` base prompt:
+
+> A peer architect is editing a different part of this working tree at the same time. Type
+> errors, lint failures, missing imports and failing tests **outside your own aspect's paths**
+> are transient noise from work in progress — do not fix them, do not reformat them, do not
+> report them as findings. Run formatters and linters against your own files only, never
+> repo-wide. If a file you need is being changed by the peer, that is an invariant violation:
+> stop and report it rather than working around it.
+
+**Known limitation.** Invariants 2 and 3 constrain what the *plans* declare. Nothing prevents an
+agent from touching a file its plan did not mention, and tool-level interference (a repo-wide
+formatter, a build that writes generated files) is guarded only by the prompt text above. This
+is why the mode is experimental and off by default.
+
 **3c. Spawn the agent** via the `Agent` tool with `subagent_type` and the model resolved in 3b-3:
 
 ```
 Agent({
   subagent_type: "{plugin_name}:{agent_from_profile}",
   model: "{model_tier_resolved_in_3b-3}",   // short alias only: "opus" | "sonnet" | "haiku" | "fable"
-  description: "Phase {N}/{total}: {phase_name}{pass_marker}",
+  description: "Phase {N}/{total}: {phase_name}{aspect_marker}{pass_marker}",   // = the 3b-2 label
   prompt: <the prompt built in 3b>
 })
 ```
@@ -755,30 +1014,73 @@ Code build without `plugin:agent` support), treat it as a phase failure per *Fai
 modes and recovery* (retry / skip / abort with the user) rather than papering over it
 with an unqualified retry.
 
-`description` is not decoration — the hook only sees `tool_input`, so it is the sole
+`description` is not decoration — the hooks only see `tool_input`, so it is the sole
 channel telling `enforce-agent-model.sh` (a) which frontmatter field to enforce and
-(b) which phase this dispatch belongs to, for its off-roster deny message. It **MUST**
-be exactly `Phase {N}/{total}: {phase_name}{pass_marker}` — a free-form description
-(e.g. "Regression test verification for X") breaks both. `{pass_marker}` is empty for
-every phase except development, where it is ` [pass:plan]` or ` [pass:implement]` per
-3b-special. Drop the marker on a planning pass and the hook rewrites the model back to
-`model:`, silently undoing the tier split.
+(b) which phase this dispatch belongs to, for its off-roster deny message, and telling
+`dispatch-log.sh` which phase / aspect / pass a measured usage row belongs to. It **MUST**
+be exactly the 3b-2 label `Phase {N}/{total}: {phase_name}{aspect_marker}{pass_marker}` — a
+free-form description (e.g. "Regression test verification for X") breaks all three: the
+model rewrite, the deny message, and the telemetry attribution (the row is then recorded
+as a *nested* dispatch, not a phase). `{aspect_marker}` is ` — {aspect}` on aspect-aware
+dispatches and empty otherwise. `{pass_marker}` is empty for every phase except
+development, where it is ` [pass:plan]` or ` [pass:implement]` per 3b-special (` [pass:fix]`
+and ` [pass:verify]` are reserved for the security fix / QA verify sub-passes). Drop the
+marker on a planning pass and the hook rewrites the model back to `model:`, silently
+undoing the tier split.
+
+**3c-group. Spawning a parallel group.** When the group has more than one dispatch, issue
+**all** of its `Agent` calls in a **single assistant message**. Several `Agent` calls in one
+message run concurrently in the foreground and share the working tree; issued in separate
+messages they run one after another, and the group silently degrades to sequential execution
+at full cost.
+
+- Never `run_in_background` for a phase agent. Parallel here means concurrent **foreground**
+  calls in one message — the orchestrator still blocks until every member returns. (The
+  `batch-pipeline` skill's background dispatch is a different mechanism for a different job and
+  is unaffected by this rule.)
+- Each member keeps its own `description` label, its own model tier, and its own telemetry row.
+  The hooks never see the group: they parse `description`, which carries phase, aspect and pass
+  per dispatch. Two members sharing one `{N}` is expected and harmless.
+- A member's own aspect fan-out (QA across aspects, for instance) is part of the same message —
+  one group, one message, however many dispatches it expands to.
+- Results arrive together. Process them in the group's declared member order, not in the order
+  they happen to complete, so a run is reproducible in its output.
 
 **3d. Save the COMPACT summary** returned by the agent to `CONTEXT.{phase}_output`. Verify the agent also wrote the detailed file to `docs/plans/{task_slug}/0X-{phase}.md` (use `Glob` to check). If the file is missing, ask the agent again to write it before proceeding.
 
-**3d-1. Capture per-phase telemetry** — extract from the Agent tool result (when usage data is present in the result envelope, read `input_tokens`, `output_tokens`, `cached_input_tokens`; otherwise estimate from prompt + summary character length / 4). Compute:
+**3d-0. Update the state file.** Once the phase step is settled — after 3e passes, or the user
+chose *skip* / *abort* for it — `Edit` `.claude/.sdlc-run-active.json`: set
+`phase_status["{phase}"]` (or `"{phase}/{aspect}"`) to `completed` / `failed` / `skipped` /
+`skipped-cost-cap`, and `updated_at` to now. Two keys, one targeted edit, nothing else. This is
+the checkpoint Step R resumes from and the heartbeat that keeps the hooks' 6h freshness window
+open on a long run; skipping it turns a later crash into a full re-run.
 
-- `compact_summary_chars` — `len(CONTEXT.{phase}_output)`. Convert to tokens the same way as above (`chars / 4`) before comparing: the handoff budget is stated in **tokens** by every agent contract (≤2K for BA/QA/security, ≤3K for development), so a char-count must never be compared against a token threshold directly. If `chars / 4 > 3000` (i.e. > 12000 chars), record `compact_handoff_violation: true` and emit a one-line warning to stderr: `WARN: {phase} compact summary exceeded budget (~{chars/4} tokens > 3000)`. Do not abort — the violation is recorded for post-run analysis.
+**3d-1. Capture per-dispatch telemetry (measured).** The Agent tool result carries **no** usage data, so nothing in this step reads token counts from the result envelope. Usage is measured by this plugin's hooks while the Step 2 run marker is fresh: `hooks/dispatch-log.sh` records every `Agent` dispatch (`PreToolUse`) and its assigned `agent_id` (`SubagentStart`), and `hooks/subagent-usage.sh` (`SubagentStop`) sums the finished subagent's own transcript — deduplicated by `message.id` — and prices it from `references/pricing.json`. All three append rows to `docs/plans/{task_slug}/_usage.jsonl`; the orchestrator never writes that file.
 
-  This counter is the pipeline's only sensor for model verbosity drift (newer models default to longer responses and narrate progress more often in agentic sessions). A threshold set ~4× too tight fires on every compliant run and destroys that signal.
-- `model` — the model tier declared in the agent's frontmatter (`opus`, `sonnet`, or `haiku`). This is the authoritative value because the PreToolUse hook enforces it at dispatch time. **Do not** read this from the Agent result envelope (it is not exposed there).
-- `cost_usd` — derived from per-tier pricing table (kept inline for transparency). Cached input is 10% of base input across all tiers:
-  - opus: input $5/MTok, cached input $0.50/MTok, output $25/MTok
-  - sonnet: input $3/MTok, cached input $0.30/MTok, output $15/MTok
-  - haiku: input $1/MTok, cached input $0.10/MTok, output $5/MTok
+Right after the `Agent` call returns, run (one Bash call; listed in the Bash allowlist below):
 
-  These are list prices for the current generation behind each alias. Keep them in sync with `README.md` → "Cost Optimization" — the two tables are the only cost references in the repo and they must not diverge. Estimates here exclude the orchestrator's own token consumption (see `_telemetry.json` note in 3f).
-- For aspect-aware phase fan-out, push one entry **per aspect** into `phases[]` with `phase: "{phase_name}"` and `aspect: "{aspect}"` set; aspect-agnostic phases omit `aspect`.
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-report.sh" {task_slug} --project-root .
+```
+
+(dev checkout fallback: `plugins/sdlc/scripts/usage-report.sh`). It pairs the rows into one record per dispatch. Take the record for **this** call: same bare `agent_type`, same `phase` / `aspect` / `pass` as the 3b-2 label, latest `started_at`. Then fill the `phases[]` entry:
+
+- `usage_source` — `"measured"` when the record's `status` is `completed`. When the record is missing, `unmeasured` (transcript not found), or `jq` is unavailable, fall back to the estimate `chars / 4` over prompt + summary and set `usage_source: "estimated"`. Never silently mix the two: the field says which one this row is.
+- Token fields, measured case — `input_tokens = input_tokens + cache_creation_input_tokens + cache_read_input_tokens` (the total input the API saw), `cached_input_tokens = cache_read_input_tokens`, plus the two raw fields `cache_creation_input_tokens` and `cache_read_input_tokens` verbatim. This mapping keeps `cache_hit_ratio` (Step 5) meaning "share of input served from cache", as before.
+- `model` — the model **tier** declared in the agent's frontmatter (`opus` / `sonnet` / `haiku` / `fable`), authoritative because the PreToolUse hook enforces it. `model_id` — the concrete id from the record (e.g. `claude-opus-5`), measured case only. A mismatch between the two is worth a one-line stderr warning: it means an override (`CLAUDE_CODE_SUBAGENT_MODEL_FORCE`, an org allowlist) is in play.
+- `cost_usd` — from the record. When it is `null` (`pricing_note: "unknown model"`), price the measured tokens yourself from the frontmatter tier's row in `references/pricing.json` and copy `pricing_note` into the entry. Estimated rows are priced the same way from the tier. `pricing.json` is the single source of truth for prices — README and this skill reference it, never restate it.
+- `agent_id`, `started_at`, `completed_at`, `turns`, `pass` — copied from the record (`null` when estimated).
+- `compact_summary_chars` — `last_message_chars` from the record when measured, else `len(CONTEXT.{phase}_output)`. Convert to tokens (`chars / 4`) before comparing: the handoff budget is stated in **tokens** by every agent contract (≤2K for BA/QA/security, ≤3K for development). If `chars / 4 > 3000` (i.e. > 12000 chars), record `compact_handoff_violation: true` and emit a one-line stderr warning: `WARN: {phase} compact summary exceeded budget (~{chars/4} tokens > 3000)`. Do not abort. This counter is the pipeline's only sensor for model verbosity drift; a threshold ~4× too tight fires on every compliant run and destroys that signal.
+- For aspect-aware fan-out, push one entry **per dispatch** into `phases[]` with `phase` and `aspect` set; aspect-agnostic phases omit `aspect`. Development pushes one entry per pass (`pass: "plan"` / `"implement"`).
+- Every entry carries `group_index` — the index of the group it belongs to in
+  `resolved_phases`. Members of a parallel group share a `group_index` and a
+  `Phase {N}`, and that is how a reader tells "ran concurrently" from "ran one after
+  the other" once the run is over.
+- The security fix pass and the QA verify rerun (3d-security) push their own entries,
+  with `pass: "fix"` / `pass: "verify"` and the `group_index` of the security group,
+  plus the trailer counters `security_fix_pass` and `qa_verify_rerun`.
+
+Nested dispatches (a phase agent spawning `general-purpose` / `Explore` via a skill) are recorded by the hooks too, with `nested: true`; they are **not** `phases[]` entries. Their cost is summed by `usage-report.sh` into `nested_cost_usd` and surfaces in Step 5.
 
 **3d-2. QA-specific telemetry** — when running the `qa` phase, parse the agent's compact summary for the lines `ITERATIONS_USED: N` (max 3, hard cap from the agent prompt) and `STATUS: complete | incomplete-blocked`. Record:
 
@@ -789,7 +1091,7 @@ Both fields go into the QA phase entry of `phases[]`.
 
 **3d-3. Enforce the workflow cost cap.** If `CONTEXT.max_total_cost_usd` is `null`, skip this step.
 
-Otherwise sum `cost_usd` across `phases[]` so far. If the running total exceeds the cap, **MUST PRINT VERBATIM**:
+Otherwise sum `cost_usd` across `phases[]` so far (measured rows where available — this is exactly why 3d-1 prefers the hook-measured value over an estimate; a cap compared against guesses is not a guard). If the running total exceeds the cap, **MUST PRINT VERBATIM**:
 
 ```
 💸 Cost cap exceeded for workflow '{active_workflow}'
@@ -801,6 +1103,49 @@ Then ask the user: **continue** / **stop here**. On *stop*, skip all remaining p
 
 Never abort silently: a cap is a runaway guard, and a half-finished pipeline that vanishes without a word is worse than an expensive one. The check runs *after* a phase completes because per-phase cost is only known then — a cap cannot prevent the phase that breaches it, only the ones after.
 
+**3d-security. Security fix pass and QA verify rerun.** `security-analyst` is report-only, so
+its Critical and High findings are applied afterwards, by the agent that wrote the code. Run
+this immediately after the group containing the `security` member has been validated (3e), and
+before moving to the next group.
+
+Decide from two inputs: whether each member of the group **succeeded**, and the
+`ISSUES_FOUND: critical=N high=N` counts from the security compact summary.
+
+| Security member | `critical + high` | QA member | Fix pass | QA verify |
+|---|---|---|---|---|
+| succeeded | 0 | any | no | no |
+| succeeded | > 0 | succeeded or absent | **yes** | yes, only if `FIXES_APPLIED` is non-empty |
+| succeeded | > 0 | failed / skipped | **yes** | **no** — there is no passing baseline to re-verify against |
+| failed / skipped | unknown | any | **no** | **no** |
+
+A failed security review yields no trustworthy finding list, so nothing is fixed on its basis.
+That is the point of the first-column rule: the fix pass exists to apply a review, not to guess
+at one.
+
+**The fix pass.** One dispatch to the development-phase architect for the `backend` aspect (or
+the sole aspect when the run has one):
+
+- `description`: `Phase {N}/{total}: security [pass:fix]` — `{N}` is the security member's own
+  group number. `[pass:fix]` resolves `model:`, not `model_plan:`.
+- Input: `docs/plans/{task_slug}/04-security.md`, plus the must-fix list from the compact
+  summary.
+- Contract, stated in the prompt: apply exactly the prescribed fixes; minimal diff; no
+  refactoring, no reformatting, no new dependencies, no changes outside the files named in the
+  findings. A finding the architect believes is a false positive is **reported, not silently
+  skipped**.
+- Returns `FIXES_APPLIED: [file:line, …]` and `NOT_FIXED: [finding → reason]`.
+
+**The QA verify rerun.** Only when the fix pass reported at least one applied fix:
+
+- `description`: `Phase {N}/{total}: qa [pass:verify]`.
+- Contract: run the existing suite only. Write no new tests, change no test, change no source.
+  Report pass/fail counts and the failing test names.
+- A failure here is a regression introduced by the fix pass — surface it to the user with the
+  normal retry / skip / abort prompt rather than attempting another fix automatically.
+
+Both sub-passes get their own telemetry entries (`security_fix_pass`, `qa_verify_rerun` in the
+Step 5 trailer) and their own `phase_status` keys, `security/fix` and `qa/verify`.
+
 **3e. Validate phase output:**
 - BA phase: must contain acceptance criteria or scope bullets.
 - Development phase: must list files changed.
@@ -808,7 +1153,42 @@ Never abort silently: a cap is a runaway guard, and a half-finished pipeline tha
 - Security phase: must report severity counts.
 - Docs phase: must contain a PR URL or commit hash.
 
+**Truncated output (`maxTurns` reached).** Every agent carries a `maxTurns` cap in its
+frontmatter (architects 120, specialists and QA 60, BA and security 80, docs 30). When an
+agent hits it, the Agent tool returns whatever it had produced, so the compact summary is
+usually missing its closing fields. Treat that as a validation failure, not as success:
+
+- **QA phase** — record `incomplete-blocked` for the member and do not report a pass/fail
+  count you did not receive.
+- **Any other phase** — apply the normal member-failure prompt below (retry / skip / abort).
+
+A retry after a `maxTurns` hit must narrow the scope (one aspect, or the failing subset)
+rather than re-issuing the same prompt — the cap will be reached again otherwise.
+
+**Post-implement check findings.** A stack's `post-implement-check.sh` hook runs its
+typecheck or linter once after each architect finishes and relays the output as a
+`systemMessage`. Treat that as a **retry hint for the implement pass**, not as a verdict:
+on a parallel-aspect run some diagnostics come from a peer's unfinished work. Re-dispatch
+the aspect with the relevant lines appended to the prompt; never edit the code yourself,
+and never fail a member on diagnostics outside its own aspect's paths.
+
+**Security fact-forcing.** Reject a security member that returns `STATUS: clean` while
+both `ENTRY_POINTS_CHECKED` and `CALLERS_TRACED` are empty. "Nothing found" is a
+conclusion; with no entry point read and no call site followed it is an absence of
+analysis wearing the same words. Re-dispatch once, naming the changed files' entry
+points explicitly.
+
 If validation fails, **do not proceed** — ask the user how to handle (retry, skip, abort).
+
+**Failure inside a parallel group is per member.** Validate each member's output separately and
+apply retry / skip / abort to **that member only** — a failing security review does not
+invalidate a QA pass that returned cleanly, and re-dispatching the whole group would pay for
+the healthy member twice. Ask once per failed member, in the group's declared member order.
+
+The cost cap (3d-3) is evaluated **once per group**, after every member has returned. A cap
+cannot prevent the step that breaches it, and members of a group are dispatched together, so
+checking mid-group is not possible even in principle.
+
 
 ### Step 4 — Run post-pipeline checks
 
@@ -824,7 +1204,30 @@ Capture exit code and last 30 lines of output. Save to `docs/plans/{task_slug}/0
 
 If any command fails:
 - Print the failure summary to the user.
-- Do **not** automatically iterate (orchestrator does not implement fixes — that's the developer's job in a follow-up run).
+- **If `post_check_fix_attempts` is `0`** (the default, from `sdlc.local.yaml` or the
+  `CLAUDE_PLUGIN_OPTION_POST_CHECK_FIX_ATTEMPTS` plugin option): do **not** iterate. Report and
+  proceed to Step 5. The orchestrator does not implement fixes; that is a follow-up run's job.
+- **If it is `1`**: dispatch exactly one fix pass, then stop regardless of the outcome.
+
+**The post-check fix pass** (only when `post_check_fix_attempts == 1`):
+
+- One dispatch to the development-phase architect for the `backend` aspect, or the sole aspect
+  on a single-aspect run.
+- `description`: `Phase {X}/{Y}: post_checks [pass:fix]` — `{X}/{Y}` is the last group's
+  numbering. `[pass:fix]` resolves `model:`.
+- Input: `docs/plans/{task_slug}/05-post-checks.md`, plus the failing command and its captured
+  output.
+- Contract, stated in the prompt: fix only what makes the failing commands pass. Minimal diff,
+  no refactoring, no new dependencies, no changes to the checks themselves. A check that is
+  wrong about the code is **reported, not edited** — silently rewriting a failing check to pass
+  is the one outcome this pass must never produce.
+- After it returns, re-run **only the commands that failed**, once. Record both results.
+- Whatever happens, there is no second attempt. The cap is 1 by design: an agent that cannot
+  fix a lint failure in one pass is not going to fix it in three, and the retry loop is the
+  single most expensive failure mode this pipeline has.
+
+Record in telemetry: `post_check_fix_attempted` (bool), `post_check_fix_resolved` (bool —
+whether the re-run passed), and the fix pass's own `phases[]` entry with `pass: "fix"`.
 
 ### Step 5 — Write telemetry and final summary
 
@@ -869,32 +1272,55 @@ Write `docs/plans/{task_slug}/_telemetry.json`:
     {
       "phase": "business_analysis",
       "aspect": null,
+      "pass": null,
       "agent": "business-analyst",
+      "agent_id": "agent_3f9c…",
       "model": "opus",
+      "model_id": "claude-opus-5",
       "status": "completed",
+      "usage_source": "measured",
+      "started_at": "<ISO timestamp>",
+      "completed_at": "<ISO timestamp>",
+      "turns": 14,
       "input_tokens": 35000,
       "output_tokens": 3000,
       "cached_input_tokens": 21000,
+      "cache_creation_input_tokens": 4000,
+      "cache_read_input_tokens": 21000,
       "cost_usd": 0.16,
+      "pricing_note": null,
       "compact_summary_chars": 1840,
       "compact_handoff_violation": false
     },
     {
       "phase": "qa",
       "aspect": null,
+      "pass": null,
       "agent": "qa-engineer",
+      "agent_id": null,
       "model": "sonnet",
+      "model_id": null,
       "status": "completed",
+      "usage_source": "estimated",
+      "started_at": null,
+      "completed_at": null,
+      "turns": null,
       "qa_iterations_used": 2,
       "qa_status": "completed",
       "input_tokens": 28000,
       "output_tokens": 2100,
-      "cached_input_tokens": 18000,
+      "cached_input_tokens": 0,
+      "cache_creation_input_tokens": null,
+      "cache_read_input_tokens": null,
       "cost_usd": 0.07,
+      "pricing_note": null,
       "compact_summary_chars": 1450,
       "compact_handoff_violation": false
     }
   ],
+  "usage_source_summary": { "measured": 5, "estimated": 1, "unmeasured": 0 },
+  "nested_cost_usd": 0.04,
+  "total_cost_usd_including_nested": 1.46,
   "skip_rules_applied": [
     { "rule": "typo-fix", "phase_skipped": "business_analysis", "reason": "$ARGUMENTS matched /^typo/ AND diff < 30 LOC" }
   ],
@@ -923,8 +1349,10 @@ Compute aggregates from `phases[]`:
 - `total_cost_usd` = sum of phase `cost_usd`.
 - `cache_hit_ratio` = `total_cached_input_tokens / max(total_input_tokens, 1)` rounded to 2 decimals.
 - `cost_scope` = always the literal `"subagent_phases_only"`.
+- `usage_source_summary` = counts of `phases[].usage_source` values (`measured` / `estimated` / `unmeasured`). A run with any `estimated` row is not baseline-grade; `docs/cost-baseline.md` aggregates only fully measured runs.
+- `nested_cost_usd` and `total_cost_usd_including_nested` — copied from the final `usage-report.sh` output (run it once more here, after the last phase). `nested_cost_usd` is the measured cost of subagents that phase agents spawned themselves (superpowers skills, `Explore`); it is real pipeline spend that no earlier version could see. `total_cost_usd` keeps its historical meaning (phase dispatches only) so `cost_scope` stays truthful.
 
-> Token counts come from the Agent tool's usage envelope when present. If a phase's result lacks usage data, fall back to char-length / 4 estimation and set `phases[N].usage_source: "estimated"` (default `"reported"`).
+> Token counts are **measured** by the `SubagentStop` hook from each subagent's own transcript (3d-1); the Agent tool result never carried them. A row is `estimated` (char-length / 4) only when the hooks could not measure it — jq missing, transcript not found, or the run marker not fresh.
 
 > **What `total_cost_usd` does not include.** Only subagent spawns are metered. The orchestrator's own consumption — this skill's body, stack-profile globbing and parsing, workflow resolution and schema validation, and the approval-gate exchanges — runs on the session model and is invisible here. Treat `total_cost_usd` as a floor for the run, not the full bill. The `cost_scope` field exists so downstream consumers (`docs/cost-baseline.md`, `/sdlc:doctor`) cannot silently misread it as a total.
 
@@ -969,10 +1397,16 @@ append this line — the obligation is real and the pipeline does not discharge 
     pipeline does not open that second PR.
 ```
 
-**Delete the run marker** (`.claude/.sdlc-run-active.json`, written in Step 2) once
+`_telemetry.json` is assembled from three sources: the final `usage-report.sh` output
+(per-dispatch tokens and cost), the state file (`phase_status`, `git_flow`, workflow, skips,
+`resume_count`) and CONTEXT. Add `"resumed": true|false` and `"resume_count": N` at the top
+level; a resumed run's `wall_clock_seconds` counts from the original `started_at`.
+
+**Delete the state file** (`.claude/.sdlc-run-active.json`, written in Step 2) once
 telemetry is written and the summary is printed — a pipeline is no longer "active" once
-the operator has the final report, and its off-roster-agent deny rule must not outlive
-the run it was scoped to.
+the operator has the final report, its off-roster-agent deny rule must not outlive the run it
+was scoped to, and a leftover file would make the next `/sdlc:start` offer to resume a run
+that already finished.
 
 ---
 
@@ -1048,6 +1482,11 @@ Step 4: Build a detailed implementation plan:
 - Design decisions with rationale
 - Convention skills you will invoke during implementation: {convention_skills}
 - Risks and edge cases the plan must handle
+- **Contract for frontend** — a section under exactly that heading when your aspect is
+  `backend` (see your agent file's "Plan additions"). The frontend aspect plans against
+  this shape, and the approval gate reviews it, so it is fixed here rather than
+  discovered from the implementation. If the change exposes no frontend surface, write
+  the heading with the single line `No frontend contract`.
 
 Follow project conventions found in CLAUDE.md and the active stack profile.
 
@@ -1055,6 +1494,7 @@ Write the plan to: docs/plans/{task_slug}/02-development-plan.md
 
 RETURN ONLY a COMPACT summary (≤2K tokens):
 - Planned files to create/modify (list)
+- Contract for frontend: [one line per endpoint/prop shape, or "none"]
 - Key design decisions (3-5 bullets)
 - Skills to invoke: [list]
 - Risks: [list or "none"]
@@ -1129,16 +1569,18 @@ Focus on OWASP Top 10:
 - Components with known vulnerabilities
 - Insufficient logging
 
-Fix Critical and High severity issues directly (Edit/Write).
-For Medium issues, document them as recommendations without fixing.
-Skip Low/Info unless trivially safe to fix.
+You are report-only — you have no Edit tool. Do not change code.
+For every Critical and High finding, prescribe the exact change instead:
+file, line, and what to do there. A separate fix pass by the
+development-phase architect applies them.
 
 Write detailed security report to: docs/plans/{task_slug}/04-security.md
 
 RETURN ONLY a COMPACT summary (≤2K tokens):
 - Issues found (severity breakdown: Critical / High / Medium / Low)
-- Fixes applied (file:line references)
+- Must-fix list (file:line per Critical/High finding)
 - Outstanding recommendations
+- ENTRY_POINTS_CHECKED and CALLERS_TRACED (see your agent file)
 ```
 
 ### documentation
@@ -1181,7 +1623,7 @@ RETURN: PR URL + 1-paragraph release-notes blurb suitable for changelog.
 
 You **never**:
 - Read or write project source files directly. Delegate to agents.
-- Run any Bash command beyond the post-pipeline checks and the git allowlist below. Delegate to agents.
+- Run any Bash command beyond the post-pipeline checks and the Bash allowlist below. Delegate to agents.
 - Skip phases except per Step 0c skip-rules.
 - Continue past a failed phase validation without user input.
 - Modify files inside `~/.claude/plugins/cache/**`.
@@ -1193,20 +1635,32 @@ You **never**:
 - Dispatch a phase agent with `run_in_background`. Every phase in Step 3 is synchronous
   by design (see "Execution model" above) — a backgrounded dispatch skips the Step 3d
   artifact-file validation and the Step 3d-1 telemetry capture for that phase entirely.
+  A parallel group is not an exception: its members are concurrent **foreground** calls
+  issued in one message (3c-group), and the orchestrator still blocks until all of them
+  return. (`batch-pipeline` is a separate skill with a separate execution model and is
+  not governed by this rule.)
+  artifact-file validation and the Step 3d-1 telemetry capture for that phase entirely.
 - Commit, merge, rebase, force-push, tag, or delete a branch. Branch *creation* (below) is the
   only history-shaping act the orchestrator performs; committing belongs to the documentation
   phase and merging belongs to a human reviewing the PR.
 
-### Git command allowlist (Steps 0b-git and 0c only)
+### Bash allowlist (Steps R, 0b-git, 0c, 2, 3d-1 and 5 only)
 
-Branch setup needs git plumbing, which is why the Bash rule above is scoped rather than
-absolute. Exactly these are permitted, and only from Step 0b-git / Step 0c:
+Branch setup needs git plumbing and telemetry needs one read-only script, which is why the
+Bash rule above is scoped rather than absolute. Exactly these are permitted:
 
-**Read-only** — `git rev-parse`, `git symbolic-ref`, `git for-each-ref`, `git branch`
-(listing only), `git config --get` / `--get-regexp`, `git ls-remote --heads`,
-`git status --porcelain`, `git diff` (the Step 0c signals), `git rev-list --count`,
-`git check-ref-format`, `git flow version` (the F-2a CLI-availability probe), and
-`scripts/detect-git-flow.sh`.
+**Read-only (Steps R / 0b-git / 0c / 2)** — `git rev-parse` (including `--abbrev-ref HEAD` for
+the Step R branch guard and `--git-path info/exclude` for the Step 2 exclusion), `git symbolic-ref`,
+`git for-each-ref`, `git branch` (listing only), `git config --get` / `--get-regexp`,
+`git ls-remote --heads`, `git status --porcelain`, `git diff` (the Step 0c signals),
+`git rev-list --count`, `git check-ref-format`, `git flow version` (the F-2a CLI-availability
+probe), and `scripts/detect-git-flow.sh`. Step 0c's rule-4 content check additionally
+pipes one of those reads — `git diff {BASE}...HEAD | grep '^+' | grep -nE '<pattern>'` —
+which stays read-only: `grep` over a diff, never over the working tree.
+
+**Read-only (Steps 3d-1 / 5)** — `bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-report.sh"
+{task_slug} --project-root .` (dev checkout: `plugins/sdlc/scripts/usage-report.sh`). It only
+reads `docs/plans/{task_slug}/_usage.jsonl` and prints JSON.
 
 **Mutating** — only three, each narrowly conditioned:
 
@@ -1227,8 +1681,12 @@ improvise with a shell command.
 You **always**:
 - Use file paths under `docs/plans/{task_slug}/` for inter-phase data.
 - Pass agents COMPACT prompts. Never inline a previous phase's full output.
+- Update `phase_status` + `updated_at` in the state file at every phase boundary (3d-0) — it is
+  the only thing that makes a crashed run resumable, and it keeps the hooks armed.
 - Save telemetry, even if the pipeline is aborted (with `aborted_at_phase` field).
 - Print final summary to the user, even on partial completion.
+- Run Step R before Step 0a — never start a second run on top of a fresh state file without
+  asking.
 
 ### Prompt-caching discipline
 
@@ -1255,4 +1713,7 @@ Hard rules:
 | Post-pipeline check fails | Report; do not retry. The user decides next steps. |
 | `mcp__skills__list_skills` unavailable | Use FS fallback: check `~/.claude/plugins/cache/{plugin}/skills/{skill}/SKILL.md` exists. |
 | Token budget exceeded | Halt at next phase boundary. Report partial telemetry. |
-| Pipeline aborted (Halt above, or user chooses **abort** at the Step 3b-special approval gate) | Delete the run marker (`.claude/.sdlc-run-active.json`, Step 2) before stopping, same as the Step 5 cleanup — otherwise its off-roster-agent deny rule stays active for up to 6h after a run that no longer exists. |
+| Pipeline aborted (Halt above, or user chooses **abort** at the Step 3b-special approval gate) | Write partial telemetry (`aborted_at_phase`), then delete the state file (`.claude/.sdlc-run-active.json`, Step 2) before stopping, same as the Step 5 cleanup — otherwise its off-roster-agent deny rule stays active for up to 6h after a run that no longer exists and the next `/sdlc:start` offers to resume a run the user deliberately abandoned. |
+| Session lost mid-run (compaction, crash, closed terminal) | Nothing to do in the moment — the state file already holds every decision through the last completed phase step. The user runs `/sdlc:start --resume` (Step R); completed phases are not re-paid. |
+| `--resume` on a different branch than `git_flow.branch_name` | HALT (Step R-1). Tell the user which branch to check out. Never resume onto the wrong branch. |
+| `--resume` with a v1 marker (no `schema_version`) | Cannot resume — offer start fresh / abort (Step R). |

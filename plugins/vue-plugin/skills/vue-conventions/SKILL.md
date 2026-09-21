@@ -16,6 +16,8 @@ description: |
   - Routing (see vue-routing).
   - Forms (see vue-forms).
   - Testing (see vue-testing).
+user-invocable: false
+paths: ["src/**/*.vue", "src/**/*.ts", "src/**/*.js"]
 ---
 
 # Vue 3 Conventions

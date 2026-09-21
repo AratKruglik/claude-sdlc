@@ -1,6 +1,6 @@
 {
   "name": "react-plugin",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "description": "React SPA frontend stack provider for SDLC marketplace. Components, hooks, state management, routing, forms, testing. Composes with backend plugins (nodejs/nestjs/laravel) via aspect resolution. Loses to higher-priority frameworks (nextjs, react-native) on their respective project types.",
   "author": {
     "name": "Oleksii Kruhlyk",
