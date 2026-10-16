@@ -15,7 +15,7 @@ Snapshot of the pipeline's runtime environment. Reuses the same Step 0a prefligh
 
    If neither exists, print `🔌 Dependency preflight: no runtime-dependencies.json found.` and skip step 2.
 
-2. **Run the same preflight algorithm as Step 0a in `pipeline-orchestrator/SKILL.md`** (Step 0a-2 through 0a-3 — enumerate available skills via `mcp__skills__list_skills` with FS fallback to `~/.claude/plugins/cache/{plugin}/skills/{skill}/SKILL.md`, then compute per-dependency status). DO NOT enforce policy in `/sdlc:doctor` — `block` does NOT exit here. Just collect status.
+2. **Run the same preflight algorithm as Step 0a in `pipeline-orchestrator/SKILL.md`** (Step 0a-2 through 0a-3 — enumerate available skills via `mcp__skills__list_skills` with FS fallback to `~/.claude/plugins/cache/*/{plugin}/*/skills/{skill}/SKILL.md`, then compute per-dependency status). DO NOT enforce policy in `/sdlc:doctor` — `block` does NOT exit here. Just collect status.
 
 3. **Locate active stack profiles.** Doctor always computes this **fresh** — same discipline as its git-flow check below ("a doctor that echoes a stale cache cannot diagnose a stale cache"): run `scripts/detect-stack.sh --repo .` (resolve the path the same three-way way as every other script: `${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.sh`, then the installed cache copy, then `<repo>/plugins/sdlc/scripts/detect-stack.sh` in a development checkout). This is the exact same algorithm `pipeline-orchestrator/SKILL.md` Step 0b runs — reusing the script instead of re-deriving the Glob+Read+parse sequence by hand keeps this command from silently drifting out of sync with it.
 
