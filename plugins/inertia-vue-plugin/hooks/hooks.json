@@ -1,0 +1,43 @@
+{
+  "_comment": "Hooks for inertia-vue-plugin. PostToolUse: format and lint changed files via ESLint + Prettier when present, resolved local-first with Docker Compose fallback (same rule as vue-plugin; both fire when both are installed and the formatters are idempotent). PreToolUse: config protection. SubagentStop: batched typecheck after inertia-vue-architect, which vue-plugin matcher does not cover.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -j '.tool_input.file_path // empty' 2>/dev/null || python3 -c 'import json,sys; sys.stdout.write(json.load(sys.stdin)[\"tool_input\"][\"file_path\"])' 2>/dev/null); case \"$f\" in *.vue|*.tsx|*.ts|*.jsx|*.js|*.mts|*.cts|*.mjs|*.cjs) s=$(bash -c 'n=run-tool.sh; r=\"${CLAUDE_PLUGIN_ROOT}\"; bs=\\\\; r=\"${r//\"$bs\"//}\"; s=\"\"; if [ -n \"$r\" ]; then for c in \"$r/../sdlc/hooks/$n\" \"$r/../../sdlc/${r##*/}/hooks/$n\" \"$r\"/../../sdlc/*/hooks/\"$n\"; do if [ -f \"$c\" ] && [ ! -e \"${c%/hooks/*}/.orphaned_at\" ]; then s=\"$c\"; break; fi; done; fi; if [ -z \"$s\" ] && [ -f \"${PWD}/plugins/sdlc/hooks/$n\" ]; then s=\"${PWD}/plugins/sdlc/hooks/$n\"; fi; printf %s \"$s\"'); [ -n \"$s\" ] || exit 0; [ -f package.json ] && grep -q '\"prettier\"' package.json 2>/dev/null && bash \"$s\" --lang node --quiet -- npx --no-install prettier --write \"$f\"; [ -f package.json ] && grep -q '\"eslint\"' package.json 2>/dev/null && bash \"$s\" --lang node --quiet -- npx --no-install eslint --fix \"$f\"; exit 0;; esac",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'n=config-protection.sh; r=\"${CLAUDE_PLUGIN_ROOT}\"; bs=\\\\; r=\"${r//\"$bs\"//}\"; s=\"\"; if [ -n \"$r\" ]; then for c in \"$r/../sdlc/hooks/$n\" \"$r/../../sdlc/${r##*/}/hooks/$n\" \"$r\"/../../sdlc/*/hooks/\"$n\"; do if [ -f \"$c\" ] && [ ! -e \"${c%/hooks/*}/.orphaned_at\" ]; then s=\"$c\"; break; fi; done; fi; if [ -z \"$s\" ] && [ -f \"${PWD}/plugins/sdlc/hooks/$n\" ]; then s=\"${PWD}/plugins/sdlc/hooks/$n\"; fi; if [ -n \"$s\" ]; then exec bash \"$s\" 'eslint.config.js' 'eslint.config.mjs' '.eslintrc*' 'biome.json*' 'tsconfig.json' '.editorconfig'; fi; exit 0'",
+            "description": "Protect this stack's tooling config (eslint.config.js;eslint.config.mjs;.eslintrc*;biome.json*;tsconfig.json;.editorconfig) from being edited mid-run to make a diff pass. Denies only while an sdlc run state file is fresh and task_type is not chore; silent otherwise.",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "inertia-vue-architect",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'n=post-implement-check.sh; r=\"${CLAUDE_PLUGIN_ROOT}\"; bs=\\\\; r=\"${r//\"$bs\"//}\"; s=\"\"; if [ -n \"$r\" ]; then for c in \"$r/../sdlc/hooks/$n\" \"$r/../../sdlc/${r##*/}/hooks/$n\" \"$r\"/../../sdlc/*/hooks/\"$n\"; do if [ -f \"$c\" ] && [ ! -e \"${c%/hooks/*}/.orphaned_at\" ]; then s=\"$c\"; break; fi; done; fi; if [ -z \"$s\" ] && [ -f \"${PWD}/plugins/sdlc/hooks/$n\" ]; then s=\"${PWD}/plugins/sdlc/hooks/$n\"; fi; if [ -n \"$s\" ]; then exec bash \"$s\" --lang node -- node_modules/.bin/vue-tsc --noEmit; fi; exit 0'",
+            "description": "Batched post-implement check: runs `node_modules/.bin/vue-tsc --noEmit` once after this stack's architect finishes and relays failures to the orchestrator as a retry hint. Resolved through hooks/_runner-lib.sh: local install first, then a running compose service; silent when node does not apply to the project, the tool is absent in both places, or no run is active.",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

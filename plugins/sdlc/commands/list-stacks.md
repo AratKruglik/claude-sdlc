@@ -7,6 +7,16 @@ argument-hint: ""
 
 List every `stack.md` profile registered in installed plugins. Shows which one would match the current project.
 
+## Execution (script-first)
+
+Run one Bash call and print its stdout verbatim — it renders the whole table below, the `← active` marker, the override hint, the vanilla-only message and the tie warning:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/list-stacks.sh" --repo .
+```
+
+Development checkout fallback: `bash plugins/sdlc/scripts/list-stacks.sh --repo . --dev-root .`. The script exits 3 when `jq` is missing; only then run the inline algorithm below.
+
 ## What this command does
 
 1. Use `Glob` to find all stack profiles:

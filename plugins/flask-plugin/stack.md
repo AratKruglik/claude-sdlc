@@ -85,7 +85,7 @@ For development phase (backend aspect), inject:
 >
 > After writing code:
 > - `flask --app <module> check` — Flask app config check (if available in the project).
-> - `ruff format .` — auto-formats Python code (do not iterate on style manually).
+> - Formatting (`ruff format`, per file) and `ruff check .` (once, after you return) are hook-driven — do not run them yourself; lint findings reach the orchestrator as a retry hint.
 >
 > Note: for SPA frontends, provide an explicit **JSON API contract** (endpoint path + HTTP method + Marshmallow schema shape) in the development report for the SPA frontend architect.
 

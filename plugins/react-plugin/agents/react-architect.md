@@ -59,7 +59,7 @@ Read `package.json` first, then config files:
 ## Verification commands
 
 - Re-read changed files: imports, hook usage, dependency arrays, key props.
-- Run `npx tsc --noEmit` (or `npm run typecheck` if defined). Type errors block completion.
+- Type-checking runs once via the plugin's SubagentStop hook (`tsc --noEmit`) after you return; failures come back to the orchestrator as a retry hint. Run it yourself only when you need feedback mid-implementation. Formatting (Prettier / ESLint --fix, per file) is hook-driven too — never run a formatter repo-wide.
 - Run `npm run build` (or pnpm/yarn). Bundlers catch many real issues at build.
 - Run `npm run lint --if-present`.
 

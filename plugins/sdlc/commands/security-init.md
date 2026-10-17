@@ -18,6 +18,16 @@ Run this command after installing security-guidance, when changing stack plugins
 
 - `--dry-run`: print what would be written without modifying any files.
 
+## Execution (script-first)
+
+Run one Bash call and relay its output; the managed-block idempotency, the dedupe by `rule_name`, the skip-without-markers warning and the plugin-presence reminder below are all implemented in it:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/security-init.sh" --repo . [--dry-run]
+```
+
+Development checkout fallback: `bash plugins/sdlc/scripts/security-init.sh --repo . --dev-root .`. You never merge YAML yourself; the algorithm below documents what the script does and is the fallback only when `jq` is missing (exit 3).
+
 ## Algorithm
 
 ### 1. Detect active stack plugins

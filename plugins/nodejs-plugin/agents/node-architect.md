@@ -37,7 +37,7 @@ Read `package.json` first:
 ## Verification commands
 
 - Re-read changed files to confirm imports, types, signatures align.
-- **For TypeScript projects: ALWAYS run `npx tsc --noEmit` (or `npm run typecheck` / `pnpm typecheck` / `yarn typecheck` if defined). Type errors block completion — fix them or report in BLOCKERS.**
+- Type-checking runs once via the plugin's SubagentStop hook (`tsc --noEmit`) after you return; failures come back to the orchestrator as a retry hint. Run it yourself only when you need feedback mid-implementation. Formatting (Prettier / ESLint --fix, per file) is hook-driven too — never run a formatter repo-wide.
 - Run the project's lint command if defined (`npm run lint`). Best-effort — if it fails, note it but don't iterate (QA's job).
 
 ## Node.js conventions you must follow

@@ -77,8 +77,7 @@ For development phase (backend aspect), inject:
 >
 > After writing code:
 > - `php bin/console lint:container` — validates the DI wiring; fix errors.
-> - `vendor/bin/php-cs-fixer fix` (auto-formats; do not iterate on style).
-> - `vendor/bin/phpstan analyse` if installed (treat warnings as advisory unless they block).
+> - Formatting (php-cs-fixer, per file) and `phpstan analyse` (once, after you return) are hook-driven — do not run them yourself; phpstan findings reach the orchestrator as a retry hint.
 > - `php -l <changed-file>` if unsure about syntax.
 
 For qa phase, inject:

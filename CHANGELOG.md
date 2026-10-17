@@ -5,7 +5,60 @@ Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [S
 
 ## [Unreleased]
 
+Static and repeated orchestration work moves off the session model into hooks and bash + jq
+scripts. The orchestrator's job becomes reading precomputed answers and asking the two human
+gates; stack hooks learn where their toolchain actually lives.
+
+### Added
+
+- **Precomputed run plan.** `hooks/user-prompt-run-plan.sh` (`UserPromptSubmit`) runs
+  `scripts/run-plan.sh` when `/sdlc:start` is typed and injects one context block covering
+  orchestrator Steps 0a–1c and the task slug: dependency preflight (`scripts/deps-preflight.sh`),
+  cache-aware stack detection, git-flow detection with task-type classification (the
+  `task-type-patterns.json` regexes run in jq) and branch proposal, diff signals, skip rules,
+  the `sdlc.local.yaml` subset, RESOLVER workflow resolution, roster and `phase_status` seed,
+  plus the pre-rendered 🔌 / 🎯 / 🌿 / ✂️ / `workflow:` blocks. The branch gate and the plan
+  approval stay interactive; the inline algorithm in `SKILL.md` remains the fallback.
+- **Handoff-contract guard.** `hooks/phase-output-guard.sh` (`SubagentStop`) verifies the
+  deliverable file and the required compact-summary lines per phase, applies security
+  fact-forcing and the 3000-token budget, and returns `decision: block` so the agent finishes
+  in place instead of being re-dispatched. Blocks at most once (`stop_hook_active`).
+- **Per-dispatch telemetry context.** `hooks/agent-result-context.sh` (`PostToolUse` on `Agent`)
+  injects the dispatch's measured usage record, the running phase/nested totals and the 💸
+  cost-cap block when exceeded; the orchestrator no longer calls `usage-report.sh` per phase.
+- **Resume reminder.** `hooks/session-start-run-context.sh` (`SessionStart`) prints one line
+  about an in-progress run on `startup`/`resume`/`compact` while the state file is fresh.
+- **Runtime resolver for stack hooks.** `hooks/_runner-lib.sh` + `hooks/run-tool.sh --lang …`
+  decide, per language, whether the stack applies to the project at all and whether the tool
+  runs locally, inside a running Docker Compose service (`--service-hint`, auto-detected service,
+  existence check inside the container), or not at all. Explicit `{lang}_runner` overrides in
+  `sdlc.local.yaml` win. Docker answers are cached for 10 minutes. All 19 stack `hooks.json`
+  formatter and `post-implement-check` commands route through it; `post-implement-check.sh`
+  gains `--lang` / `--service-hint`.
+- **`project_shape`** in `scripts/detect-stack.sh` (`--shape-only`): package manager, runner
+  prefix, test / lint / format / typecheck commands, test framework, coverage, CI, monorepo.
+  Forwarded to every agent in the per-call trailer; architects, QA and the developer read it
+  instead of re-detecting on each pass.
+- **Scripts behind commands.** `scripts/finalize-telemetry.sh` (writes `_telemetry.json`, prints
+  the final summary; reads the new `json post-checks` fence in `05-post-checks.md`),
+  `scripts/pr-prepare.sh` (git context, commit, push for the documentation phase),
+  `scripts/batch-plan.sh` (batch Steps 1–3 with verbatim blocks), `scripts/doctor.sh`,
+  `scripts/list-stacks.sh`, `scripts/security-init.sh`. The commands and skills are now
+  script-first with the inline algorithm as the no-`jq` fallback.
+- **Hooks for `inertia-vue-plugin` and `inertia-react-plugin`** (formatter, config protection,
+  batched typecheck after the inertia architects, which the vue/react matchers never covered).
+- Test suites for every new script and hook (run by CI's `test-*.sh` sweep).
+
+### Changed
+
+- Architect, QA and developer prompts no longer instruct agents to run formatters, `phpstan`,
+  `ruff check` or `tsc` themselves: the PostToolUse hook formats each file and the
+  `SubagentStop` hook runs the batched check. `architect-conventions` step 8 says so.
+- `post-implement-check.sh` header: `SubagentStop` cannot deny a permission but can
+  `decision: block`; this hook deliberately only advises.
+- `doctor.sh` / `/sdlc:doctor` parse the `--lang … --` form of stack guard commands.
 ### Fixed
+
 
 - **The run-scoped guards never ran from an installed plugin.** All 16 stack plugins located
   `config-protection.sh` / `post-implement-check.sh` at `${CLAUDE_PLUGIN_ROOT}/../sdlc/hooks/`,

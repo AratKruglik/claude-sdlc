@@ -75,9 +75,7 @@ For development phase (backend aspect), inject:
 >
 > If Laravel Boost MCP is available (`mcp__laravel-boost__artisan`), prefer it for `make:*` Artisan commands; otherwise use Bash.
 >
-> Run after writing code:
-> - `./vendor/bin/pint` (auto-formats, do not iterate on style issues)
-> - `./vendor/bin/phpstan analyse` (if installed; treat warnings as advisory unless they block compilation)
+> Formatting and static analysis are hook-driven: the plugin's PostToolUse hook runs Pint on every file you write, and its SubagentStop hook runs `phpstan analyse` once after you return, relaying failures to the orchestrator as a retry hint. Do not run either yourself — a formatter pass per edit and a repo-wide phpstan from the agent are duplicate work paid in tokens.
 
 For qa phase, inject:
 > Use Pest 4 (preferred) or PHPUnit. Use Laravel testing helpers:

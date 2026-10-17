@@ -84,8 +84,7 @@ For development phase (backend aspect), inject:
 >
 > After writing code:
 > - `python manage.py check` — validates the Django configuration; fix all errors before continuing.
-> - `ruff format .` — auto-formats Python code (do not iterate on style).
-> - `ruff check .` — linting (treat as advisory unless errors block the pipeline).
+> - Formatting (`ruff format`, per file) and `ruff check .` (once, after you return) are hook-driven — do not run them yourself; lint findings reach the orchestrator as a retry hint.
 >
 > For SPA frontends (Vue/React): design and document the DRF API contract (endpoint URL, HTTP methods, serializer shape, authentication requirement); the frontend architect implements the UI. For traditional Django templates: render the views yourself.
 

@@ -7,6 +7,16 @@ argument-hint: "[--json]"
 
 Snapshot of the pipeline's runtime environment. Reuses the same Step 0a preflight code-path that `/sdlc:start` runs on every invocation, but in a diagnostic mode that never aborts.
 
+## Execution (script-first)
+
+Steps 1–8 below are implemented by one read-only script; run it and render its output:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/doctor.sh" --repo . [--json]
+```
+
+Development checkout fallback: `bash plugins/sdlc/scripts/doctor.sh --repo . --dev-root .`. With `--json` print stdout as-is; otherwise print the human table it renders (same format as below). The script performs the one permitted write itself (seeding `docs/cost-baseline.md` from the template when absent) and delegates the dependency status to `scripts/deps-preflight.sh`. Fall back to the inline steps only when the script exits 3 (`jq` missing).
+
 ## What this command does
 
 1. **Locate the runtime dependencies file.** Try these paths in order, take the first that exists:

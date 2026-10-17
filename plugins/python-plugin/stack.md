@@ -53,7 +53,7 @@ For development phase (backend aspect), inject:
 >
 > Apply `python-foundation:python-tooling`:
 > - Detect the package manager from the lockfile: `poetry.lock` → Poetry, `uv.lock` → uv, else pip.
-> - Run `ruff format .` (or `ruff check --fix . && ruff format .`) after writing — never hand-tune whitespace.
+> - Never hand-tune whitespace: the plugin's PostToolUse hook runs `ruff format` on every file you write.
 > - Run `mypy src/` or `mypy .` as advisory (report failures but do not block on projects that have no mypy config).
 >
 > Apply `python-plugin:python-app-conventions`:
@@ -63,8 +63,7 @@ For development phase (backend aspect), inject:
 > - CLI via `argparse`, `click`, or `typer` — match the tool already in use; register entry points in `[project.scripts]`.
 >
 > After writing code, run:
-> - `ruff format .` — auto-formats; do not iterate on style manually.
-> - `ruff check --fix .` — auto-fixes lint violations where safe.
+> - Formatting (`ruff format`, per file) and `ruff check .` (once, after you return) are hook-driven — do not run them yourself; lint findings reach the orchestrator as a retry hint.
 > - `mypy src/` or `mypy .` — advisory; report result.
 > - `python -c "import <package>"` — smoke-test for import errors.
 > - `python -m pytest` — run the full test suite (advisory; qa-engineer fills in missing tests).

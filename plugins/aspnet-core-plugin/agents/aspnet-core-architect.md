@@ -78,7 +78,7 @@ Implement layer by layer:
 ## Verification commands
 
 - `dotnet build` — fix any compiler errors.
-- `dotnet format` (auto-formats; do not iterate on style manually).
+- Formatting (`dotnet format`, per file) is run by the plugin's PostToolUse hook — do not run it yourself.
 - Re-read files, check imports, check that every endpoint has an `[Authorize]` / authorization policy unless the BA spec explicitly calls for anonymous access.
 
 ## Plan additions — the contract the frontend builds against

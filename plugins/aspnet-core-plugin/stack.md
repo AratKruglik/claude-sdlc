@@ -72,7 +72,7 @@ For development phase (backend aspect), inject:
 >
 > After writing code:
 > - `dotnet build` — fix any compiler errors.
-> - `dotnet format` (auto-formats; do not iterate on style manually).
+> - Formatting (`dotnet format`, per file) is hook-driven, and `dotnet build --no-restore` also runs once via the SubagentStop hook after you return — run `dotnet build` yourself only when you need compiler feedback mid-implementation.
 > - `dotnet test` (if tests exist; advisory — don't fail on expected red tests for the qa-engineer to fill in).
 
 For qa phase, inject:

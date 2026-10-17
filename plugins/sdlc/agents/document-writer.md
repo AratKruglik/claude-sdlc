@@ -45,28 +45,21 @@ Final phase of the pipeline. You take the structured outputs from prior phases a
    - `docs/plans/{task_slug}/03-qa.md`
    - `docs/plans/{task_slug}/04-security.md`
 
-2. **Determine the git context:**
-   - Current branch (via `git branch --show-current`)
-   - Repository remote (via `git remote get-url origin`)
-   - `pr_base_branch` and `requires_back_merge` from the per-call CONTEXT trailer. If the
-     trailer has no `pr_base_branch` (an older orchestrator, or a direct invocation), fall
-     back to the repository default branch and say so in your summary — never guess a base.
-   - Whether the branch has an upstream (`git rev-parse --abbrev-ref @{upstream}`)
-   - Uncommitted changes (`git status --porcelain`)
-   - Commits against the base (`git rev-list --count {pr_base_branch}..HEAD`)
+2. **Determine the git context** with one read-only call instead of six git commands:
 
-3. **Commit and push the branch.** The pipeline's branch gate may have created this branch
-   moments ago, in which case nothing is committed yet and a PR is impossible.
-   - If `git status --porcelain` is non-empty: stage the work and commit once with
-     `{conventional_type}: {short description}`, where `conventional_type` derives from
-     `task_type` in the trailer — `feature→feat`, `fix`/`bugfix`/`hotfix→fix`,
-     `refactor→refactor`, `docs→docs`, `chore`/`release→chore`. Follow any commit-message
-     convention documented in `CLAUDE.md` over this default.
-   - Push with `git push -u origin {current_branch}` when the branch has no upstream,
-     `git push` otherwise.
-   - If the branch still has **zero** commits against `pr_base_branch`, stop here and report
-     the null-PR result (see *Return value*). Do not call `gh pr create` — it would fail with
-     "no commits between" and bury the real cause.
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}/scripts/pr-prepare.sh" --pr-base {pr_base_branch} --task-type {task_type}
+   ```
+
+   (dev checkout: `plugins/sdlc/scripts/pr-prepare.sh`.) It returns `current_branch`, `remote_url`, `has_upstream`, `dirty` + `dirty_files[]`, `commits_ahead`, `conventional_type`, `gh_available`, `can_create_pr` and `warnings[]`. Take `pr_base_branch` and `requires_back_merge` from the per-call CONTEXT trailer; if the trailer has no `pr_base_branch` (an older orchestrator, or a direct invocation), omit `--pr-base` — the script falls back to the repository default branch and says so in `pr_base_resolved_from` — and mention that in your summary. Never guess a base.
+
+3. **Commit and push the branch.** The pipeline's branch gate may have created this branch moments ago, in which case nothing is committed yet and a PR is impossible. When `dirty` is true, run the same script once more:
+
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}/scripts/pr-prepare.sh" --pr-base {pr_base_branch} --task-type {task_type} --commit-message "{conventional_type}: {short description}" --push
+   ```
+
+   It stages everything, commits once with your message, and pushes (`-u origin {branch}` when there is no upstream). Follow any commit-message convention documented in `CLAUDE.md` over the `{conventional_type}: …` default. If `can_create_pr` is still false afterwards (zero commits against the base), stop here and report the null-PR result (see *Return value*). Do not call `gh pr create` — it would fail with "no commits between" and bury the real cause.
 
 4. **Create the PR:**
    - Prefer `mcp__github__create_pull_request` if the GitHub MCP is available; pass

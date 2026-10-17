@@ -50,6 +50,12 @@
             "command": "bash -c 'if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-usage.sh\" ]; then exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-usage.sh\"; fi; f=\"${PWD}/plugins/sdlc/hooks/subagent-usage.sh\"; if [ -f \"$f\" ]; then exec bash \"$f\"; fi; exit 0'",
             "description": "Dispatch telemetry (stop row): sums the finished subagent's transcript usage (deduped by message.id), prices it from references/pricing.json and appends the measured row. Synchronous on purpose — the orchestrator reads the log right after the Agent call returns. Silent, no-op outside a run.",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/phase-output-guard.sh\" ]; then exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/phase-output-guard.sh\"; fi; f=\"${PWD}/plugins/sdlc/hooks/phase-output-guard.sh\"; if [ -f \"$f\" ]; then exec bash \"$f\"; fi; exit 0'",
+            "timeout": 15,
+            "description": "Handoff-contract guard: while a run is fresh, checks that the finished phase agent wrote its docs/plans/{slug}/0X-*.md deliverable and the required compact-summary lines (plus security fact-forcing and the 3000-token budget). On a miss returns decision:block with a precise instruction so the agent finishes in place instead of being re-dispatched. Never blocks twice (stop_hook_active). Registered after subagent-usage.sh so the usage row is on disk first. Silent otherwise."
           }
         ]
       }
@@ -62,6 +68,37 @@
             "command": "bash -c 'if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start-stack-cache.sh\" ]; then exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start-stack-cache.sh\"; fi; f=\"${PWD}/plugins/sdlc/hooks/session-start-stack-cache.sh\"; if [ -f \"$f\" ]; then exec bash \"$f\"; fi; exit 0'",
             "description": "Precompute and cache stack-profile detection (pipeline-orchestrator Step 0b) at session start so /sdlc:start and /sdlc:doctor can skip the Glob+Read+parse pass. Writes to ${CLAUDE_PLUGIN_DATA}/stack-cache/. Silent, side-effect-only, fails open. No matcher: the script itself filters out 'compact'/'fork' sources.",
             "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start-run-context.sh\" ]; then exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start-run-context.sh\"; fi; f=\"${PWD}/plugins/sdlc/hooks/session-start-run-context.sh\"; if [ -f \"$f\" ]; then exec bash \"$f\"; fi; exit 0'",
+            "timeout": 10,
+            "description": "On startup/resume/compact, when a fresh v2 run state file exists in cwd, injects a one-line reminder (task, branch, done/total, next unfinished step, /sdlc:start --resume). Silent in every other session — this fires for all sessions on the machine."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/user-prompt-run-plan.sh\" ]; then exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/user-prompt-run-plan.sh\"; fi; f=\"${PWD}/plugins/sdlc/hooks/user-prompt-run-plan.sh\"; if [ -f \"$f\" ]; then exec bash \"$f\"; fi; exit 0'",
+            "timeout": 25,
+            "description": "Precompute the /sdlc:start run plan (orchestrator Steps 0a–1c plus the task slug) via scripts/run-plan.sh and inject it as additionalContext, so the orchestrator prints the 🔌/🎯/🌿/✂️/workflow blocks from the plan instead of re-deriving them with Glob/Read/Bash on the session model. Silent for every other prompt; fails open."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/agent-result-context.sh\" ]; then exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/agent-result-context.sh\"; fi; f=\"${PWD}/plugins/sdlc/hooks/agent-result-context.sh\"; if [ -f \"$f\" ]; then exec bash \"$f\"; fi; exit 0'",
+            "timeout": 15,
+            "description": "After every pipeline Agent call, injects this dispatch's measured usage record and the running phase/nested totals as additionalContext, and the verbatim 💸 cost-cap block when the state file's max_total_cost_usd is exceeded. Replaces the orchestrator's own usage-report.sh call in Steps 3d-1/3d-3. Silent outside a run or for a description outside the Phase N/M contract."
           }
         ]
       }

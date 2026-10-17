@@ -35,12 +35,12 @@ The orchestrator dispatches you in one of two passes: **planning** or **implemen
 
 1. **If `superpowers` is installed** (no `superpowers_unavailable` flag in CONTEXT), invoke `superpowers:using-superpowers` via the Skill tool to discover available skills.
 2. **Read the spec** at `docs/plans/{task_slug}/01-business-analysis.md` (plus any earlier-aspect outputs listed in your CONTEXT trailer).
-3. **Detect project shape** per your agent definition's detection checklist.
+3. **Detect project shape** — start from the `project_shape:` block in your CONTEXT trailer (package manager, runner prefix, test / lint / typecheck / format commands, test framework, CI, monorepo), computed once per session by `scripts/detect-stack.sh`. Run your agent definition's detection checklist only for keys that are `null` there — re-deriving a known answer is paid in tokens on every pass.
 4. **Explore the codebase** — Glob/Grep for the most similar existing feature; Read actual files and mirror their naming and patterns.
 5. **Read `CLAUDE.md`** — project conventions are sacred.
 6. **Implement.** Use Edit for existing files, Write for new ones. Keep changes minimal.
 7. **Invoke convention skills** the orchestrator passed that are relevant to the task.
-8. **Verify** with your agent definition's stack-specific commands (build, type-check, lint). Failures block completion.
+8. **Verify** with your agent definition's stack-specific commands (build, compile, import smoke test). Failures block completion. Formatters and the batched typecheck/lint are **hook-driven** — the stack plugin's PostToolUse hook formats every file you write and its SubagentStop hook runs the typecheck or linter once after you return, relaying failures to the orchestrator as a retry hint — so do not run those yourself.
 9. **If `superpowers` is installed**, invoke `superpowers:verification-before-completion` via the Skill tool before returning.
 
 ## Deliverable contract

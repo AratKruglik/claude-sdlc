@@ -80,7 +80,7 @@ Implement layer by layer:
 ## Verification commands
 
 - `flask --app <module> check` — fix any config errors.
-- `ruff format .` — auto-format.
+- Formatting (`ruff format`, per file) and `ruff check .` (once, after you return) are run by the plugin's hooks — do not run them yourself.
 - Re-read view files, confirm every state-changing endpoint has an auth decorator (or an explicit BA-approved exemption), confirm no `SECRET_KEY` literal, confirm no `flask db` commands were called.
 
 ## Plan additions — the contract the frontend builds against

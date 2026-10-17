@@ -74,8 +74,7 @@ Implement layer by layer:
 ## Verification commands
 
 - `php bin/console lint:container`
-- `vendor/bin/php-cs-fixer fix`
-- `vendor/bin/phpstan analyse` if installed (advisory)
+- Formatting (php-cs-fixer, per file) and `phpstan analyse` (once, after you return) are run by the plugin's hooks — do not run them yourself.
 - `php -l <changed-file>` if unsure
 - Re-read files, check imports, check route → controller wiring with `php bin/console debug:router`.
 

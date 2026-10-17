@@ -44,7 +44,7 @@ Read `package.json` first, then `next.config.{js,mjs,ts}`, `tsconfig.json`:
 ## Verification commands
 
 - Re-read changed files: imports, RSC vs Client boundaries, Server Action exports correct.
-- Run `npx tsc --noEmit` (or `npm run typecheck` if defined). Type errors block completion.
+- Type-checking runs once via the plugin's SubagentStop hook (`tsc --noEmit`) after you return; failures come back to the orchestrator as a retry hint. Run it yourself only when you need feedback mid-implementation. Formatting (Prettier / ESLint --fix, per file) is hook-driven too — never run a formatter repo-wide.
 - Run `npm run build` (or pnpm/yarn). Next.js build is the most valuable single check — it catches RSC violations, missing exports, type errors, and most runtime issues at compile.
 - Run `npm run lint --if-present`.
 

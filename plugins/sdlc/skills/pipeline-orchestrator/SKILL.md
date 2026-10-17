@@ -36,6 +36,29 @@ A run is **resumable**: Step 2 writes a state file (`.claude/.sdlc-run-active.js
 - `<project>/.claude/.sdlc-run-active.json` — the state file of an in-progress run, if any (Step R / Step 2).
 - Plugin options (see below), delivered by Claude Code as `CLAUDE_PLUGIN_OPTION_*` environment variables.
 
+### Precomputed run plan (hook fast path)
+
+When `/sdlc:start` is typed, the `UserPromptSubmit` hook `hooks/user-prompt-run-plan.sh` runs
+`scripts/run-plan.sh` and injects one block into your context:
+
+```
+=== SDLC RUN PLAN (precomputed by hooks/user-prompt-run-plan.sh) ===
+{ …compact JSON… }
+=== END RUN PLAN ===
+```
+
+It holds the deterministic results of Steps 0a, 0b, 0b-git (GIT-FLOW A–E, never the gate), 0c,
+1b (the listed keys), 1c and the Step 2 slug, plus `print_blocks` — the verbatim 🔌 / 🎯 / 🌿 /
+✂️ / `workflow:` text each step must print. **When the block is present, every step below marked
+"Fast path" reads its keys and prints its block instead of re-deriving the answer with
+`Glob`/`Read`/`Bash`.** The inline algorithms stay in this file as the authoritative definition and
+as the fallback for a session where the hook did not fire (no `jq`, hook disabled, a harness that
+skips hooks). Decisions that need a human — the branch gate, the plan approval, ties and halts —
+are never taken by the plan: it reports them under `halts[]` / `gate_default` and you ask.
+
+Trust the plan only for the prompt it was computed for: the block carries the `arguments` it saw;
+if they differ from `$ARGUMENTS`, ignore it and fall back. `warnings[]` are printed once, verbatim.
+
 ### Plugin options (`userConfig`)
 
 Declared in the plugin manifest; the user sets them when enabling the plugin. Every option reaches this skill and the hooks as an environment variable named `CLAUDE_PLUGIN_OPTION_<KEY>` (key uppercased). An explicit project or environment setting always wins over the option:
@@ -148,6 +171,8 @@ Phase numbering (`Phase N/total`) is unchanged — it comes from `resolved_phase
 is left to run. Steps 4 and 5 run as usual at the end; Step 5 records `resumed: true`.
 
 ### Step 0a — External plugin dependency preflight
+
+**Fast path.** With a RUN PLAN in context, take `deps_preflight` (results, `all_satisfied`, `dependencies[]`, `security_guidance_available`, `source: cache|scan`) and print `print_blocks.preflight`; the hook already ran the scan or the cache fast-path and wrote the stamp. Then apply 0a-1 (headless comes from the plan's `headless_mode`) and 0a-4 policy enforcement only — the status computation (0a-2/0a-3) is done. Without the plan, run `scripts/deps-preflight.sh --write-cache` in one Bash call where `jq` exists and fall back to the inline algorithm only when it does not.
 
 Aggregate runtime dependencies from **every installed plugin's `runtime-dependencies.json`**, not just core. This allows framework plugins to declare their own external skill needs.
 
@@ -295,6 +320,8 @@ Use `Glob ~/.claude/plugins/cache/**/security-guidance/.claude-plugin/plugin.jso
 
 ### Step 0b — Detect stack profile
 
+**Fast path.** With a RUN PLAN in context, take `stack` (primary, `active_profiles`, `aspect_ties`, `forced`, `source`) and print `print_blocks.stack`. A non-empty `aspect_ties` arrives as a `halts[]` entry — HALT with its text exactly as the inline rule below says. The plan also carries `stack.project_shape` (package manager, runner prefix, test/lint/typecheck/format commands, test framework) which Step 3b-1 forwards to every agent.
+
 If `$ARGUMENTS` includes `--stack=NAME`, skip both the cache and the full scan below entirely:
 restrict candidates to profiles whose `stack` matches `NAME` (still located via the Glob in the
 full-scan path, since a forced stack still has to be read from *some* `stack.md`) and treat it
@@ -404,6 +431,8 @@ This print is a contract with the user. If you skip it, the user has no way to v
 
 #### 0b-git — Git branching model, task type, and branch setup
 
+**Fast path.** With a RUN PLAN in context, Steps A–E are done: `git_flow` holds model, confidence, sources, the config/cache/detection provenance, `documented_convention_hits[]` (grep hits from Step B — you still judge whether a hit is a *statement* and, if so, override the model and add `rules:<path>` to sources), `task_type` with confidence and runners-up, `branch_name`, `base_branch`, `pr_base_branch`, `requires_back_merge`, `branch_creation_method`, `current_branch_is_base`, `dirty_file_count` and `gate_default`. Print `print_blocks.git_flow` (it is the F-1 block with the conditional lines already resolved) and run the gate (Step F) and the cache write (Step G) yourself — those are the only parts that mutate anything or need a human. In headless mode `print_blocks.headless_line` is the F-4 stderr line.
+
 Determine how this project branches, classify what kind of task this is, and put the run on an
 appropriate branch. Follow the algorithm in `references/GIT-FLOW.md` (Steps A–G) — locate it at
 `${CLAUDE_PLUGIN_ROOT}/references/GIT-FLOW.md`, falling back to
@@ -438,6 +467,8 @@ If the user chooses **abort** at the gate, stop here. Nothing has been written y
 artifacts, no run marker — so there is nothing to clean up.
 
 ### Step 0c — Skip-rule analysis (cost optimization)
+
+**Fast path.** With a RUN PLAN in context, `diff_signals` (incl. `diff_scope` and its reason) and `skip_rules` (`skip_rules_applied[]`, `phases_removed`, `security_lite`, the rule-4 path/content hits) are computed; print `print_blocks.skip_rules` when it is non-empty and apply the SECURITY-LITE injection when `security_lite` is true. Nothing in this step needs a tool call then.
 
 Before phase execution, determine if any phases can be skipped to save tokens. Rules are conservative: when in doubt, run the phase.
 
@@ -591,6 +622,8 @@ Hold these merged values as `PROFILE` (mutable in 1b).
 
 #### 1b. Apply project-local overrides from `<project>/.claude/sdlc.local.yaml`
 
+**Fast path.** With a RUN PLAN in context, `local_config` already holds `present`, `active_workflow`, `skip_phases`, `git`, `post_check_fix_attempts`, `aspect_execution`, `agent_overrides` and `other_keys[]`. `Read` the file only when `other_keys[]` is non-empty, and parse only those keys (`post_pipeline_checks`, `phase_command_overrides`, `extra_phase_prompts`, `convention_skills_extra`).
+
 Check whether the file exists:
 
 ```
@@ -665,6 +698,8 @@ Do not abort — local override is optional, plugin profile is always usable as 
 
 #### 1c. Build the canonical phase order
 
+**Fast path.** With a RUN PLAN in context, `workflow` is the resolved result of RESOLVER Steps 1–5: `active_workflow`, `workflow_selection_reason`, `project_local`, `resolved_phases` (list of lists, extra phases inserted, skips applied, groups collapsed), `parallel_groups`, `max_total_cost_usd` and its source. Print `print_blocks.workflow_line`. A missing `--workflow` file arrives in `halts[]` with the exact RESOLVER error text. `effective_profile` carries `phase_agents`, `roster`, `phase_status_keys`, `convention_skills` (sorted) and `post_pipeline_checks` for Step 2; `phase_prompts_injection` text is the one thing you still read from the active `stack.md` files.
+
 Load the workflow definition file and derive the ordered phase list by following the
 algorithm in `plugins/sdlc/workflows/RESOLVER.md` (Steps 1–5).
 
@@ -693,6 +728,8 @@ The resolved `CONTEXT.resolved_phases[]` replaces the hardcoded list for all
 downstream steps. Phase names and their semantics are unchanged.
 
 ### Step 2 — Generate task slug and prepare workspace
+
+**Fast path.** With a RUN PLAN in context, `task_slug` is in the plan, and `effective_profile.roster` / `phase_status_keys` / `phase_agents` seed the state file verbatim.
 
 1. Generate `task_slug` from `$ARGUMENTS`: lowercase, alphanumerics + dashes, max 40 chars.
 2. Create directory `docs/plans/{task_slug}/` if it does not exist.
@@ -834,6 +871,8 @@ phase_command_overrides:
   {phase_command_overrides[phase] as a key:value list, or "none"}
 availability_flags:
   {csv of CONTEXT.{plugin}_unavailable=true flags, or "all dependencies available"}
+project_shape:
+  {stack.project_shape from the run plan (or `scripts/detect-stack.sh --shape-only`) as a key:value list — package_manager, runner_prefix, test_command, lint_command, typecheck_command, format_command, test_framework, coverage_available, ci, monorepo — or "unknown"}
 {IF aspect-aware:}
 aspect_constraint: |
   Your scope is limited to '{aspect}'. Do NOT touch other aspects' files
@@ -1050,7 +1089,7 @@ at full cost.
 - Results arrive together. Process them in the group's declared member order, not in the order
   they happen to complete, so a run is reproducible in its output.
 
-**3d. Save the COMPACT summary** returned by the agent to `CONTEXT.{phase}_output`. Verify the agent also wrote the detailed file to `docs/plans/{task_slug}/0X-{phase}.md` (use `Glob` to check). If the file is missing, ask the agent again to write it before proceeding.
+**3d. Save the COMPACT summary** returned by the agent to `CONTEXT.{phase}_output`. The `SubagentStop` hook `hooks/phase-output-guard.sh` has already checked, before the agent was allowed to stop, that the deliverable file `docs/plans/{task_slug}/0X-{phase}.md` exists and that the compact summary carries its required lines (3e); on a miss it returned `decision: block` and the agent finished the work in place. So do **not** `Glob` for the file here. Only if the summary still lacks the file or the lines (the hook blocks at most once, and never without `jq`) ask the agent again to write it before proceeding.
 
 **3d-0. Update the state file.** Once the phase step is settled — after 3e passes, or the user
 chose *skip* / *abort* for it — `Edit` `.claude/.sdlc-run-active.json`: set
@@ -1061,13 +1100,13 @@ open on a long run; skipping it turns a later crash into a full re-run.
 
 **3d-1. Capture per-dispatch telemetry (measured).** The Agent tool result carries **no** usage data, so nothing in this step reads token counts from the result envelope. Usage is measured by this plugin's hooks while the Step 2 run marker is fresh: `hooks/dispatch-log.sh` records every `Agent` dispatch (`PreToolUse`) and its assigned `agent_id` (`SubagentStart`), and `hooks/subagent-usage.sh` (`SubagentStop`) sums the finished subagent's own transcript — deduplicated by `message.id` — and prices it from `references/pricing.json`. All three append rows to `docs/plans/{task_slug}/_usage.jsonl`; the orchestrator never writes that file.
 
-Right after the `Agent` call returns, run (one Bash call; listed in the Bash allowlist below):
+Right after the `Agent` call returns, the `PostToolUse(Agent)` hook `hooks/agent-result-context.sh` injects the record for **this** dispatch as context (`SDLC telemetry for {description}: usage_source=… model_id=… input=… output=… turns=… cost_usd=…`, plus a `Running total:` line and, when it applies, `compact_handoff_violation`). Read the entry from there; do **not** run `usage-report.sh` yourself. Only when no such context arrived (hook disabled, no `jq`) run the one Bash call below and take the record with the same bare `agent_type`, same `phase` / `aspect` / `pass` as the 3b-2 label and the latest `started_at`:
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-report.sh" {task_slug} --project-root .
 ```
 
-(dev checkout fallback: `plugins/sdlc/scripts/usage-report.sh`). It pairs the rows into one record per dispatch. Take the record for **this** call: same bare `agent_type`, same `phase` / `aspect` / `pass` as the 3b-2 label, latest `started_at`. Then fill the `phases[]` entry:
+(dev checkout fallback: `plugins/sdlc/scripts/usage-report.sh`). Either way, fill the `phases[]` entry:
 
 - `usage_source` — `"measured"` when the record's `status` is `completed`. When the record is missing, `unmeasured` (transcript not found), or `jq` is unavailable, fall back to the estimate `chars / 4` over prompt + summary and set `usage_source: "estimated"`. Never silently mix the two: the field says which one this row is.
 - Token fields, measured case — `input_tokens = input_tokens + cache_creation_input_tokens + cache_read_input_tokens` (the total input the API saw), `cached_input_tokens = cache_read_input_tokens`, plus the two raw fields `cache_creation_input_tokens` and `cache_read_input_tokens` verbatim. This mapping keeps `cache_hit_ratio` (Step 5) meaning "share of input served from cache", as before.
@@ -1094,6 +1133,8 @@ Nested dispatches (a phase agent spawning `general-purpose` / `Explore` via a sk
 Both fields go into the QA phase entry of `phases[]`.
 
 **3d-3. Enforce the workflow cost cap.** If `CONTEXT.max_total_cost_usd` is `null`, skip this step.
+
+The `PostToolUse(Agent)` hook reads `max_total_cost_usd` from the state file, keeps the running total from measured rows, and prints the 💸 block below as context the moment the cap is exceeded — your job then is only to ask **continue** / **stop here** and record the outcome. Sum the costs yourself only when the hook's context did not arrive.
 
 Otherwise sum `cost_usd` across `phases[]` so far (measured rows where available — this is exactly why 3d-1 prefers the hook-measured value over an estimate; a cap compared against guesses is not a guard). If the running total exceeds the cap, **MUST PRINT VERBATIM**:
 
@@ -1176,7 +1217,7 @@ on a parallel-aspect run some diagnostics come from a peer's unfinished work. Re
 the aspect with the relevant lines appended to the prompt; never edit the code yourself,
 and never fail a member on diagnostics outside its own aspect's paths.
 
-**Security fact-forcing.** Reject a security member that returns `STATUS: clean` while
+**Security fact-forcing.** `hooks/phase-output-guard.sh` applies this rule first, at `SubagentStop`, and blocks the agent in place with the entry points named. Apply it here only if the summary still violates it. **Security fact-forcing.** Reject a security member that returns `STATUS: clean` while
 both `ENTRY_POINTS_CHECKED` and `CALLERS_TRACED` are empty. "Nothing found" is a
 conclusion; with no entry point read and no call site followed it is an absence of
 analysis wearing the same words. Re-dispatch once, naming the changed files' entry
@@ -1204,7 +1245,7 @@ For each command in `EFFECTIVE_PROFILE.post_pipeline_checks` (already merged wit
 
 If the array is empty (e.g., user disabled checks via `post_pipeline_checks: []` in `sdlc.local.yaml`) — print `Post-pipeline checks: skipped (empty list).` and proceed to Step 5.
 
-Capture exit code and last 30 lines of output. Save to `docs/plans/{task_slug}/05-post-checks.md`.
+Capture exit code and last 30 lines of output. Save to `docs/plans/{task_slug}/05-post-checks.md`, and end that file with a fenced block tagged `json post-checks` holding `[{"command": "…", "exit_code": N}, …]` — `scripts/finalize-telemetry.sh` reads it for the `post_pipeline_checks` telemetry field.
 
 If any command fails:
 - Print the failure summary to the user.
@@ -1235,7 +1276,15 @@ whether the re-run passed), and the fix pass's own `phases[]` entry with `pass: 
 
 ### Step 5 — Write telemetry and final summary
 
-Write `docs/plans/{task_slug}/_telemetry.json`:
+Run one Bash call (listed in the allowlist below):
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/finalize-telemetry.sh" {task_slug} --project-root . --extra '{"pr_url": "…", "model_enforcement_corrections": N, "qa": {"iterations_used": N, "status": "completed|capped"}}'
+```
+
+(dev checkout fallback: `plugins/sdlc/scripts/finalize-telemetry.sh`; add `--aborted-at-phase {name}` on an aborted run.) It assembles `_telemetry.json` from the usage log, the state file, the deps-preflight cache and `05-post-checks.md`, computes every aggregate below, and prints the final summary block — echo that block to the user verbatim. `--extra` is deep-merged last and is the only place for values the scripts cannot see (the PR URL, the 3d-2 QA counters, enforcement corrections). Build the file by hand, per the shape below, only when `jq` is unavailable.
+
+The file it writes, `docs/plans/{task_slug}/_telemetry.json`:
 
 ```json
 {
@@ -1360,7 +1409,7 @@ Compute aggregates from `phases[]`:
 
 > **What `total_cost_usd` does not include.** Only subagent spawns are metered. The orchestrator's own consumption — this skill's body, stack-profile globbing and parsing, workflow resolution and schema validation, and the approval-gate exchanges — runs on the session model and is invisible here. Treat `total_cost_usd` as a floor for the run, not the full bill. The `cost_scope` field exists so downstream consumers (`docs/cost-baseline.md`, `/sdlc:doctor`) cannot silently misread it as a total.
 
-Print the final summary to the user:
+Print the final summary to the user (`finalize-telemetry.sh` renders exactly this block):
 
 ```
 ✅ SDLC pipeline completed for "{task_slug}"
@@ -1662,9 +1711,9 @@ probe), and `scripts/detect-git-flow.sh`. Step 0c's rule-4 content check additio
 pipes one of those reads — `git diff {BASE}...HEAD | grep '^+' | grep -nE '<pattern>'` —
 which stays read-only: `grep` over a diff, never over the working tree.
 
-**Read-only (Steps 3d-1 / 5)** — `bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-report.sh"
-{task_slug} --project-root .` (dev checkout: `plugins/sdlc/scripts/usage-report.sh`). It only
-reads `docs/plans/{task_slug}/_usage.jsonl` and prints JSON.
+**Read-only (Steps 0a–1c fallback / 3d-1 / 5)** — `scripts/run-plan.sh`, `scripts/deps-preflight.sh` (`--write-cache` writes only the plugin-data stamp), `scripts/detect-stack.sh --shape-only` and `bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-report.sh" {task_slug} --project-root .` (dev checkout: `plugins/sdlc/scripts/…`). They read the repo and `docs/plans/{task_slug}/_usage.jsonl` and print JSON.
+
+**Writing one artifact (Step 5)** — `bash "${CLAUDE_PLUGIN_ROOT}/scripts/finalize-telemetry.sh" {task_slug} --project-root . [--aborted-at-phase X] [--extra JSON]`. It writes exactly `docs/plans/{task_slug}/_telemetry.json` and prints the final summary.
 
 **Mutating** — only three, each narrowly conditioned:
 
@@ -1718,6 +1767,6 @@ Hard rules:
 | `mcp__skills__list_skills` unavailable | Use FS fallback: check `~/.claude/plugins/cache/*/{plugin}/*/skills/{skill}/SKILL.md` exists. |
 | Token budget exceeded | Halt at next phase boundary. Report partial telemetry. |
 | Pipeline aborted (Halt above, or user chooses **abort** at the Step 3b-special approval gate) | Write partial telemetry (`aborted_at_phase`), then delete the state file (`.claude/.sdlc-run-active.json`, Step 2) before stopping, same as the Step 5 cleanup — otherwise its off-roster-agent deny rule stays active for up to 6h after a run that no longer exists and the next `/sdlc:start` offers to resume a run the user deliberately abandoned. |
-| Session lost mid-run (compaction, crash, closed terminal) | Nothing to do in the moment — the state file already holds every decision through the last completed phase step. The user runs `/sdlc:start --resume` (Step R); completed phases are not re-paid. |
+| Session lost mid-run (compaction, crash, closed terminal) | Nothing to do in the moment — the state file already holds every decision through the last completed phase step. On the next `startup`/`resume`/`compact`, `hooks/session-start-run-context.sh` injects a one-line reminder (task, branch, next unfinished step) while the state file is fresh. The user runs `/sdlc:start --resume` (Step R); completed phases are not re-paid. |
 | `--resume` on a different branch than `git_flow.branch_name` | HALT (Step R-1). Tell the user which branch to check out. Never resume onto the wrong branch. |
 | `--resume` with a v1 marker (no `schema_version`) | Cannot resume — offer start fresh / abort (Step R). |

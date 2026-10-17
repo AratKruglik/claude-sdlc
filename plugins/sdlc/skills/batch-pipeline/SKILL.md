@@ -68,6 +68,16 @@ is what the tool tracks for cleanup, and renaming it mid-run risks orphaning the
 
 ## Algorithm
 
+### Steps 1–3 are script-first
+
+Run one Bash call and print `print_blocks.scope`, `print_blocks.plan` and `print_blocks.cost` verbatim — they are the three 🚨 blocks specified below, including the auto-approval disclosure and the `Proceed?` line:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/batch-plan.sh" [--stack NAME] -- "Task 1" "Task 2" …
+```
+
+(dev checkout: `plugins/sdlc/scripts/batch-plan.sh`; `--file PATH` instead of the quoted list.) Its JSON (`tasks[]` with `task_slug`, `complexity_hint`, `likely_paths`, `group`, `estimated_cost_usd`; `groups[]`; totals) is the input to Steps 4–6. When `dry_run` is set, stop after printing the cost block. Fall back to the manual Steps 1–3 only when the script exits 3 (`jq` missing).
+
 ### Step 1 — Per-task scope pass
 
 For each task in `tasks[]`:

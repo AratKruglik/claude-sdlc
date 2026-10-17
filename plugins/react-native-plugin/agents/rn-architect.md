@@ -73,7 +73,7 @@ Read `package.json` first, then config files:
 ## Verification commands
 
 - Re-read changed files: imports, navigation typing, Platform guards, asset paths.
-- Run `npx tsc --noEmit` (or `npm run typecheck` if defined). Type errors block completion.
+- Type-checking runs once via the plugin's SubagentStop hook (`tsc --noEmit`) after you return; failures come back to the orchestrator as a retry hint. Run it yourself only when you need feedback mid-implementation. Formatting (Prettier / ESLint --fix, per file) is hook-driven too — never run a formatter repo-wide.
 - Run `npm test` if Jest is configured.
 - Run `npm run lint --if-present`.
 - DO NOT attempt `npm run ios` / `npm run android` / `expo prebuild` — those need Xcode/Android SDK and are not pipeline operations.
