@@ -2,7 +2,15 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v2.0.0** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external.
+**v2.1.0** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external.
+
+What is new in 2.1.0 — static work leaves the model, see [Hook Fast Path](#hook-fast-path-static-work-leaves-the-model):
+
+- **Precomputed run plan** — typing `/sdlc:start` injects stack, git-flow, skip-rule and workflow results computed by bash + jq, so the orchestrator prints them instead of re-deriving them with a dozen tool calls.
+- **Handoff-contract guard** — a `SubagentStop` hook makes a phase agent finish its deliverable in place instead of being re-dispatched cold.
+- **Stack hooks resolve the toolchain** — formatters and the batched typecheck run locally when the tool is installed, inside the project's Docker Compose service when it is not, and are skipped when the language does not apply.
+- **Installed-plugin fix** — the guards and formatters now actually run from a marketplace install (previously they only worked in a dev checkout).
+- **Scripts behind the commands** — `doctor`, `list-stacks`, `security-init`, `batch`, telemetry finalization and PR preparation are script-first.
 
 What is new in 2.0.0, and why each one is a breaking change:
 

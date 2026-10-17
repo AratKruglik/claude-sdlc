@@ -3,11 +3,13 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
-## [Unreleased]
+## [2.1.0] — 2026-10-17 — marketplace v2.1.0 / all plugins v2.1.0
 
 Static and repeated orchestration work moves off the session model into hooks and bash + jq
 scripts. The orchestrator's job becomes reading precomputed answers and asking the two human
-gates; stack hooks learn where their toolchain actually lives.
+gates; stack hooks learn where their toolchain actually lives and finally run from an installed
+plugin. No breaking changes: every new hook fails open, and the inline algorithms remain the
+fallback when `jq` is missing or hooks are disabled.
 
 ### Added
 
@@ -57,8 +59,18 @@ gates; stack hooks learn where their toolchain actually lives.
 - `post-implement-check.sh` header: `SubagentStop` cannot deny a permission but can
   `decision: block`; this hook deliberately only advises.
 - `doctor.sh` / `/sdlc:doctor` parse the `--lang … --` form of stack guard commands.
-### Fixed
 
+### Security
+
+- `pr-prepare.sh` strips userinfo from `remote_url` and from `push_error`, so a token embedded in
+  the origin URL never reaches the model context.
+- `user-prompt-run-plan.sh` treats the working directory as the plugin dev root only when it is
+  the hook's own source tree; an untrusted repository can no longer plant `stack.md` profiles
+  that end up in the injected run plan.
+- In Docker mode `run-tool.sh` passes arguments under the project root as root-relative paths
+  (tolerating `//` and symlinked roots) instead of leaking host absolute paths into the container.
+
+### Fixed
 
 - **The run-scoped guards never ran from an installed plugin.** All 16 stack plugins located
   `config-protection.sh` / `post-implement-check.sh` at `${CLAUDE_PLUGIN_ROOT}/../sdlc/hooks/`,
@@ -75,6 +87,22 @@ gates; stack hooks learn where their toolchain actually lives.
   `tool_input.file_path`. All 16 now read it from there, with `jq`, falling back to `python3`.
 - **Step 0a-2's filesystem fallback looked in the wrong place** (`cache/{plugin}/skills/…`),
   so every dependency read as missing whenever `mcp__skills__list_skills` was unavailable.
+
+The four fixes above are from PR #32 (@viktorplus); the stack formatter and `post-implement-check`
+commands combine its script lookup and `tool_input.file_path` payload read with the `run-tool.sh`
+routing added in this release, and `test-stack-hooks.sh` now exercises that combined form in the
+installed cache layout.
+
+### Known limitations
+
+- The run-plan hook relies on `UserPromptSubmit` receiving the raw `/sdlc:start …` text. Claude Code
+  also has a separate `UserPromptExpansion` event for slash commands, and this has not been verified
+  in a live session. If the hook does not fire, `/sdlc:start` runs its inline algorithm unchanged,
+  with the same output and more tool calls.
+- Docker detection reads the first compose file found; merged override files are not combined, and
+  only the `development` block of `phase_command_overrides` is consulted for runner overrides.
+- `qa_iterations_used` and `qa_status` are still parsed by the orchestrator and passed to
+  `finalize-telemetry.sh` via `--extra`; the usage log does not carry summary text.
 
 ## [2.0.0] — marketplace v2.0.0 / all plugins v2.0.0
 
