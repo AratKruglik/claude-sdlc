@@ -103,5 +103,15 @@ assert_field "not repo: error"             '.error' "not a git repository" "$out
 bash "$PREPARE" --push >/dev/null 2>&1; assert_field "usage: push without message" '.' 2 "$?"
 bash "$PREPARE" --bogus >/dev/null 2>&1; assert_field "usage: unknown flag" '.' 2 "$?"
 
+# ── credentials in the remote URL never reach the model ──────────────────
+fresh_repo redact
+git -C "$REPO" remote set-url origin "https://oauth2:ghp_SECRETTOKEN123@example.com/o/r.git"
+out=$(bash "$PREPARE" --project-root "$REPO" --pr-base main)
+assert_field "remote_url: userinfo stripped" '.remote_url' "https://example.com/o/r.git" "$out"
+case "$out" in
+    *SECRETTOKEN*) fail_count=$((fail_count + 1)); printf 'FAIL  credential leaked in pr-prepare output\n' ;;
+    *) pass_count=$((pass_count + 1)); printf 'PASS  no credential in pr-prepare output\n' ;;
+esac
+
 printf '\n%d passed, %d failed\n' "$pass_count" "$fail_count"
 [ "$fail_count" -eq 0 ]

@@ -65,7 +65,8 @@ case "$task_type" in
 esac
 
 current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-remote_url=$(git remote get-url origin 2>/dev/null || echo "")
+redact_userinfo() { sed -E 's#(:\/\/)[^/@[:space:]]+@#\1#g'; }
+remote_url=$(git remote get-url origin 2>/dev/null | redact_userinfo || echo "")
 upstream=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null || echo "")
 has_upstream=false; [ -n "$upstream" ] && has_upstream=true
 
@@ -105,9 +106,9 @@ if [ -n "$commit_message" ]; then
     fi
     if [ "$push" = true ] && [ -z "$commit_error" ]; then
         if [ "$has_upstream" = true ]; then
-            out=$(git push 2>&1) && pushed=true || push_error="$out"
+            out=$(git push 2>&1) && pushed=true || push_error=$(printf '%s' "$out" | redact_userinfo)
         else
-            out=$(git push -u origin "$current_branch" 2>&1) && pushed=true || push_error="$out"
+            out=$(git push -u origin "$current_branch" 2>&1) && pushed=true || push_error=$(printf '%s' "$out" | redact_userinfo)
         fi
         if [ "$pushed" = true ]; then
             upstream=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null || echo "")

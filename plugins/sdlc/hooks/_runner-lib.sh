@@ -268,11 +268,27 @@ runner_resolve() {
 }
 
 # $1 = root, $2.. = command. Runs through the resolved mode; propagates the exit code.
+# In docker mode an argument under the project root is rewritten to a root-relative path: a host
+# absolute path usually does not exist inside the container, while the relative form resolves
+# against the service's working directory, where the project is mounted.
 runner_exec() {
     local root="$1"; shift
+    local arg norm prefix args=() prefixes=()
     case "$RUNNER_MODE" in
         local)  (cd "$root" 2>/dev/null && "$@") ;;
-        docker) (cd "$root" 2>/dev/null && docker compose exec -T "$RUNNER_SERVICE" "$@") ;;
+        docker)
+            prefixes=("${root//\/\///}" "$(cd "$root" 2>/dev/null && pwd -P)")
+            for arg in "$@"; do
+                norm="${arg//\/\///}"
+                for prefix in "${prefixes[@]}"; do
+                    [ -n "$prefix" ] || continue
+                    case "$norm" in
+                        "$prefix"/*) arg="${norm#"$prefix"/}"; break ;;
+                    esac
+                done
+                args+=("$arg")
+            done
+            (cd "$root" 2>/dev/null && docker compose exec -T "$RUNNER_SERVICE" "${args[@]}") ;;
         *)      return 0 ;;
     esac
 }

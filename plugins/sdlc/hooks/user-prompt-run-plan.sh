@@ -44,7 +44,9 @@ cwd=$(jq -r '.cwd // empty' <<<"$payload" 2>/dev/null)
 [ -d "$cwd" ] || exit 0
 
 args=(--repo "$cwd" --arguments "$arguments")
-[ -f "${cwd}/plugins/sdlc/scripts/run-plan.sh" ] && args+=(--dev-root "$cwd")
+self_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." 2>/dev/null && pwd -P)
+cwd_real=$(cd "$cwd" 2>/dev/null && pwd -P)
+[ -n "$self_root" ] && [ "$self_root" = "$cwd_real" ] && [ -f "${cwd}/plugins/sdlc/scripts/run-plan.sh" ] && args+=(--dev-root "$cwd")
 
 headless=false
 case "${SDLC_NONINTERACTIVE:-}" in

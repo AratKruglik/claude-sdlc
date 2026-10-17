@@ -161,6 +161,11 @@ out=$(PATH="$DPATH" run --lang php -- ./vendor/bin/pint app/Foo.php)
 assert_eq "no local pint, running app service -> runs via docker" "" "$out"
 assert_contains "docker compose exec was invoked with the command" "compose exec -T app ./vendor/bin/pint app/Foo.php" "$(cat "$TMP_ROOT/docker-shim/docker-calls.log")"
 assert_contains "service running check used one ps call" "compose ps --services --status running" "$(cat "$TMP_ROOT/docker-shim/docker-calls.log")"
+: > "$TMP_ROOT/docker-shim/docker-calls.log"
+PATH="$DPATH" SDLC_RUNNER_NO_CACHE=1 run --lang php -- ./vendor/bin/pint "$PROJ/app/Foo.php" >/dev/null
+docker_call=$(cat "$TMP_ROOT/docker-shim/docker-calls.log")
+assert_contains "docker: host path under the root is passed root-relative" "compose exec -T app ./vendor/bin/pint app/Foo.php" "$docker_call"
+case "$docker_call" in *"$PROJ"*) fail_count=$((fail_count + 1)); printf 'FAIL  docker: absolute host path leaked into the container call\n' ;; *) pass_count=$((pass_count + 1)); printf 'PASS  docker: absolute host path not passed to the container\n' ;; esac
 probe=$(PATH="$DPATH" run --lang php --probe -- ./vendor/bin/pint x.php)
 assert_contains "probe: docker mode" '"mode":"docker"' "$probe"
 assert_contains "probe: service app" '"service":"app"' "$probe"

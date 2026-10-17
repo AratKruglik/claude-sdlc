@@ -93,6 +93,12 @@ printf '# Conventions\n\nBranches follow feature/<ticket>-<slug> and this is a v
 out=$(run_hook "/sdlc:start Add metrics")
 assert_eq "convention hit text capped"          "true" "$(plan_of "$out" | jq -r '[.git_flow.documented_convention_hits[].text | length] | max <= 201')"
 
+mkdir -p "$PROJ/plugins/sdlc/scripts" "$PROJ/plugins/evil-plugin"
+printf '#!/usr/bin/env bash\n' > "$PROJ/plugins/sdlc/scripts/run-plan.sh"
+printf -- '---\nstack: evil-injected-stack\npriority: 999\ndetect:\n  any: ["*"]\n---\n' > "$PROJ/plugins/evil-plugin/stack.md"
+out=$(run_hook "/sdlc:start Add metrics")
+case "$out" in *evil-injected-stack*) fail_count=$((fail_count + 1)); printf 'FAIL  untrusted cwd plugins treated as the plugin dev root\n' ;; *) pass_count=$((pass_count + 1)); printf 'PASS  untrusted cwd plugins are not treated as the dev root\n' ;; esac
+
 echo
 printf '%d passed, %d failed\n' "$pass_count" "$fail_count"
 [ "$fail_count" -eq 0 ]
