@@ -2,7 +2,15 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v2.0.0** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external.
+**v2.1.0** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external.
+
+What is new in 2.1.0 — static work leaves the model, see [Hook Fast Path](#hook-fast-path-static-work-leaves-the-model):
+
+- **Precomputed run plan** — typing `/sdlc:start` injects stack, git-flow, skip-rule and workflow results computed by bash + jq, so the orchestrator prints them instead of re-deriving them with a dozen tool calls.
+- **Handoff-contract guard** — a `SubagentStop` hook makes a phase agent finish its deliverable in place instead of being re-dispatched cold.
+- **Stack hooks resolve the toolchain** — formatters and the batched typecheck run locally when the tool is installed, inside the project's Docker Compose service when it is not, and are skipped when the language does not apply.
+- **Installed-plugin fix** — the guards and formatters now actually run from a marketplace install (previously they only worked in a dev checkout).
+- **Scripts behind the commands** — `doctor`, `list-stacks`, `security-init`, `batch`, telemetry finalization and PR preparation are script-first.
 
 What is new in 2.0.0, and why each one is a breaking change:
 
@@ -555,7 +563,7 @@ stale.
 
 ## Run-Scoped Guards
 
-Three hooks are **inert outside a pipeline run** and active only while a fresh
+Four hooks are **inert outside a pipeline run** and active only while a fresh
 `.claude/.sdlc-run-active.json` exists. That condition is the whole design: these guards exist
 to constrain agents working unattended, and a tool that second-guessed a human's own commit or
 config edit would be a bug.
@@ -564,7 +572,8 @@ config edit would be a bug.
 |---|---|---|
 | `pre-commit-guard.sh` | `PreToolUse` / `Bash` | Denies `git commit --no-verify` and staged secrets (API keys, AWS key ids, private key blocks, hardcoded credential literals), naming `file:line`. Warns — never denies — on `console.log` / `dd(` / `var_dump(` / `debugger` outside test paths. |
 | `config-protection.sh` | `PreToolUse` / `Edit\|Write` | Denies edits to the stack's tooling config (`pint.json`, `phpstan.neon*`, `eslint.config.*`, `ruff.toml`, `.editorconfig`, `checkstyle.xml`, …) — unless the run's `task_type` is `chore`, which is how tooling config is deliberately changed. |
-| `post-implement-check.sh` | `SubagentStop` | Runs the stack's typecheck or linter **once** after an architect finishes, over the diff against the base branch, and relays failures to the orchestrator as a retry hint (≤40 lines). Silent when the tool is not installed. |
+| `post-implement-check.sh` | `SubagentStop` | Runs the stack's typecheck or linter **once** after an architect finishes, over the diff against the base branch, and relays failures to the orchestrator as a retry hint (≤40 lines). Resolves the tool through `run-tool.sh` (below): locally when installed, inside the project's Docker Compose service otherwise, silent when neither has it. |
+| `phase-output-guard.sh` | `SubagentStop` | Checks that a finished phase agent wrote its `docs/plans/{slug}/0X-*.md` deliverable and the required compact-summary lines (QA counts, security severities and entry points, PR URL, …), applies the security fact-forcing rule and the 3000-token handoff budget. On a miss it returns `decision: block`, so the agent finishes in place instead of being re-dispatched cold. Blocks at most once per agent (`stop_hook_active`). |
 
 Why `config-protection` denies rather than warns: an agent that loosens a linter rule so its
 own diff passes has widened the project's standards to fit one feature, and a diff review is
@@ -572,11 +581,54 @@ unlikely to catch a two-line config change sitting among source edits.
 
 Why `post-implement-check` is batched rather than per-edit: a typecheck after every `Edit`
 reports errors the next edit was about to fix, which trains everyone to ignore it. It also
-cannot block — `SubagentStop` has no deny — so a type error is routed into the orchestrator's
-implement-pass validation, not acted on by the hook.
+deliberately only advises — `SubagentStop` cannot deny a permission, and while it can `decision: block`
+(which `phase-output-guard.sh` uses for the handoff contract), a type error belongs in the orchestrator's
+implement-pass validation, not in a loop between a hook and an agent.
 
 A removed secret is the fix, not the defect: the commit guard scans **added** lines only, so
 moving a key to an environment variable is never blocked.
+
+---
+
+## Hook Fast Path: Static Work Leaves the Model
+
+Everything the orchestrator used to re-derive on the session model with `Glob`/`Read`/`git` calls
+is now computed by bash + jq and handed to it, either by a hook or by one script call. The
+inline algorithms stay in `pipeline-orchestrator/SKILL.md` as the definition and the no-`jq`
+fallback; the hooks are the default.
+
+| Where | Hook / script | What the model no longer does |
+|---|---|---|
+| typing `/sdlc:start` | `UserPromptSubmit` → `hooks/user-prompt-run-plan.sh` → `scripts/run-plan.sh` | Steps 0a–1c and the slug: dependency preflight, stack detection (cache-aware), git-flow detection with task-type classification and branch proposal, diff signals and skip rules, `sdlc.local.yaml` keys, workflow resolution. The plan arrives as one context block with the 🔌 / 🎯 / 🌿 / ✂️ / `workflow:` text pre-rendered. The branch gate and the plan approval gate are still asked. |
+| every phase `Agent()` return | `PostToolUse(Agent)` → `hooks/agent-result-context.sh` | Running `usage-report.sh` and picking its own record; summing the cost cap. The hook injects the dispatch's measured usage line, the running total, and the 💸 block when the cap is exceeded. |
+| every phase agent stop | `SubagentStop` → `hooks/phase-output-guard.sh` | Glob-checking the deliverable file and re-dispatching when it is missing (see Run-Scoped Guards). |
+| session start / resume / compact | `SessionStart` → `hooks/session-start-run-context.sh` | Rediscovering an in-progress run after compaction: one line with task, branch and the next unfinished step, only while a fresh state file exists. |
+| end of run | `scripts/finalize-telemetry.sh` | Assembling `_telemetry.json` and its aggregates by hand; it also prints the final summary block. |
+| documentation phase | `scripts/pr-prepare.sh` | Six git commands plus commit and push, now one read-only call and one write call. |
+| every agent prompt | `project_shape:` in the per-call trailer (from `detect-stack.sh`) | Each architect, QA and the developer re-detecting the package manager, test runner and test/lint/typecheck commands on every pass. |
+| `/sdlc:doctor`, `/sdlc:list-stacks`, `/sdlc:security-init`, `/sdlc:batch` | `scripts/doctor.sh`, `list-stacks.sh`, `security-init.sh`, `batch-plan.sh` | The whole command body; the model renders or relays the output. |
+
+### Stack hooks resolve the toolchain: local first, Docker second, skip otherwise
+
+Every stack plugin's formatter hook and its `post-implement-check` call go through
+`plugins/sdlc/hooks/run-tool.sh --lang <php|node|python|java|dotnet> -- <command>`:
+
+1. **Applicability.** The language must be present in the project (`composer.json`,
+   `package.json`, `pyproject.toml`/`requirements*.txt`, `pom.xml`/`build.gradle*`,
+   `*.csproj`/`*.sln`). A PHP hook in a Node repo does nothing.
+2. **Explicit runner.** `phase_command_overrides.development.{lang}_runner` in
+   `.claude/sdlc.local.yaml` wins — `php` forces local, `docker compose exec -T app php` forces
+   that service.
+3. **Local.** A project-relative binary (`vendor/bin/pint`, `node_modules/.bin/prettier`,
+   `./mvnw`) must exist and be executable; a bare command (`ruff`, `dotnet`) must be on `PATH`.
+4. **Docker.** Otherwise, when `docker` is installed, a compose file exists, a matching service
+   (`app`, `php`, `web`, `api`, `backend`, …, or the plugin's `--service-hint`) is **running**,
+   and the command exists inside it, the hook runs `docker compose exec -T <service> <command>`.
+5. **None.** Silently skip. A missing tool is a project that does not use it, not an error.
+
+Docker answers are cached for 10 minutes per repo and language (invalidated when the compose
+file or `sdlc.local.yaml` changes), so a per-edit formatter never pays a `docker compose ps`
+round-trip twice. `run-tool.sh --probe` prints the resolution as JSON without running anything.
 
 ---
 

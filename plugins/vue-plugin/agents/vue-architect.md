@@ -61,7 +61,7 @@ Read `package.json` first, then config files:
 ## Verification commands
 
 - Re-read changed files: imports, props/emits typing, ref usage, slot defaults.
-- Run `npx vue-tsc --noEmit` (or `npx tsc --noEmit` if vue-tsc not installed). Type errors block completion.
+- Type-checking runs once via the plugin's SubagentStop hook (`vue-tsc --noEmit`) after you return; failures come back to the orchestrator as a retry hint. Run it yourself only when you need feedback mid-implementation. Formatting (Prettier / ESLint --fix, per file) is hook-driven too — never run a formatter repo-wide.
 - Run `npm run build` (or pnpm/yarn). Vite catches many real issues at build.
 - Run `npm run lint --if-present`.
 

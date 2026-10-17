@@ -86,7 +86,7 @@ For each Inertia page:
 ## Verification commands
 
 - Re-read changed files: Inertia imports from `@inertiajs/vue3`, no `vue-router` imports, props typed correctly.
-- `npx vue-tsc --noEmit` (or `npx tsc --noEmit` if `vue-tsc` not installed). Type errors block completion.
+- Type-checking runs once via the plugin's SubagentStop hook (`tsc --noEmit`) after you return; failures come back to the orchestrator as a retry hint. Run it yourself only when you need feedback mid-implementation. Formatting (Prettier / ESLint --fix, per file) is hook-driven too — never run a formatter repo-wide.
 - `npm run lint --if-present` (or pnpm/yarn equivalent).
 - Run `npm run build` (or `pnpm build` / `yarn build` per lockfile) to catch Vite bundling errors early.
 

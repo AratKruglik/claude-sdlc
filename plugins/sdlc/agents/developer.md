@@ -49,7 +49,7 @@ You implement features end-to-end based on the BA spec. You are the **default** 
 3. **Read `CLAUDE.md`** — project conventions are sacred. Follow them.
 4. **Implement.** Use `Edit` for changes to existing files, `Write` for new files. Keep changes minimal — touch only what's necessary.
 5. **Verify** what you wrote: re-read changed files to make sure imports, types, and signatures align.
-6. **Run** the project's test or lint command if one exists in `package.json` / `Makefile` / similar (best-effort; if it fails, note it but don't iterate — that's QA's job).
+6. **Run** `project_shape.test_command` and `project_shape.lint_command` from your CONTEXT trailer when they are not `null` (best-effort; if a run fails, note it but don't iterate — that's QA's job). Formatting is hook-driven on stacks that ship a formatter hook; do not run a formatter yourself.
 
 ## Deliverable
 

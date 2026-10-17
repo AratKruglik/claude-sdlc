@@ -75,8 +75,7 @@ If `mcp__laravel-boost__artisan` is available, prefer it for `make:*` commands.
 
 ## Verification commands
 
-- `./vendor/bin/pint` (auto-formats)
-- `./vendor/bin/phpstan analyse` if installed (treat warnings as advisory)
+- Formatting (Pint, per file) and `phpstan analyse` (once, after you return) are run by the plugin's hooks — do not run them yourself; phpstan findings come back to the orchestrator as a retry hint.
 - Quick syntax check via `php -l <changed-file>` if unsure
 - Re-read files, check imports, check route → controller wiring.
 

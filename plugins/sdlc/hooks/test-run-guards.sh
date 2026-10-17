@@ -225,6 +225,19 @@ write_state "$PROJ" "$(iso_offset -10M)" feature main
 OUT=$(run_post "$PROJ" definitely-not-a-real-binary-xyz)
 assert_eq "post: absent tool -> silent (not a finding)" "" "$OUT"
 
+fresh_project "post-lang-na"
+write_state "$PROJ" "$(iso_offset -10M)" feature main
+printf 'a\n' > "$PROJ/f.txt"
+git -C "$PROJ" add f.txt && git -C "$PROJ" commit -qm seed
+git -C "$PROJ" checkout -qb work
+printf 'b\n' > "$PROJ/f.txt"
+git -C "$PROJ" add f.txt && git -C "$PROJ" commit -qm change
+OUT=$(run_post "$PROJ" --lang php -- sh -c 'echo "should not run"; exit 1')
+assert_eq "post: --lang php without composer.json -> silent (stack does not apply)" "" "$OUT"
+: > "$PROJ/composer.json"
+OUT=$(run_post "$PROJ" --lang php -- sh -c 'echo "phpstan says no"; exit 1')
+assert_contains "post: --lang php with composer.json -> check runs" "phpstan says no" "$(printf '%s' "$OUT" | jq -r '.systemMessage // ""')"
+
 fresh_project "post-pass"
 write_state "$PROJ" "$(iso_offset -10M)" feature main
 printf 'a\n' > "$PROJ/f.txt"

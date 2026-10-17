@@ -71,7 +71,7 @@ Module / class structure first, then business logic, then CLI integration or ent
 
 ## Verification commands
 
-- `ruff format .` (auto-formats)
+- Formatting (`ruff format`, per file) and `ruff check .` (once, after you return) are run by the plugin's hooks — do not run them yourself.
 - `mypy .` (treat warnings as advisory unless blocking)
 - `python -c "import <package>"` — check for import errors.
 - Re-read files, check type annotations, check that no secrets are hardcoded, check that all new public functions have docstrings where appropriate.

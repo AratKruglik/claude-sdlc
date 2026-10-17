@@ -81,6 +81,26 @@ for tool in mvnw gradlew vendor/bin/pint vendor/bin/php-cs-fixer; do
     printf '#!/bin/sh\necho "%s $*" >> "%s"\n' "$tool" "$LOG" > "${PROJ}/${tool}"
     chmod +x "${PROJ}/${tool}"
 done
+# Language markers run-tool.sh uses to decide a stack applies to the project at all, and the
+# local npm binaries it requires before it treats `npx --no-install <pkg>` as installed.
+: > "${PROJ}/composer.json"; : > "${PROJ}/pyproject.toml"; : > "${PROJ}/App.csproj"
+mkdir -p "${PROJ}/node_modules/.bin"
+for tool in prettier eslint; do
+    printf '#!/bin/sh\necho "%s $*" >> "%s"\n' "$tool" "$LOG" > "${PROJ}/node_modules/.bin/${tool}"
+    chmod +x "${PROJ}/node_modules/.bin/${tool}"
+done
+# A project of a language none of the stacks cover: the same stubs are on PATH, but nothing in
+# the project says a formatter applies, so nothing may run.
+BARE="${TMP_ROOT}/bare"
+mkdir -p "${BARE}/src"
+
+# The formatter entries call the real run-tool.sh through the same lookup as the guards.
+for root in "$SAME" "$DEV/.."; do
+    dest="${root}/sdlc/2.0.0/hooks"
+    [ "$root" = "$DEV/.." ] && dest="${DEV}/sdlc/hooks"
+    mkdir -p "$dest"
+    cp "${HOOK_DIR}/run-tool.sh" "${HOOK_DIR}/_runner-lib.sh" "$dest/"
+done
 
 echo "=== stack plugin hook commands ==="
 
@@ -122,7 +142,7 @@ for hooks in "$PLUGINS_DIR"/*/hooks/hooks.json; do
             path="${STUBS}:${PATH}"
         fi
         rm -f "$LOG"
-        printf '%s' "$payload" | PATH="$path" run_hook "" "$PROJ" "$cmd"
+        printf '%s' "$payload" | PATH="$path" run_hook "${SAME}/${plugin}/2.0.0" "$PROJ" "$cmd"
         ran=$( [ -s "$LOG" ] && echo yes || echo no )
         assert_eq "${plugin}: formatter runs on ${file##*/} (${reader})" "yes" "$ran"
         # Commands that hand "$f" to the formatter must hand it the payload's path.
@@ -133,8 +153,18 @@ for hooks in "$PLUGINS_DIR"/*/hooks/hooks.json; do
     done
 
     rm -f "$LOG"
-    printf '' | PATH="${STUBS}:${PATH}" run_hook "" "$PROJ" "$cmd"
+    printf '' | PATH="${STUBS}:${PATH}" run_hook "${SAME}/${plugin}/2.0.0" "$PROJ" "$cmd"
     assert_eq "${plugin}: formatter is silent without a payload" "no" "$( [ -s "$LOG" ] && echo yes || echo no )"
+
+    rm -f "$LOG"
+    barefile="${BARE}/src/example${pattern#\*}"
+    jq -cn --arg f "$barefile" '{hook_event_name: "PostToolUse", tool_name: "Edit", tool_input: {file_path: $f}}' \
+        | PATH="${STUBS}:${PATH}" run_hook "${SAME}/${plugin}/2.0.0" "$BARE" "$cmd"
+    assert_eq "${plugin}: formatter is silent when the stack does not apply" "no" "$( [ -s "$LOG" ] && echo yes || echo no )"
+
+    rm -f "$LOG"
+    printf '%s' "$payload" | PATH="${STUBS}:${PATH}" run_hook "${DEV}/${plugin}" "$PROJ" "$cmd"
+    assert_eq "${plugin}: formatter runs from a dev checkout" "yes" "$( [ -s "$LOG" ] && echo yes || echo no )"
 done
 
 echo

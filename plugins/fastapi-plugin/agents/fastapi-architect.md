@@ -78,7 +78,7 @@ Implement layer by layer:
 ## Verification commands
 
 - `python -c "from app.main import app"` — fix any import errors.
-- `ruff format .` — auto-format.
+- Formatting (`ruff format`, per file) and `ruff check .` (once, after you return) are run by the plugin's hooks — do not run them yourself.
 - Re-read router files, confirm every state-changing endpoint has an auth dependency (or an explicit BA-approved exemption), confirm all `response_model=` annotations are present.
 
 ## Plan additions — the contract the frontend builds against

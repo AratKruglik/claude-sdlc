@@ -73,8 +73,7 @@ Implement layer by layer:
 ## Verification commands
 
 - `python manage.py check` — fix all errors before proceeding.
-- `ruff format .` — auto-formats.
-- `ruff check .` — advisory.
+- Formatting (`ruff format`, per file) and `ruff check .` (once, after you return) are run by the plugin's hooks — do not run them yourself.
 - Re-read changed files, confirm `permission_classes` on all ViewSets/APIViews, confirm no secrets are hardcoded, confirm URLconf registration is correct.
 
 ## Plan additions — the contract the frontend builds against

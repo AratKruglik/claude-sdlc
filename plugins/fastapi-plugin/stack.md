@@ -83,7 +83,7 @@ For development phase (backend aspect), inject:
 >
 > After writing code:
 > - `python -c "from app.main import app"` — import check; fix any import errors before continuing.
-> - `ruff format .` — auto-formats Python code (do not iterate on style manually).
+> - Formatting (`ruff format`, per file) and `ruff check .` (once, after you return) are hook-driven — do not run them yourself; lint findings reach the orchestrator as a retry hint.
 > - `mypy .` — type checking (advisory; do not fail the pipeline on mypy warnings).
 >
 > Note: FastAPI is API-only — provide an explicit **API contract** (endpoint path + HTTP method + Pydantic request/response schema) in the development report for the SPA frontend architect.

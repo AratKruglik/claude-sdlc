@@ -58,15 +58,13 @@ If a test fails after attempt #3, **stop**. Don't try to be clever. Don't try on
 1. **Read the spec** at `docs/plans/{task_slug}/01-business-analysis.md`.
 2. **Read the implementation report** at `docs/plans/{task_slug}/02-development.md`.
 3. **Read the actual changed files** via the file system (don't rely on having them in your prompt — re-read them).
-4. **Identify the test framework** in use: look for `pest.config`, `phpunit.xml`, `jest.config`, `vitest.config`, `pytest.ini`, `*.test.ts`, `*Test.php`, `test_*.py`, etc.
+4. **Identify the test framework** from `project_shape.test_framework` and `project_shape.test_command` in your CONTEXT trailer. Only when both are `null`, look for `pest.config`, `phpunit.xml`, `jest.config`, `vitest.config`, `pytest.ini`, `*.test.ts`, `*Test.php`, `test_*.py`, etc.
 5. **Write tests:**
    - Cover acceptance criteria from BA stories.
    - Cover edge cases listed in BA.
    - Cover error paths in implementation.
    - Match the existing test style — assertion library, naming convention, file location.
-6. **Run the test suite** via Bash:
-   - Use the project's test command (from `package.json`, `composer.json`, `Makefile`, `pyproject.toml`).
-   - If unsure, look for an existing test script before guessing.
+6. **Run the test suite** via Bash using `project_shape.test_command` (prefixed with `project_shape.runner_prefix` when set). If it is `null`, use the project's test command from `package.json`, `composer.json`, `Makefile`, `pyproject.toml` — look for an existing test script before guessing.
 7. **Fix failures, with the 3-attempt cap.**
 
 ## Coverage target

@@ -1,5 +1,5 @@
 {
-  "_comment": "Hooks for aspnet-core-plugin. PostToolUse: format the changed C# file with dotnet format (--include scopes it to the changed file). Tries Docker first (service 'app'), falls back to the local dotnet CLI, swallows errors so it never blocks the user.",
+  "_comment": "Hooks for aspnet-core-plugin. PostToolUse: format the changed C# file with `dotnet format`, run through sdlc/hooks/run-tool.sh (local dotnet first, then a running Docker Compose service, skipped silently when neither has it or no *.sln/*.csproj exists). PreToolUse: config protection. SubagentStop: batched `dotnet build` after the architect, resolved the same way.",
   "hooks": {
     "PostToolUse": [
       {
@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=$(jq -j '.tool_input.file_path // empty' 2>/dev/null || python3 -c 'import json,sys; sys.stdout.write(json.load(sys.stdin)[\"tool_input\"][\"file_path\"])' 2>/dev/null); case \"$f\" in *.cs) docker compose exec -T app dotnet format --include \"$f\" 2>/dev/null || dotnet format --include \"$f\" 2>/dev/null; exit 0;; esac",
+            "command": "f=$(jq -j '.tool_input.file_path // empty' 2>/dev/null || python3 -c 'import json,sys; sys.stdout.write(json.load(sys.stdin)[\"tool_input\"][\"file_path\"])' 2>/dev/null); case \"$f\" in *.cs) s=$(bash -c 'n=run-tool.sh; r=\"${CLAUDE_PLUGIN_ROOT}\"; bs=\\\\; r=\"${r//\"$bs\"//}\"; s=\"\"; if [ -n \"$r\" ]; then for c in \"$r/../sdlc/hooks/$n\" \"$r/../../sdlc/${r##*/}/hooks/$n\" \"$r\"/../../sdlc/*/hooks/\"$n\"; do if [ -f \"$c\" ] && [ ! -e \"${c%/hooks/*}/.orphaned_at\" ]; then s=\"$c\"; break; fi; done; fi; if [ -z \"$s\" ] && [ -f \"${PWD}/plugins/sdlc/hooks/$n\" ]; then s=\"${PWD}/plugins/sdlc/hooks/$n\"; fi; printf %s \"$s\"'); [ -n \"$s\" ] || exit 0; bash \"$s\" --lang dotnet --quiet -- dotnet format --include \"$f\"; exit 0;; esac",
             "timeout": 60
           }
         ]
@@ -32,8 +32,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'n=post-implement-check.sh; r=\"${CLAUDE_PLUGIN_ROOT}\"; bs=\\\\; r=\"${r//\"$bs\"//}\"; s=\"\"; if [ -n \"$r\" ]; then for c in \"$r/../sdlc/hooks/$n\" \"$r/../../sdlc/${r##*/}/hooks/$n\" \"$r\"/../../sdlc/*/hooks/\"$n\"; do if [ -f \"$c\" ] && [ ! -e \"${c%/hooks/*}/.orphaned_at\" ]; then s=\"$c\"; break; fi; done; fi; if [ -z \"$s\" ] && [ -f \"${PWD}/plugins/sdlc/hooks/$n\" ]; then s=\"${PWD}/plugins/sdlc/hooks/$n\"; fi; if [ -n \"$s\" ]; then exec bash \"$s\" dotnet build --no-restore; fi; exit 0'",
-            "description": "Batched post-implement check: runs `dotnet build --no-restore` once after this stack's architect finishes and relays failures to the orchestrator as a retry hint. Silent when the tool is absent or no run is active.",
+            "command": "bash -c 'n=post-implement-check.sh; r=\"${CLAUDE_PLUGIN_ROOT}\"; bs=\\\\; r=\"${r//\"$bs\"//}\"; s=\"\"; if [ -n \"$r\" ]; then for c in \"$r/../sdlc/hooks/$n\" \"$r/../../sdlc/${r##*/}/hooks/$n\" \"$r\"/../../sdlc/*/hooks/\"$n\"; do if [ -f \"$c\" ] && [ ! -e \"${c%/hooks/*}/.orphaned_at\" ]; then s=\"$c\"; break; fi; done; fi; if [ -z \"$s\" ] && [ -f \"${PWD}/plugins/sdlc/hooks/$n\" ]; then s=\"${PWD}/plugins/sdlc/hooks/$n\"; fi; if [ -n \"$s\" ]; then exec bash \"$s\" --lang dotnet -- dotnet build --no-restore; fi; exit 0'",
+            "description": "Batched post-implement check: runs `dotnet build --no-restore` once after this stack's architect finishes and relays failures to the orchestrator as a retry hint. Resolved through hooks/_runner-lib.sh: local install first, then a running compose service; silent when dotnet does not apply to the project, the tool is absent in both places, or no run is active.",
             "timeout": 60
           }
         ]

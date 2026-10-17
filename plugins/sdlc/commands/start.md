@@ -22,6 +22,10 @@ The final `documentation` phase **autonomously opens a Pull Request** via `gh pr
 
 A run survives a lost session: the orchestrator checkpoints its state at every phase boundary in `.claude/.sdlc-run-active.json`, and `/sdlc:start --resume` continues from the first unfinished phase without re-running (or re-paying for) the completed ones. See `pipeline-orchestrator/SKILL.md` Step R.
 
+## Hook fast path
+
+Typing `/sdlc:start` fires the plugin's `UserPromptSubmit` hook, which runs `scripts/run-plan.sh` and injects a precomputed **run plan** (dependency preflight, stack, git-flow detection and branch proposal, diff signals, skip rules, workflow resolution, task slug) before the orchestrator starts. The orchestrator then prints the 🔌 / 🎯 / 🌿 / ✂️ / `workflow:` blocks from that plan instead of re-deriving them with a dozen `Glob`/`Read`/`git` calls on the session model. The branch gate and the plan approval gate are still asked interactively. Without `jq`, or with hooks disabled, the orchestrator falls back to its inline algorithm — same output, more tool calls.
+
 ## Mandatory execution protocol
 
 You MUST follow these steps **in order**, **printing each announcement verbatim** (do not summarize, skip, or collapse them):
