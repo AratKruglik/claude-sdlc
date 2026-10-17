@@ -138,6 +138,13 @@ write_state "$PROJ" "$(iso_offset -10M)" feature main
 OUT=$(run_config "$PROJ" "$PROJ/sub/phpstan.neon.dist" 'phpstan.neon*')
 assert_eq "config: glob matches basename in a subdirectory" "deny" "$(decision "$OUT")"
 
+fresh_project "cfg-windows"
+printf '{}\n' > "$PROJ/pint.json"
+write_state "$PROJ" "$(iso_offset -10M)" feature main
+# A Windows payload separates with backslashes, JSON-escaped as \\.
+OUT=$(run_config "$PROJ" "$(printf '%s' "$PROJ/pint.json" | sed 's#/#\\\\#g')" 'pint.json')
+assert_eq "config: backslash-separated path still matches" "deny" "$(decision "$OUT")"
+
 fresh_project "cfg-other"
 printf 'x\n' > "$PROJ/src.php"
 write_state "$PROJ" "$(iso_offset -10M)" feature main

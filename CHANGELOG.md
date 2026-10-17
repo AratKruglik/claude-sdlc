@@ -3,6 +3,26 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [Unreleased]
+
+### Fixed
+
+- **The run-scoped guards never ran from an installed plugin.** All 16 stack plugins located
+  `config-protection.sh` / `post-implement-check.sh` at `${CLAUDE_PLUGIN_ROOT}/../sdlc/hooks/`,
+  which exists in a dev checkout but not in the cache, where the layout is
+  `cache/<marketplace>/<plugin>/<version>/`. Both guards exited 0 without running. The lookup
+  now also tries `../../sdlc/<own version>/hooks/`, then any sdlc version not marked
+  `.orphaned_at`. Covered by the new `test-stack-hooks.sh`.
+- **`config-protection.sh` allowed every edit on Windows.** The payload's paths arrive with
+  backslashes there, so neither the basename nor the root-relative path ever matched a glob.
+  Both are now compared with `/` as the separator, and the stack plugins' lookup normalizes a
+  backslashed `${CLAUDE_PLUGIN_ROOT}` the same way.
+- **The per-edit formatter hooks never formatted anything.** They read the edited path from
+  `$CLAUDE_FILE`, which Claude Code does not set; the path arrives in the stdin payload as
+  `tool_input.file_path`. All 16 now read it from there, with `jq`, falling back to `python3`.
+- **Step 0a-2's filesystem fallback looked in the wrong place** (`cache/{plugin}/skills/…`),
+  so every dependency read as missing whenever `mcp__skills__list_skills` was unavailable.
+
 ## [2.0.0] — marketplace v2.0.0 / all plugins v2.0.0
 
 Per-phase cost stops being a guess, a crashed run stops costing twice, QA and security stop

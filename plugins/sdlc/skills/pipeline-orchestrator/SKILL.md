@@ -211,9 +211,13 @@ Try `mcp__skills__list_skills` first. If unavailable or it errors:
 AVAILABLE_SKILLS = set()
 For each entry in runtime-dependencies.json#dependencies:
   For each skill_name in entry.skills_used:
-    skill_path = ~/.claude/plugins/cache/{entry.name}/skills/{skill_name}/SKILL.md
+    skill_path = ~/.claude/plugins/cache/*/{entry.name}/*/skills/{skill_name}/SKILL.md
     if Glob finds skill_path: AVAILABLE_SKILLS.add("{entry.name}:{skill_name}")
 ```
+
+The installed layout is `cache/<marketplace>/<plugin>/<version>/`, hence both wildcards. A hit
+proves the plugin is on disk, not that it is enabled in this project — a local-scope install
+for another project leaves the same files — which is why `mcp__skills__list_skills` comes first.
 
 If `mcp__skills__list_skills` did succeed, map its output to the `{plugin_name}:{skill_name}` form so the matching algorithm below is uniform.
 
@@ -1711,7 +1715,7 @@ Hard rules:
 | Agent does not exist (referenced in profile) | Halt. Print error: `Agent '{name}' referenced by {profile} not installed`. |
 | Agent fails (exception in subagent) | Mark phase as failed in telemetry. Ask user: retry / skip / abort. |
 | Post-pipeline check fails | Report; do not retry. The user decides next steps. |
-| `mcp__skills__list_skills` unavailable | Use FS fallback: check `~/.claude/plugins/cache/{plugin}/skills/{skill}/SKILL.md` exists. |
+| `mcp__skills__list_skills` unavailable | Use FS fallback: check `~/.claude/plugins/cache/*/{plugin}/*/skills/{skill}/SKILL.md` exists. |
 | Token budget exceeded | Halt at next phase boundary. Report partial telemetry. |
 | Pipeline aborted (Halt above, or user chooses **abort** at the Step 3b-special approval gate) | Write partial telemetry (`aborted_at_phase`), then delete the state file (`.claude/.sdlc-run-active.json`, Step 2) before stopping, same as the Step 5 cleanup — otherwise its off-roster-agent deny rule stays active for up to 6h after a run that no longer exists and the next `/sdlc:start` offers to resume a run the user deliberately abandoned. |
 | Session lost mid-run (compaction, crash, closed terminal) | Nothing to do in the moment — the state file already holds every decision through the last completed phase step. The user runs `/sdlc:start --resume` (Step R); completed phases are not re-paid. |

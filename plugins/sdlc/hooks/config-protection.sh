@@ -43,8 +43,11 @@ state=$(fresh_state_json "$root") || allow
 [ "$(json_get "$state" "git_flow.task_type")" != "chore" ] || allow
 
 # Match on the path relative to the project root, and on the bare basename, so that a glob
-# like `pint.json` protects the file wherever the tool call spells the path from.
-rel="${target#"$root"/}"
+# like `pint.json` protects the file wherever the tool call spells the path from. On Windows
+# both paths arrive with backslashes, so compare them with "/" as the only separator.
+bs=\\
+target="${target//"$bs"//}"
+rel="${target#"${root//"$bs"//}"/}"
 base="${target##*/}"
 
 for glob in "$@"; do
