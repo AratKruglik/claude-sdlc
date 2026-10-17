@@ -159,7 +159,9 @@ runner_docker_probe() {
 
 runner_mtime() {
     [ -e "$1" ] || { printf '0'; return; }
-    stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || printf '0'
+    # GNU first: on GNU stat `-f` means "filesystem status" and succeeds with unrelated output,
+    # while BSD stat rejects `-c`, so this order is correct on both.
+    stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || printf '0'
 }
 
 runner_hash() {

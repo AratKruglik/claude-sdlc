@@ -53,10 +53,17 @@ fake_tool() {
     chmod +x "$path"
 }
 
-# A PATH that contains only this directory of shims, plus the system basics bash needs.
+# A PATH that contains the shim directory plus the system tools, minus any real docker: CI
+# runners ship one in /usr/bin, and a case that expects "docker is not installed" must not find it.
 # $1 = shim dir. Prints the PATH value.
+CLEAN_BIN="${TMP_ROOT}/clean-bin"
+mkdir -p "$CLEAN_BIN"
+for tool_path in /usr/bin/* /bin/*; do
+    case "${tool_path##*/}" in docker|docker-compose|podman) continue ;; esac
+    [ -e "${CLEAN_BIN}/${tool_path##*/}" ] || ln -s "$tool_path" "${CLEAN_BIN}/${tool_path##*/}" 2>/dev/null
+done
 shim_path() {
-    printf '%s:/usr/bin:/bin' "$1"
+    printf '%s:%s' "$1" "$CLEAN_BIN"
 }
 
 # $1 = shim dir, $2 = running services (newline-separated). docker compose ps lists them;
