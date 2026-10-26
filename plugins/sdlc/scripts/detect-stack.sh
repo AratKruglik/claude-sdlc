@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Read-only stack-profile detector. Emits a single JSON object on stdout.
 #
-# Mirrors pipeline-orchestrator/SKILL.md Step 0b (profile matching) and Step 0b-aspects
+# Mirrors pipeline-orchestrator/references/fallback-steps.md Step 0b (profile matching) and 0b-aspects
 # (per-aspect winner resolution) exactly — this script does not introduce new selection
 # semantics, it precomputes the same deterministic algorithm so the orchestrator (and the
 # SessionStart hook) don't have to spend LLM tool calls Glob-ing and Read-ing every installed

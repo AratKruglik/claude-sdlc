@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Read-only external-dependency preflight. Emits a single JSON object on stdout.
 #
-# Mirrors pipeline-orchestrator/SKILL.md Step 0a-2 / 0a-3 (filesystem fallback path):
+# Mirrors pipeline-orchestrator/references/fallback-steps.md Step 0a-2 / 0a-3 (filesystem fallback path):
 # every installed plugin's runtime-dependencies.json is merged by dependency name
 # (strictest policy wins: block > warn > graceful-degrade) and each declared skill is
 # looked up as {plugins-root}/**/{dependency}/**/skills/{skill}/SKILL.md. Policy is NOT

@@ -25,7 +25,7 @@ Development checkout fallback: `bash plugins/sdlc/scripts/doctor.sh --repo . --d
 
    If neither exists, print `🔌 Dependency preflight: no runtime-dependencies.json found.` and skip step 2.
 
-2. **Run the same preflight algorithm as Step 0a in `pipeline-orchestrator/SKILL.md`** (Step 0a-2 through 0a-3 — enumerate available skills via `mcp__skills__list_skills` with FS fallback to `~/.claude/plugins/cache/*/{plugin}/*/skills/{skill}/SKILL.md`, then compute per-dependency status). DO NOT enforce policy in `/sdlc:doctor` — `block` does NOT exit here. Just collect status.
+2. **Run the same preflight algorithm as Step 0a in `pipeline-orchestrator/SKILL.md`** (Step 0a-2 through 0a-3, in `pipeline-orchestrator/references/fallback-steps.md` — enumerate available skills via `mcp__skills__list_skills` with FS fallback to `~/.claude/plugins/cache/*/{plugin}/*/skills/{skill}/SKILL.md`, then compute per-dependency status). DO NOT enforce policy in `/sdlc:doctor` — `block` does NOT exit here. Just collect status.
 
 3. **Locate active stack profiles.** Doctor always computes this **fresh** — same discipline as its git-flow check below ("a doctor that echoes a stale cache cannot diagnose a stale cache"): run `scripts/detect-stack.sh --repo .` (resolve the path the same three-way way as every other script: `${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.sh`, then the installed cache copy, then `<repo>/plugins/sdlc/scripts/detect-stack.sh` in a development checkout). This is the exact same algorithm `pipeline-orchestrator/SKILL.md` Step 0b runs — reusing the script instead of re-deriving the Glob+Read+parse sequence by hand keeps this command from silently drifting out of sync with it.
 
@@ -335,7 +335,7 @@ If a section is absent (no baseline file, no missing deps, etc.) say so explicit
 
 - **Effectively read-only.** Do NOT install plugins, run pipelines, or modify any existing file. The single exception is seeding `docs/cost-baseline.md` from the shipped template when that file does not exist (step 4) — a create-if-absent scaffold, never an overwrite. Step 6 (shadowing check, run-marker staleness) never deletes the marker itself — it only reports and suggests the `rm` command; the operator runs it. Step 7 only reads `_usage.jsonl` through `usage-report.sh`. Step 8 never creates a branch, never fetches, and never writes the git-flow cache.
 - **Do not enforce policy.** A missing `block` dep here is just reported, not actioned.
-- **Reuse, don't reimplement.** The dependency-status algorithm is described in `pipeline-orchestrator/SKILL.md` Step 0a-2 / 0a-3. If those steps change, this command's behavior must follow — this command is documentation that delegates to those steps, not a parallel implementation.
+- **Reuse, don't reimplement.** The dependency-status algorithm is described in `pipeline-orchestrator/references/fallback-steps.md` Step 0a-2 / 0a-3. If those steps change, this command's behavior must follow — this command is documentation that delegates to those steps, not a parallel implementation.
 - **Exit code semantics with `--json`:** exit 0 normally; exit 1 only if the runtime-dependencies.json file itself is malformed JSON (parse error). Missing-but-blocking deps still exit 0 — report them in the JSON and let the caller decide.
 
 ## When to use

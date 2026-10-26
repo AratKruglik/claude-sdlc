@@ -3,6 +3,23 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [Unreleased]
+
+### Changed
+
+- **`pipeline-orchestrator/SKILL.md` split into a core and on-demand references.** The core
+  (106 KB → ~70 KB) keeps what every run executes: the run-plan fast path, Step R's decision,
+  the gates, Step 3 dispatch, Steps 4–5, base prompts and the hard rules — now placed right
+  after the language policy, so they sit inside the part of a skill Claude Code re-attaches
+  after compaction. Text read only on a branch moved verbatim to
+  `skills/pipeline-orchestrator/references/`: `fallback-steps.md` (inline Steps 0a–1c),
+  `resume.md` (R-1…R-5), `parallel-aspects.md` (experimental 3b) and `telemetry.md` (the
+  `phases[]` mapping and `_telemetry.json` shape for a jq-less run). Each step keeps its
+  heading in the core with a pointer to where its fallback lives.
+- **Run plan without the hook.** When no RUN PLAN block is in context — `/sdlc:batch` runs the
+  skill inside a subagent, where `UserPromptSubmit` does not fire — the orchestrator now runs
+  `scripts/run-plan.sh` once and uses its JSON, instead of walking the inline algorithms.
+
 ## [2.1.1] — 2026-10-26 — marketplace v2.1.1 / sdlc, laravel-plugin, php-foundation v2.1.1
 
 Patch release for runtime contracts that broke or slowed `/sdlc:start` on marketplace installs

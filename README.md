@@ -602,8 +602,9 @@ moving a key to an environment variable is never blocked.
 
 Everything the orchestrator used to re-derive on the session model with `Glob`/`Read`/`git` calls
 is now computed by bash + jq and handed to it, either by a hook or by one script call. The
-inline algorithms stay in `pipeline-orchestrator/SKILL.md` as the definition and the no-`jq`
-fallback; the hooks are the default.
+inline algorithms stay in `pipeline-orchestrator/references/fallback-steps.md` as the definition and
+the no-`jq` fallback, loaded only when neither the hook nor `scripts/run-plan.sh` produced a plan;
+the hooks are the default.
 
 | Where | Hook / script | What the model no longer does |
 |---|---|---|

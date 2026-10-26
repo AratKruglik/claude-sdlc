@@ -51,9 +51,9 @@ It holds the deterministic results of Steps 0a, 0b, 0b-git (GIT-FLOW A–E, neve
 1b (the listed keys), 1c and the Step 2 slug, plus `print_blocks` — the verbatim 🔌 / 🎯 / 🌿 /
 ✂️ / `workflow:` text each step must print. **When the block is present, every step below marked
 "Fast path" reads its keys and prints its block instead of re-deriving the answer with
-`Glob`/`Read`/`Bash`.** The inline algorithms stay in this file as the authoritative definition and
-as the fallback for a session where the hook did not fire (no `jq`, hook disabled, a harness that
-skips hooks). Decisions that need a human — the branch gate, the plan approval, ties and halts —
+`Glob`/`Read`/`Bash`.** The inline algorithms for Steps 0a–1c live in
+`${CLAUDE_SKILL_DIR}/references/fallback-steps.md` as the authoritative definition and as the
+last-resort fallback. Decisions that need a human — the branch gate, the plan approval, ties and halts —
 are never taken by the plan: it reports them under `halts[]` / `gate_default` and you ask.
 
 When the plan would exceed the hook context cap, the block instead names a JSON file: `Read` it
@@ -61,6 +61,14 @@ once and treat its content exactly as the inline plan.
 
 Trust the plan only for the prompt it was computed for: the block carries the `arguments` it saw;
 if they differ from `$ARGUMENTS`, ignore it and fall back. `warnings[]` are printed once, verbatim.
+
+**No block, or a stale one.** A `/sdlc:batch` task runs this skill inside a subagent, where
+`UserPromptSubmit` does not fire, and a harness may skip hooks. Then compute the plan yourself,
+once, and use its JSON exactly as the block:
+`bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-plan.sh" --repo . --arguments "<$ARGUMENTS>"` (append
+`--headless` in headless mode; dev checkout: `plugins/sdlc/scripts/run-plan.sh … --dev-root .`).
+Only when that fails — no `jq`, or the JSON carries an `error` — read `references/fallback-steps.md`
+once and follow its inline algorithms.
 
 ### Plugin options (`userConfig`)
 
@@ -88,6 +96,89 @@ Language detection heuristic: if the majority of word characters in `$ARGUMENTS`
 The detected language is delivered to each phase agent via the per-call CONTEXT trailer in Step 3b-1 (key: `narrative_language`), NOT as a free-form text suffix on each prompt. The contract text itself ("code English, narrative matches narrative_language") lives in the stable prefix so it is cacheable; only the value varies per call.
 
 This single rule replaces the per-agent bilingual trigger keywords that were used in earlier prototypes — the orchestrator's routing is deterministic (driven by `agents_per_phase` from the active stack profile), so trigger keywords add no value and only consume context.
+
+---
+
+## Hard rules for the orchestrator
+
+You **never**:
+- Read or write project source files directly. Delegate to agents.
+- Run any Bash command beyond the post-pipeline checks and the Bash allowlist below. Delegate to agents.
+- Skip phases except per Step 0c skip-rules.
+- Continue past a failed phase validation without user input.
+- Modify files inside `~/.claude/plugins/cache/**`.
+- Dispatch an agent that is not named in `EFFECTIVE_PROFILE.agents_per_phase` (or added
+  via `agent_overrides` in `sdlc.local.yaml`) — not even if a project-local agent (e.g.
+  `.claude/agents/tester.md`) looks like a better fit for the phase than the profile's
+  declared agent. This is what the Step 2 run marker and the `enforce-agent-model.sh`
+  deny rule enforce; the orchestrator must not route around it by improvising a name.
+- Dispatch a phase agent with `run_in_background`. Every phase in Step 3 is synchronous
+  by design (see "Execution model" above) — a backgrounded dispatch skips the Step 3d
+  artifact-file validation and the Step 3d-1 telemetry capture for that phase entirely.
+  A parallel group is not an exception: its members are concurrent **foreground** calls
+  issued in one message (3c-group), and the orchestrator still blocks until all of them
+  return. (`batch-pipeline` is a separate skill with a separate execution model and is
+  not governed by this rule.)
+  artifact-file validation and the Step 3d-1 telemetry capture for that phase entirely.
+- Commit, merge, rebase, force-push, tag, or delete a branch. Branch *creation* (below) is the
+  only history-shaping act the orchestrator performs; committing belongs to the documentation
+  phase and merging belongs to a human reviewing the PR.
+
+### Bash allowlist (Steps R, 0b-git, 0c, 2, 3d-1 and 5 only)
+
+Branch setup needs git plumbing and telemetry needs one read-only script, which is why the
+Bash rule above is scoped rather than absolute. Exactly these are permitted:
+
+**Read-only (Steps R / 0b-git / 0c / 2)** — `git rev-parse` (including `--abbrev-ref HEAD` for
+the Step R branch guard and `--git-path info/exclude` for the Step 2 exclusion), `git symbolic-ref`,
+`git for-each-ref`, `git branch` (listing only), `git config --get` / `--get-regexp`,
+`git ls-remote --heads`, `git status --porcelain`, `git diff` (the Step 0c signals),
+`git rev-list --count`, `git check-ref-format`, `git flow version` (the F-2a CLI-availability
+probe), and `scripts/detect-git-flow.sh`. Step 0c's rule-4 content check additionally
+pipes one of those reads — `git diff {BASE}...HEAD | grep '^+' | grep -nE '<pattern>'` —
+which stays read-only: `grep` over a diff, never over the working tree.
+
+**Read-only (Steps 0a–1c fallback / 3d-1 / 5)** — `scripts/run-plan.sh`, `scripts/deps-preflight.sh` (`--write-cache` writes only the plugin-data stamp), `scripts/detect-stack.sh --shape-only` and `bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-report.sh" {task_slug} --project-root .` (dev checkout: `plugins/sdlc/scripts/…`). They read the repo and `docs/plans/{task_slug}/_usage.jsonl` and print JSON.
+
+**Writing one artifact (Step 5)** — `bash "${CLAUDE_PLUGIN_ROOT}/scripts/finalize-telemetry.sh" {task_slug} --project-root . [--aborted-at-phase X] [--extra JSON]`. It writes exactly `docs/plans/{task_slug}/_telemetry.json` and prints the final summary.
+
+**Mutating** — only three, each narrowly conditioned:
+
+- `git fetch origin {base_branch}` — only when the base ref does not resolve locally
+  (GIT-FLOW Step F-3). One attempt, no retry loop.
+- `git checkout -b {branch_name} {base_branch}` — only after the GIT-FLOW Step F gate
+  resolves to *create*, and only when GIT-FLOW Step F-2a's git-flow-CLI conditions do
+  *not* all hold. Unconditional in headless mode per Step F-4 when F-2a does not apply.
+- `git flow {feature|release|hotfix} start {topic}` — only after the GIT-FLOW Step F gate
+  resolves to *create* **and** every GIT-FLOW Step F-2a condition holds (git-flow model,
+  CLI installed, repo initialized via `git flow init`, task_type in the native-subcommand
+  table). Never `git flow init`, `git flow {subcommand} finish`, or any other subcommand —
+  the orchestrator only starts branches, it never finishes or inits git-flow itself.
+
+Anything outside this list is a delegation to an agent or a job for the user, not something to
+improvise with a shell command.
+
+You **always**:
+- Use file paths under `docs/plans/{task_slug}/` for inter-phase data.
+- Pass agents COMPACT prompts. Never inline a previous phase's full output.
+- Update `phase_status` + `updated_at` in the state file at every phase boundary (3d-0) — it is
+  the only thing that makes a crashed run resumable, and it keeps the hooks armed.
+- Save telemetry, even if the pipeline is aborted (with `aborted_at_phase` field).
+- Print final summary to the user, even on partial completion.
+- Run Step R before Step 0a — never start a second run on top of a fresh state file without
+  asking.
+
+### Prompt-caching discipline
+
+The Step 3b-1 prompt layout (stable prefix → per-call CONTEXT trailer) exists so that the cacheable portion of each agent invocation stays byte-identical across runs of the same phase. Violations defeat caching and inflate cost.
+
+Hard rules:
+
+- The stable prefix MUST contain ZERO references to `task_slug`, ISO timestamps, run UUIDs, or any per-call value. All such values live in the trailer.
+- The stable prefix's `convention_skills` list MUST be sorted deterministically — never insertion-ordered.
+- The stable prefix's `phase_prompts_injection` MUST be concatenated in a deterministic order (alphabetical by source plugin name) to keep multi-plugin merges byte-stable.
+- Do NOT splice user-supplied free text (e.g. raw `$ARGUMENTS`) into the stable prefix. `$ARGUMENTS` belongs in `_brief.md`, which the agent reads via the inputs list.
+- When adding new phase guidance, prefer extending the agent's `.md` body (truly stable system prompt) over enriching the orchestrator's prefix.
 
 ---
 
@@ -123,104 +214,13 @@ phase boundary updates (3d-0). Decide how to proceed:
 - Headless mode (`SDLC_NONINTERACTIVE=true`) without `--resume`: start fresh, one stderr line
   `WARN: stale/active run "{slug}" archived — starting fresh`. With `--resume`: resume.
 
-**R-1. Branch guard.** `git rev-parse --abbrev-ref HEAD` must equal `state.git_flow.branch_name`.
-Otherwise HALT — resuming on the wrong branch is the one way `--resume` can damage work:
-
-```
-❌ Cannot resume "{task_slug}": the run lives on branch {branch_name}, current branch is {current}.
-   git checkout {branch_name}   — then /sdlc:start --resume
-   or /sdlc:start "<description>" to start a fresh run.
-```
-
-**R-2. Load CONTEXT from the state file** — every key Step 2 persisted (`task_slug`, `arguments`,
-`flags`, `stack`, `git_flow.*` → `CONTEXT.base_branch` / `branch_name` / `pr_base_branch` /
-`task_type` / `requires_back_merge` / `diff_scope`, `narrative_language`, `headless_mode`,
-`active_workflow`, `workflow_selection_reason`, `max_total_cost_usd`, `resolved_phases`,
-`skip_rules_applied`, `phase_status`, `cost_cap_overridden`). **Skip Steps 0a, 0b, 0b-git, 0c,
-1c and 2 entirely** — their decisions are what the file holds. Re-run only Step 1a/1b (parse the
-profiles named in `state.stack.active_profiles` + `sdlc.local.yaml`) to rebuild
-`EFFECTIVE_PROFILE`; it is deterministic from disk and too large to persist.
-
-For every phase step whose status is `completed`, set `CONTEXT.{phase}_output` to the literal
-`(resumed — read docs/plans/{task_slug}/0X-{phase}.md)`. Agents already read prior outputs from
-the file system, never from the orchestrator's context (compact-handoff contract), so nothing
-downstream needs the lost summaries.
-
-**R-3. Refresh the state file:** `updated_at = now`, `resume_count += 1`, `resumed_at = now`.
-This is also what re-arms the hooks — `enforce-agent-model.sh` and the telemetry hooks judge
-freshness by `updated_at`.
-
-**R-4. MUST PRINT VERBATIM:**
-
-```
-↩️  Resuming "{task_slug}" — {N completed}/{M} phase steps done, resume #{resume_count}
-   workflow: {active_workflow} · branch: {branch_name} → PR base {pr_base_branch}
-   {phase[/aspect]}: {status}
-   ...one line per entry in phase_status...
-```
-
-**R-5. Enter Step 3** at the first group in `resolved_phases` that has a member whose status is
-not `completed` / `skipped` / `skipped-cost-cap`, and dispatch **only those members**. Per status:
-
-| `phase_status` value | What Step 3 does with it |
-|---|---|
-| `pending` | run normally |
-| `planned` (development aspect) | `Glob` the plan file `02-development-plan{-aspect}.md`; if present → go straight to the approval gate (3b-special); if absent (crashed between agent start and file write) → re-run the plan pass |
-| `approved` (development aspect) | run the implementation pass only |
-| `failed` | ask the user: retry / skip / abort, exactly as a fresh failure would |
-| `completed`, `skipped`, `skipped-cost-cap` | do not dispatch |
-
-Phase numbering (`Phase N/total`) is unchanged — it comes from `resolved_phases`, not from what
-is left to run. Steps 4 and 5 run as usual at the end; Step 5 records `resumed: true`.
+**R-1 … R-5 — resuming.** Only when the decision above is *resume*: read
+`${CLAUDE_SKILL_DIR}/references/resume.md` once and follow it (R-1 branch guard, R-2 CONTEXT
+from the state file, R-3 refresh, R-4 print, R-5 enter Step 3).
 
 ### Step 0a — External plugin dependency preflight
 
-**Fast path.** With a RUN PLAN in context, take `deps_preflight` (results, `all_satisfied`, `dependencies[]`, `security_guidance_available`, `source: cache|scan`) and print `print_blocks.preflight`; the hook already ran the scan or the cache fast-path and wrote the stamp. Then apply 0a-1 (headless comes from the plan's `headless_mode`) and 0a-4 policy enforcement only — the status computation (0a-2/0a-3) is done. Without the plan, run `scripts/deps-preflight.sh --write-cache` in one Bash call where `jq` exists and fall back to the inline algorithm only when it does not.
-
-Aggregate runtime dependencies from **every installed plugin's `runtime-dependencies.json`**, not just core. This allows framework plugins to declare their own external skill needs.
-
-> Note: Claude Code's native `plugin.json → dependencies` field is a simple array of plugin names used only for intra-marketplace install-time resolution (e.g., `nodejs-plugin` declaring it needs `sdlc`). Our runtime preflight — for external plugins like `superpowers` from another marketplace, with per-skill granularity and policies — lives in a separate `runtime-dependencies.json` file to avoid conflicting with the native schema.
-
-**Algorithm (with cache fast-path):**
-
-The preflight result is cached in `${CLAUDE_PLUGIN_DATA}/deps-preflight.json` (the plugin data directory Claude Code provides; fall back to `~/.claude/.sdlc-deps-preflight.json` when the variable is unset, e.g. a dev checkout) to avoid repeating 11+ tool calls on every `/sdlc:start` invocation.
-
-**Fast-path (cache hit):**
-
-1. If `$ARGUMENTS` contains `--force-preflight`, skip to full scan below.
-2. Read `${CLAUDE_PLUGIN_DATA}/deps-preflight.json` (1 tool call).
-3. If the file exists AND `all_satisfied == true`:
-   - Load `results` into `CONTEXT` (set `CONTEXT.{plugin}_unavailable = true` for any `"missing"` entries).
-   - Print: `🔧 Dependency preflight: cached (all satisfied)`
-   - Persist `deps_preflight` from cached `results` into telemetry with `"source": "cache"`.
-   - Skip to Step 0b. Done.
-4. If the file exists AND `all_satisfied == false`:
-   - Run an **abbreviated check**: only re-verify deps marked `"missing"` in the cache (not all `runtime-dependencies.json` files). If a previously-missing dep is now available, update the stamp.
-5. If the file does not exist, or `--force-preflight` was set → proceed to full scan.
-
-**Full scan (cache miss):**
-
-1. Use `Glob ~/.claude/plugins/cache/**/runtime-dependencies.json` to find all declarations.
-2. Read each file. Parse the `dependencies` array. Skip files with empty arrays silently.
-3. Merge declarations across plugins. If two plugins declare the same external dep with different policies, the strictest wins (`block` > `warn` > `graceful-degrade`).
-
-**Write cache stamp** (after full scan completes without `block` abort):
-
-Write `${CLAUDE_PLUGIN_DATA}/deps-preflight.json`:
-
-```json
-{
-  "checked_at": "<ISO timestamp>",
-  "results": { "<plugin_name>": "available"|"missing" },
-  "all_satisfied": true|false
-}
-```
-
-**Cache invalidation:**
-
-- `/sdlc:doctor` always runs a fresh full scan and rewrites the stamp (see `doctor.md`).
-- `--force-preflight` flag on `/sdlc:start` bypasses cache entirely.
-- If a `block`-policy dep caused an abort, no stamp is written — ensuring the next run always re-scans.
+**Fast path.** With a RUN PLAN in context, take `deps_preflight` (results, `all_satisfied`, `dependencies[]`, `security_guidance_available`, `source: cache|scan`) and print `print_blocks.preflight`; the hook already ran the scan or the cache fast-path and wrote the stamp. Then apply 0a-1 (headless comes from the plan's `headless_mode`) and 0a-4 policy enforcement only — the status computation (0a-2/0a-3) is done. Without the plan, run `scripts/deps-preflight.sh --write-cache` in one Bash call where `jq` exists and fall back to the inline algorithm in `references/fallback-steps.md` (Step 0a) only when it does not.
 
 #### 0a-1. Detect headless mode
 
@@ -230,45 +230,6 @@ HEADLESS = (env SDLC_NONINTERACTIVE == "true" OR "1")
 ```
 
 Persist in `CONTEXT.headless_mode` for telemetry. Affects UX of policy enforcement below (interactive prompts vs. machine-readable JSON to stdout, warnings to stderr, etc.).
-
-#### 0a-2. Enumerate available skills (with FS fallback)
-
-Try `mcp__skills__list_skills` first. If unavailable or it errors:
-
-```
-AVAILABLE_SKILLS = set()
-For each entry in runtime-dependencies.json#dependencies:
-  For each skill_name in entry.skills_used:
-    skill_path = ~/.claude/plugins/cache/*/{entry.name}/*/skills/{skill_name}/SKILL.md
-    if Glob finds skill_path: AVAILABLE_SKILLS.add("{entry.name}:{skill_name}")
-```
-
-The installed layout is `cache/<marketplace>/<plugin>/<version>/`, hence both wildcards. A hit
-proves the plugin is on disk, not that it is enabled in this project — a local-scope install
-for another project leaves the same files — which is why `mcp__skills__list_skills` comes first.
-
-If `mcp__skills__list_skills` did succeed, map its output to the `{plugin_name}:{skill_name}` form so the matching algorithm below is uniform.
-
-#### 0a-3. Compute per-dependency status
-
-```
-DEPS_STATUS = {}  # plugin_name → {"status": "available"|"missing", "missing_skills": [...]}
-
-For each entry in runtime-dependencies.json#dependencies:
-  missing = [s for s in entry.skills_used if "{entry.name}:{s}" not in AVAILABLE_SKILLS]
-  if missing == []:
-    DEPS_STATUS[entry.name] = {"status": "available", "missing_skills": []}
-  else:
-    DEPS_STATUS[entry.name] = {
-      "status": "missing",
-      "missing_skills": missing,
-      "policy": entry.policy,
-      "install_command": entry.install_command,
-      "fallback_note": entry.fallback_note
-    }
-```
-
-Persist in `CONTEXT.deps_preflight = DEPS_STATUS` for telemetry (Step 5).
 
 #### 0a-4. Enforce policy per missing dependency
 
@@ -288,149 +249,16 @@ Aggregate ALL `block` failures before aborting — print all JSON entries / inst
 - `warn` → write a single line to stderr, continue.
 - `graceful-degrade` → silent.
 
-#### 0a-5. MUST PRINT VERBATIM (interactive only)
-
-If `HEADLESS == false`, print this block AFTER policy enforcement (and only if it did not abort):
-
-```
-🔌 Dependency preflight:
-   {plugin_name} ({version}, policy={policy}): {✅ available | ⚠️ degraded | ❌ missing}
-     missing: {csv of skill_names, or "—"}
-   ...
-```
-
-If `runtime-dependencies.json` had no entries, print:
-
-```
-🔌 Dependency preflight: no external dependencies declared.
-```
-
-Or, on cache hit with all satisfied:
-
-```
-🔧 Dependency preflight: cached (all satisfied)
-```
-
-If `HEADLESS == true`, suppress this print (warnings already went to stderr; success is silent).
-
 #### 0a-6. Pass downstream
 
 `CONTEXT.{plugin}_unavailable` flags propagate into agent prompts via Step 3b-1's `availability_flags:` line in the per-call CONTEXT trailer — do not duplicate that wiring here.
 
-#### 0a-7. Detect security-guidance plugin
-
-Use `Glob ~/.claude/plugins/cache/**/security-guidance/.claude-plugin/plugin.json` (same detection as `/sdlc:security-init` Step 5). Set `CONTEXT.security_guidance_available = true` if found, `false` otherwise. The security-phase base prompt reads this flag directly.
-
 ### Step 0b — Detect stack profile
 
-**Fast path.** With a RUN PLAN in context, take `stack` (primary, `active_profiles`, `aspect_ties`, `forced`, `source`) and print `print_blocks.stack`. A non-empty `aspect_ties` arrives as a `halts[]` entry — HALT with its text exactly as the inline rule below says. The plan also carries `stack.project_shape` (package manager, runner prefix, test/lint/typecheck/format commands, test framework) which Step 3b-1 forwards to every agent.
+**Fast path.** With a RUN PLAN in context, take `stack` (primary, `active_profiles`, `aspect_ties`, `forced`, `source`) and print `print_blocks.stack`. A non-empty `aspect_ties` arrives as a `halts[]` entry — HALT with that `halts[]` text verbatim. The plan also carries `stack.project_shape` (package manager, runner prefix, test/lint/typecheck/format commands, test framework) which Step 3b-1 forwards to every agent.
 
-If `$ARGUMENTS` includes `--stack=NAME`, skip both the cache and the full scan below entirely:
-restrict candidates to profiles whose `stack` matches `NAME` (still located via the Glob in the
-full-scan path, since a forced stack still has to be read from *some* `stack.md`) and treat it
-as the sole match for 0b-aspects.
-
-Otherwise, resolve via a cache fast-path, same shape as Step 0a's dependency preflight —
-`scripts/detect-stack.sh` is the exact same algorithm as the full scan below (it exists so a
-`SessionStart` hook can precompute this once per session for free; see
-`hooks/session-start-stack-cache.sh`), and this step is just choosing whether to read its
-cached output or re-run the algorithm inline.
-
-**Fast-path (cache hit):**
-
-1. If `$ARGUMENTS` includes `--redetect-stack`, skip to the full scan below.
-2. Compute the cache path: `sha1(realpath(project_root))[:16] + ".json"` under
-   `${CLAUDE_PLUGIN_DATA}/stack-cache/` (fallback when the variable is unset: `~/.claude/.sdlc-stack-cache/`). `Read` it (1 tool call).
-3. Trust it when **all** hold: `schema_version == 1`; `repo` field matches
-   `realpath(project_root)`; `detected_at` is younger than `stack_cache_ttl_hours` (plugin option `CLAUDE_PLUGIN_OPTION_STACK_CACHE_TTL_HOURS`, default 6h — matching the run-marker
-   staleness window elsewhere in this pipeline); `aspect_ties` is `{}` (a recorded tie must
-   still reach the operator — see step 4).
-4. If `aspect_ties` is non-empty, do **not** silently pick a winner — this is the one
-   correctness trap in trusting a precomputed cache. HALT exactly as the inline algorithm
-   would: `Aspect '{aspect}' has tie between {names}. Use --stack=NAME to disambiguate.`
-5. Otherwise, load `primary_profile` and `active_profiles` directly from the cache into
-   `PRIMARY_PROFILE` / `ACTIVE_PROFILES`. Print `🔧 Stack detection: cached (session start
-   hook, {age}m old)`. Skip to the 0b-aspects print. Done.
-6. Cache absent, stale, schema mismatch, repo mismatch, or unreadable → fall through to the
-   full scan. This is a supported, silent fallback — the hook not having run yet (first
-   session after install, or a non-interactive harness that skips hooks) is normal, not an
-   error.
-
-**Full scan (cache miss):**
-
-Use `Glob` to find all stack profiles:
-
-```
-~/.claude/plugins/cache/**/stack.md
-```
-
-For each `stack.md`:
-1. `Read` the file.
-2. Parse the YAML frontmatter (`stack`, `priority`, `detect`).
-3. Evaluate `detect` rules against the project root:
-   - `detect.any: ["*"]` → always matches.
-   - `detect.all: [...]` → all sub-rules must match.
-   - `file_exists: <path>` → check via `Glob` whether the file exists.
-   - `file_contains: { path, pattern }` → `Read` the file, run regex.
-4. Score by `priority` (higher wins).
-
-This is the same logic `scripts/detect-stack.sh` runs non-interactively; running it inline here
-(rather than shelling out) is deliberate — a cache miss on `--stack=NAME` or a fresh repo is
-already the exception path, and keeping one obviously-correct inline algorithm as the source of
-truth is worth more than a hard dependency on `jq` being present for every session.
-
-#### 0b-aspects — Per-aspect winner resolution
-
-Profiles declare which **aspects** of the stack they cover via the `aspects:` field in their frontmatter. Canonical aspects (v1):
-
-- `backend` — server-side application logic (controllers, models, business rules)
-- `frontend` — UI / client-side rendering
-- `database` — schema, migrations, seeders
-- `infra` — Docker, CI/CD, deployment
-- `testing` — test infrastructure (when distinct from backend/frontend conventions)
-- `messaging` — queues, events, async (rare; opt-in)
-
-Resolution algorithm (run AFTER finding all matching profiles in 0b above):
-
-```
-ACTIVE_PROFILES = {}              # aspect → winning profile
-
-for each canonical_aspect in [backend, frontend, database, infra, testing, messaging]:
-  candidates = matching_profiles where `aspects` array contains canonical_aspect
-  if candidates is empty:
-    ACTIVE_PROFILES[canonical_aspect] = None
-    continue
-  winner = candidate with highest priority
-  if multiple candidates share the highest priority:
-    HALT with error: "Aspect '{canonical_aspect}' has tie between {names}. Use --stack=NAME to disambiguate."
-  ACTIVE_PROFILES[canonical_aspect] = winner
-
-# Aspect-agnostic fallback
-# Phases like business_analysis, security, documentation are aspect-agnostic.
-# For these, pick a single "primary profile" from any matching profile (highest priority overall).
-PRIMARY_PROFILE = matching_profile with highest priority overall (tiebreaker: alphabetical).
-
-if no profiles match at all:
-  PRIMARY_PROFILE = vanilla profile from core
-  ACTIVE_PROFILES[*] = vanilla profile (it claims all aspects)
-```
-
-If `--stack=NAME` was used, all aspect winners come from that single profile (compatibility mode).
-
-🚨 **MUST PRINT VERBATIM** (do not paraphrase, do not skip):
-
-```
-🎯 Active stack profiles:
-   primary:  {primary_stack} (priority {N}, from {plugin_name})
-   backend:  {profile or "—"}
-   frontend: {profile or "—"}
-   database: {profile or "—"}
-   infra:    {profile or "—"}
-   testing:  {profile or "—"}
-   forced via --stack: {yes|no}
-```
-
-This print is a contract with the user. If you skip it, the user has no way to verify which profiles activated. If you find yourself about to call an agent without having printed this — STOP and print it first.
+Without a plan, the cache / full-scan detection and the 0b-aspects winner resolution (with its
+🎯 print) are in `${CLAUDE_SKILL_DIR}/references/fallback-steps.md`, Step 0b.
 
 #### 0b-git — Git branching model, task type, and branch setup
 
@@ -475,120 +303,9 @@ artifacts, no run marker — so there is nothing to clean up.
 
 Before phase execution, determine if any phases can be skipped to save tokens. Rules are conservative: when in doubt, run the phase.
 
-#### 0c-1. Compute diff signals (single Bash invocation)
-
-Run once and reuse across all rules:
-
-`BASE` is `CONTEXT.base_branch` from Step 0b-git — **not** a hardcoded `origin/main`. On a
-git-flow project a feature branch's base is `develop`, so measuring against `main` would count
-every commit released since the last merge-back as part of this task's diff and make every
-signal below wrong.
-
-```bash
-git diff --shortstat {BASE}...HEAD                # → SHORTSTAT
-git diff --name-only {BASE}...HEAD                # → CHANGED_FILES
-git diff --numstat {BASE}...HEAD | awk '{i+=$1; d+=$2} END{print i, d}'  # → ADDED, DELETED LOC
-git rev-list --count {BASE}..HEAD                 # → COMMITS_AHEAD
-```
-
-Derive:
-
-- `LOC_TOUCHED = ADDED + DELETED`
-- `HAS_MIGRATIONS = any path in CHANGED_FILES matches /(database\/migrations|/migrations\/)/`
-- `CONFIG_ONLY = every path in CHANGED_FILES matches /\.(env|env\..+|ya?ml|json|toml|ini)$/i`
-- `WHITESPACE_ONLY = SHORTSTAT line equals "" OR `git diff --shortstat -w {BASE}...HEAD` produces zero "insertions/deletions" while non-`-w` produced > 0`
-
-If `git` errors (no such base ref, detached HEAD, etc.) — log a one-line warning, set all signals to safe defaults (`LOC_TOUCHED=999999`, `HAS_MIGRATIONS=true`, `CONFIG_ONLY=false`, `WHITESPACE_ONLY=false`) so no skip fires. Conservative when uncertain.
-
-**Nothing to measure — `COMMITS_AHEAD == 0` OR `CHANGED_FILES` is empty.** Every signal above is
-*retrospective*: it measures work that already exists. When there is no diff, the raw values
-invert the intent of every rule below — `SHORTSTAT` is empty so `WHITESPACE_ONLY` reads true,
-`CONFIG_ONLY` is vacuously true over an empty file set ("every path matches" holds for zero
-paths), and `LOC_TOUCHED` is 0. Left alone, that skips business analysis, QA **and** security.
-
-Both halves of the condition are load-bearing:
-
-- `COMMITS_AHEAD == 0` — Step 0b-git just created the branch. This is now the most common way
-  to start a run, so the trimmed pipeline would become the default.
-- `CHANGED_FILES` is empty **with** commits present — e.g. a commit reverted later in the same
-  branch. `COMMITS_AHEAD` is 2, so the commit count alone does not catch this.
-
-In either case take the same conservative path as a `git` error — the safe defaults above, no
-rule fires — and set `CONTEXT.diff_scope = "prospective"` with the reason. Otherwise set
-`CONTEXT.diff_scope = "retrospective"`.
-
-Gate on the **diff**, not on the commit count: an empty diff is the thing that makes every
-signal meaningless, and it has more than one cause.
-
-`diff_scope` also gates recipe matching: a `loc_touched_max` / `loc_touched_min` constraint in
-a workflow recipe counts as **not satisfied** when `diff_scope == "prospective"` (see
-`RESOLVER.md` Step 1), so an unmeasurable diff cannot satisfy a ceiling by being empty.
-
-#### 0c-2. Skip-rules table (Phase 3, ordered)
-
-Apply rules in order. A phase already removed by an earlier rule cannot be re-removed. Log each fired rule into `CONTEXT.skip_rules_applied[]` as `{rule, phase_skipped, reason}`.
-
-| # | Rule | Signal | Action |
-|---|---|---|---|
-| 1 | `typo-fix` | `$ARGUMENTS` matches any pattern in `references/task-type-patterns.json` → `skip_rules.typo_fix.patterns` (compiled with that file's `flags`) AND `LOC_TOUCHED < 30` | Skip `business_analysis`. Use `$ARGUMENTS` directly as spec for `development`. |
-| 2 | `whitespace-only` | `WHITESPACE_ONLY == true` | Skip `business_analysis` AND `qa`. Development is still required (a maintainer should look at the changes), but BA and QA add no value over a `pint`/`prettier` post-check. |
-| 3 | `config-only` | `CONFIG_ONLY == true` AND `LOC_TOUCHED < 200` | Skip `qa`. Config files have no executable behavior to test; post-pipeline checks (lint, schema validators) cover them. |
-| 4 | `lightweight-no-db` | `LOC_TOUCHED < 50` AND `HAS_MIGRATIONS == false` AND **neither** the path check nor the content check below finds anything | Skip `security`. Inject an inline secret-leak check directive into the `development` phase prompt instead (developer scans diff for hardcoded secrets via `grep` for known patterns and reports findings in the compact summary). |
-
-
-**Rule 4's two checks.** Skipping the security phase is the most consequential skip in the
-table — a missed vulnerability is silent, unlike a missed test. So rule 4 fires only when
-**both** checks come back empty, and either one finding anything is enough to keep security in
-the pipeline.
-
-*Path check* — any changed path matching, case-insensitively:
-
-```
-auth|password|crypt|secret|token|jwt|session|upload|exec|shell|raw|query|fetch|http|storage|serializ
-```
-
-*Content check* — the **added** lines of the diff, so that deleting a dangerous call does not
-keep the phase alive for no reason:
-
-```bash
-git diff {BASE}...HEAD | grep '^+' | grep -nE 'DB::raw|eval\(|exec\(|shell_exec|child_process|subprocess|pickle|unserialize'
-```
-
-A hit in either check means the rule **does not fire** and security runs. Record which check
-fired and the matching path or pattern in `skip_rules_applied[]`'s reason field for the rule
-that did fire, so a reader can tell "no risk signal" from "not checked".
-
-Both lists are deliberately broad. The cost of a false negative here is a shipped
-vulnerability; the cost of a false positive is one extra security phase on a small diff.
-
-If a skip-rule disables a phase that the active stack profile maps to a per-aspect agent map, ALL aspects of that phase are skipped (skip-rules operate at phase granularity, not aspect granularity).
-
-**Determinism rules:**
-
-- Apply skip-rules in the order above; once a rule fires, evaluate later rules against the remaining phase set.
-- A phase that is in `EFFECTIVE_PROFILE.skip_phases` (from `sdlc.local.yaml` Step 1b) is already removed; skip-rules cannot re-add it.
-- BA cannot be skipped if the user used `--force-ba` flag (reserved for future override; not yet implemented but reserve the flag to avoid breaking callers).
-- Skip-rules can be disabled globally with `--no-skip-rules` (reserved for future use; orchestrator parses but currently ignores). When telemetry shows a skip pattern correlated with QA/Security findings in subsequent runs, tighten the rule.
-
-#### 0c-3. Recording and announcing
-
-For each fired rule, append to `CONTEXT.skip_rules_applied[]`:
-
-```json
-{
-  "rule": "config-only",
-  "phase_skipped": "qa",
-  "reason": "all 3 changed paths matched /\\.(env|ya?ml|json|toml|ini)$/i; LOC_TOUCHED=42"
-}
-```
-
-🚨 **MUST PRINT VERBATIM** if at least one rule fired (otherwise stay silent on this sub-step):
-
-```
-✂️ Skip-rules applied:
-   {rule_name} → skipped {phase}: {one-line reason}
-   ...
-```
+Without a plan, 0c-1 (diff signals), 0c-2 (the ordered rule table, rule 4's path and content
+checks) and 0c-3 (recording and the ✂️ print) are in
+`${CLAUDE_SKILL_DIR}/references/fallback-steps.md`, Step 0c.
 
 For rule `lightweight-no-db`, additionally pass an injection into `phase_prompts_injection.development` (concat after stack-supplied injections):
 
@@ -604,24 +321,10 @@ Report any matches in your compact summary under a `SECRET-LEAK CHECK:` line
 
 #### 1a. Parse all active profiles
 
-For each profile in `ACTIVE_PROFILES.values()` plus `PRIMARY_PROFILE`, extract:
-- `agents_per_phase`: phase → agent name OR phase → {aspect: agent name}.
-- `convention_skills`: skill identifiers to apply during development.
-- `phase_prompts_injection`: per-phase additional instructions.
-- `extra_phases`: list of `{name, after, agent, description}` to insert.
-- `post_pipeline_checks`: shell commands to run at the end.
-
-Merge across profiles to build `EFFECTIVE_PROFILE`:
-
-- For aspect-agnostic phases (`business_analysis`, `security`, `documentation`): use `PRIMARY_PROFILE`'s agent. If absent in primary, fall back to vanilla (core) agent.
-- For aspect-aware phases (`development`, plus `qa` per the rule below): build `EFFECTIVE_PROFILE.agents_per_phase[phase] = {aspect: agent}` by collecting from each `ACTIVE_PROFILES[aspect].agents_per_phase[phase][aspect]`.
-- **`qa` fan-out rule:** if MORE than one distinct profile is active across aspects (full-stack run, e.g. Laravel backend + Inertia frontend), build `EFFECTIVE_PROFILE.agents_per_phase.qa = {aspect: qa_agent}` where `qa_agent` is that aspect profile's declared `qa` agent (a per-aspect map entry if declared, else its plain `qa` value, else `qa-engineer`). Each aspect then gets its own QA pass with that aspect's `phase_prompts_injection` — one sonnet pass per codebase language instead of a single pass over a mixed PHP+TS diff. If only one profile is active, keep the single aspect-agnostic QA pass (backward compatible).
-- `convention_skills`: union of all active profiles' arrays (de-duplicated).
-- `phase_prompts_injection`: per-phase concat of all active profiles' injections (each plugin contributes its part).
-- `extra_phases`: union (later check for name conflicts; if any, halt with error).
-- `post_pipeline_checks`: union (de-duplicated, preserving order: PRIMARY first, others appended).
-
-Hold these merged values as `PROFILE` (mutable in 1b).
+With a RUN PLAN, `effective_profile` is the merged result; read only the `## Phase prompts
+injection` section of each active profile's `stack.md`, concatenated per phase in the order
+the Prompt-caching discipline sets. Without a plan, the full parse and merge rules (including
+the `qa` fan-out rule) are in `${CLAUDE_SKILL_DIR}/references/fallback-steps.md`, Step 1a.
 
 #### 1b. Apply project-local overrides from `<project>/.claude/sdlc.local.yaml`
 
@@ -649,34 +352,7 @@ If present — `Read` and parse it. Recognized top-level keys:
 | `post_check_fix_attempts` | integer `0` or `1` | **REPLACES** the plugin option `CLAUDE_PLUGIN_OPTION_POST_CHECK_FIX_ATTEMPTS` (default `0`) for this project. Consumed by Step 4: `1` allows one minimal-diff fix pass by the development architect when a post-pipeline check fails; `0` keeps the report-only behaviour. |
 | `aspect_execution` | `sequential` (default) or `parallel-implement` | **Experimental.** Consumed by 3b-parallel-aspects. `sequential` runs each development aspect through both passes before the next begins. `parallel-implement` keeps the plan passes sequential and in canonical order, gates them all behind one approval, then dispatches the `backend` and `frontend` implementation passes concurrently — but only when the invariants in 3b-parallel-aspects hold; otherwise it falls back to sequential and prints the reason. |
 
-**Example `sdlc.local.yaml`:**
-
-```yaml
-# <project>/.claude/sdlc.local.yaml
-post_pipeline_checks:
-  - ./vendor/bin/pint --test
-  - ./vendor/bin/pest
-  - php artisan route:list
-
-phase_command_overrides:
-  development:
-    php_runner: php                    # NOT "docker compose exec -T app php"
-    artisan_runner: php artisan
-    composer_runner: composer
-  database:
-    migrate_command: php artisan migrate
-    rollback_command: php artisan migrate:rollback --step=1
-
-extra_phase_prompts:
-  qa: |
-    Use our snapshot helper at tests/Helpers/Snapshot.php for JSON comparisons.
-
-skip_phases:
-  - security                  # external SAST handles this in CI
-
-convention_skills_extra:
-  - acme:internal-api-style
-```
+An example `sdlc.local.yaml` is in `${CLAUDE_SKILL_DIR}/references/fallback-steps.md`, Step 1b.
 
 After merging, store as `EFFECTIVE_PROFILE` and use it for the rest of the pipeline.
 
@@ -703,32 +379,8 @@ Do not abort — local override is optional, plugin profile is always usable as 
 
 **Fast path.** With a RUN PLAN in context, `workflow` is the resolved result of RESOLVER Steps 1–5: `active_workflow`, `workflow_selection_reason`, `project_local`, `resolved_phases` (list of lists, extra phases inserted, skips applied, groups collapsed), `parallel_groups`, `max_total_cost_usd` and its source. Print `print_blocks.workflow_line`. A missing `--workflow` file arrives in `halts[]` with the exact RESOLVER error text. `effective_profile` carries `phase_agents`, `roster`, `phase_status_keys`, `convention_skills` (sorted) and `post_pipeline_checks` for Step 2; `phase_prompts_injection` text is the one thing you still read from the active `stack.md` files.
 
-Load the workflow definition file and derive the ordered phase list by following the
-algorithm in `plugins/sdlc/workflows/RESOLVER.md` (Steps 1–5).
-
-Summary:
-
-1. **Locate:** resolve `WORKFLOW_NAME` (from `--workflow=NAME`, or `"default"`).
-   Find `~/.claude/plugins/cache/sdlc/workflows/{WORKFLOW_NAME}.yaml` via `Glob`.
-   If not found → HALT with the error message specified in RESOLVER.md Step 1.
-2. **Read, parse, and validate:** `Read` the file, validate against
-   `schemas/workflow.schema.json`, extract the `phases` array, normalize each
-   element to `{name, when?}`. If validation fails → HALT per RESOLVER.md Step 2.
-3. **Validate acyclic:** if any phase `name` appears more than once in the
-   workflow file → HALT per RESOLVER.md Step 3.
-4. **Build resolved list (RESOLVER.md Step 4):** insert `extra_phases` from
-   `EFFECTIVE_PROFILE.extra_phases` at their `after:` points; re-run conflict
-   check; apply skips (Step 0c skip-rules + Step 1b `skip_phases` from
-   `sdlc.local.yaml`).
-5. **Persist and print (RESOLVER.md Step 5):** store as `CONTEXT.resolved_phases[]`,
-   persist `WORKFLOW_NAME` in `CONTEXT.active_workflow`, print one line at Step 1c.
-6. **Persist the cost cap:** store `caps.max_total_cost_usd` (when the recipe declares
-   one) in `CONTEXT.max_total_cost_usd`. When the recipe declares none, use the plugin option
-   `CLAUDE_PLUGIN_OPTION_DEFAULT_COST_CAP_USD` if it is set and greater than 0, otherwise `null`.
-   The recipe value always wins over the option. Enforced in Step 3d-3.
-
-The resolved `CONTEXT.resolved_phases[]` replaces the hardcoded list for all
-downstream steps. Phase names and their semantics are unchanged.
+Without a plan, the RESOLVER-driven algorithm (locate, validate, insert extra phases, apply
+skips, persist the cost cap) is in `${CLAUDE_SKILL_DIR}/references/fallback-steps.md`, Step 1c.
 
 ### Step 2 — Generate task slug and prepare workspace
 
@@ -966,70 +618,11 @@ Re-dispatches of Pass 1 after "request changes" keep the `[pass:plan]` marker �
 
 For aspect-aware fan-out, the canonical order remains: `database → backend → frontend → testing`. Each aspect completes both passes before the next aspect begins (the plan for backend may depend on what database-aspect implemented).
 
-**3b-parallel-aspects. Experimental: parallel implementation passes.**
-
-Applies only when `EFFECTIVE_PROFILE.aspect_execution == "parallel-implement"` (default
-`sequential`, Step 1b). This is **experimental**: the safety argument rests on file-set
-disjointness the orchestrator can check, plus prompt-level guardrails it cannot enforce. Leave
-it off unless you are deliberately testing it.
-
-**Plan passes never run in parallel.** The frontend plan is built against the backend plan's
-"Contract for frontend" section, so backend must plan first. Run all plan passes in canonical
-order, exactly as in 3b-special.
-
-**One approval gate for the whole phase.** Instead of a gate per aspect, print every aspect's
-plan summary, then ask once:
-
-```
-📋 Implementation plans ready for development ({aspects, comma-separated}).
-   Review: docs/plans/{task_slug}/02-development-plan-{aspect}.md (one per aspect)
-```
-
-Accept *approve* / *request changes {aspect}: {feedback}* / *abort [{aspect}]*. Requesting
-changes on `backend` invalidates the frontend plan too and re-plans both, because the frontend
-plan was derived from the backend contract that just changed. Record `approval_rounds` in
-telemetry.
-
-**Implementation passes run concurrently only for the `backend ∥ frontend` pair, and only when
-every invariant below holds.** Check them yourself, from the two approved plan files — this is
-a deterministic check on file lists, not a judgement call:
-
-1. **Different profiles own the two aspects.** One profile owning both means one agent, and an
-   agent cannot run concurrently with itself.
-2. **The plans' create/modify file sets are disjoint.** Any single path in both sets disqualifies
-   the pair — two agents editing one file in a shared working tree is a lost write, not a race
-   to reason about.
-3. **Neither plan touches a shared-fate file**: `package.json`, `composer.json`, any lockfile,
-   `Dockerfile*`, CI YAML, `.env*`, or a routes file both stacks register into. These serialize
-   the whole build even when the diffs look unrelated.
-
-If any invariant fails, fall back to sequential for this run and **print the reason**:
-
-```
-   ℹ️ aspect_execution=parallel-implement not applied: {which invariant failed, and the paths that failed it}
-      Running development aspects sequentially.
-```
-
-When the pair does run concurrently, both dispatches go in one message (3c-group), each keeps
-its own `[pass:implement]` marker, and the trailer of each prompt gains:
-
-```
-parallel_peer_aspects: {the other aspect}
-```
-
-with this fixed text appended to the `development_implement` base prompt:
-
-> A peer architect is editing a different part of this working tree at the same time. Type
-> errors, lint failures, missing imports and failing tests **outside your own aspect's paths**
-> are transient noise from work in progress — do not fix them, do not reformat them, do not
-> report them as findings. Run formatters and linters against your own files only, never
-> repo-wide. If a file you need is being changed by the peer, that is an invariant violation:
-> stop and report it rather than working around it.
-
-**Known limitation.** Invariants 2 and 3 constrain what the *plans* declare. Nothing prevents an
-agent from touching a file its plan did not mention, and tool-level interference (a repo-wide
-formatter, a build that writes generated files) is guarded only by the prompt text above. This
-is why the mode is experimental and off by default.
+**3b-parallel-aspects. Experimental: parallel implementation passes.** Applies only when
+`EFFECTIVE_PROFILE.aspect_execution == "parallel-implement"` (default `sequential`, Step 1b).
+Then read `${CLAUDE_SKILL_DIR}/references/parallel-aspects.md` once before the first plan pass
+and follow it — plan passes, the single approval gate and the invariants checked before any
+implementation pass runs concurrently.
 
 **3c. Spawn the agent** via the `Agent` tool with `subagent_type` and the model resolved in 3b-3:
 
@@ -1109,24 +702,9 @@ Right after the `Agent` call returns, the `PostToolUse(Agent)` hook `hooks/agent
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-report.sh" {task_slug} --project-root .
 ```
 
-(dev checkout fallback: `plugins/sdlc/scripts/usage-report.sh`). Either way, fill the `phases[]` entry:
-
-- `usage_source` — `"measured"` when the record's `status` is `completed`. When the record is missing, `unmeasured` (transcript not found), or `jq` is unavailable, fall back to the estimate `chars / 4` over prompt + summary and set `usage_source: "estimated"`. Never silently mix the two: the field says which one this row is.
-- Token fields, measured case — `input_tokens = input_tokens + cache_creation_input_tokens + cache_read_input_tokens` (the total input the API saw), `cached_input_tokens = cache_read_input_tokens`, plus the two raw fields `cache_creation_input_tokens` and `cache_read_input_tokens` verbatim. This mapping keeps `cache_hit_ratio` (Step 5) meaning "share of input served from cache", as before.
-- `model` — the model **tier** declared in the agent's frontmatter (`opus` / `sonnet` / `haiku` / `fable`), authoritative because the PreToolUse hook enforces it. `model_id` — the concrete id from the record (e.g. `claude-opus-5`), measured case only. A mismatch between the two is worth a one-line stderr warning: it means an override (`CLAUDE_CODE_SUBAGENT_MODEL_FORCE`, an org allowlist) is in play.
-- `cost_usd` — from the record. When it is `null` (`pricing_note: "unknown model"`), price the measured tokens yourself from the frontmatter tier's row in `references/pricing.json` and copy `pricing_note` into the entry. Estimated rows are priced the same way from the tier. `pricing.json` is the single source of truth for prices — README and this skill reference it, never restate it.
-- `agent_id`, `started_at`, `completed_at`, `turns`, `pass` — copied from the record (`null` when estimated).
-- `compact_summary_chars` — `last_message_chars` from the record when measured, else `len(CONTEXT.{phase}_output)`. Convert to tokens (`chars / 4`) before comparing: the handoff budget is stated in **tokens** by every agent contract (≤2K for BA/QA/security, ≤3K for development). If `chars / 4 > 3000` (i.e. > 12000 chars), record `compact_handoff_violation: true` and emit a one-line stderr warning: `WARN: {phase} compact summary exceeded budget (~{chars/4} tokens > 3000)`. Do not abort. This counter is the pipeline's only sensor for model verbosity drift; a threshold ~4× too tight fires on every compliant run and destroys that signal.
-- For aspect-aware fan-out, push one entry **per dispatch** into `phases[]` with `phase` and `aspect` set; aspect-agnostic phases omit `aspect`. Development pushes one entry per pass (`pass: "plan"` / `"implement"`).
-- Every entry carries `group_index` — the index of the group it belongs to in
-  `resolved_phases`. Members of a parallel group share a `group_index` and a
-  `Phase {N}`, and that is how a reader tells "ran concurrently" from "ran one after
-  the other" once the run is over.
-- The security fix pass and the QA verify rerun (3d-security) push their own entries,
-  with `pass: "fix"` / `pass: "verify"` and the `group_index` of the security group,
-  plus the trailer counters `security_fix_pass` and `qa_verify_rerun`.
-
-Nested dispatches (a phase agent spawning `general-purpose` / `Explore` via a skill) are recorded by the hooks too, with `nested: true`; they are **not** `phases[]` entries. Their cost is summed by `usage-report.sh` into `nested_cost_usd` and surfaces in Step 5.
+(dev checkout fallback: `plugins/sdlc/scripts/usage-report.sh`). `scripts/finalize-telemetry.sh`
+builds `phases[]` from the usage log at Step 5. The per-field mapping — needed only to build
+telemetry by hand when `jq` is missing — is in `${CLAUDE_SKILL_DIR}/references/telemetry.md`.
 
 **3d-2. QA-specific telemetry** — when running the `qa` phase, parse the agent's compact summary for the lines `ITERATIONS_USED: N` (max 3, hard cap from the agent prompt) and `STATUS: complete | incomplete-blocked`. Record:
 
@@ -1279,171 +857,14 @@ whether the re-run passed), and the fix pass's own `phases[]` entry with `pass: 
 
 ### Step 5 — Write telemetry and final summary
 
-Run one Bash call (listed in the allowlist below):
+Run one Bash call (listed in the Bash allowlist above):
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/finalize-telemetry.sh" {task_slug} --project-root . --extra '{"pr_url": "…", "model_enforcement_corrections": N, "qa": {"iterations_used": N, "status": "completed|capped"}}'
 ```
 
-(dev checkout fallback: `plugins/sdlc/scripts/finalize-telemetry.sh`; add `--aborted-at-phase {name}` on an aborted run.) It assembles `_telemetry.json` from the usage log, the state file, the deps-preflight cache and `05-post-checks.md`, computes every aggregate below, and prints the final summary block — echo that block to the user verbatim. `--extra` is deep-merged last and is the only place for values the scripts cannot see (the PR URL, the 3d-2 QA counters, enforcement corrections). Build the file by hand, per the shape below, only when `jq` is unavailable.
+(dev checkout fallback: `plugins/sdlc/scripts/finalize-telemetry.sh`; add `--aborted-at-phase {name}` on an aborted run.) It assembles `_telemetry.json` from the usage log, the state file, the deps-preflight cache and `05-post-checks.md`, computes every aggregate below, and prints the final summary block — echo that block to the user verbatim. `--extra` is deep-merged last and is the only place for values the scripts cannot see (the PR URL, the 3d-2 QA counters, enforcement corrections). Build the file by hand, per `${CLAUDE_SKILL_DIR}/references/telemetry.md`, only when `jq` is unavailable.
 
-The file it writes, `docs/plans/{task_slug}/_telemetry.json`:
-
-```json
-{
-  "task_slug": "...",
-  "stack": "laravel",
-  "primary_profile": "laravel",
-  "active_profiles": {
-    "backend": "laravel",
-    "frontend": "inertia-vue",
-    "database": "laravel"
-  },
-  "profile_source": "laravel-plugin/stack.md",
-  "narrative_language": "uk",
-  "headless_mode": false,
-  "git_flow": {
-    "model": "git-flow",
-    "confidence": "high",
-    "source": "cache",
-    "sources": ["topology:develop-branch", "config:gitflow.*"],
-    "task_type": "hotfix",
-    "task_type_confidence": "high",
-    "branch_name": "hotfix/null-pointer-in-payment-handler",
-    "branch_action": "created",
-    "branch_creation_method": "git-flow-cli",
-    "base_branch": "main",
-    "pr_base_branch": "main",
-    "requires_back_merge": "develop",
-    "topology_conflict": null,
-    "diff_scope": "prospective"
-  },
-  "active_workflow": "hotfix",
-  "workflow_selection_reason": "task_type=hotfix",
-  "started_at": "<ISO timestamp>",
-  "completed_at": "<ISO timestamp>",
-  "wall_clock_seconds": 187,
-  "model_enforcement_corrections": 0,
-  "phases": [
-    {
-      "phase": "business_analysis",
-      "aspect": null,
-      "pass": null,
-      "agent": "business-analyst",
-      "agent_id": "agent_3f9c…",
-      "model": "opus",
-      "model_id": "claude-opus-5",
-      "status": "completed",
-      "usage_source": "measured",
-      "started_at": "<ISO timestamp>",
-      "completed_at": "<ISO timestamp>",
-      "turns": 14,
-      "input_tokens": 35000,
-      "output_tokens": 3000,
-      "cached_input_tokens": 21000,
-      "cache_creation_input_tokens": 4000,
-      "cache_read_input_tokens": 21000,
-      "cost_usd": 0.16,
-      "pricing_note": null,
-      "compact_summary_chars": 1840,
-      "compact_handoff_violation": false
-    },
-    {
-      "phase": "qa",
-      "aspect": null,
-      "pass": null,
-      "agent": "qa-engineer",
-      "agent_id": null,
-      "model": "sonnet",
-      "model_id": null,
-      "status": "completed",
-      "usage_source": "estimated",
-      "started_at": null,
-      "completed_at": null,
-      "turns": null,
-      "qa_iterations_used": 2,
-      "qa_status": "completed",
-      "input_tokens": 28000,
-      "output_tokens": 2100,
-      "cached_input_tokens": 0,
-      "cache_creation_input_tokens": null,
-      "cache_read_input_tokens": null,
-      "cost_usd": 0.07,
-      "pricing_note": null,
-      "compact_summary_chars": 1450,
-      "compact_handoff_violation": false
-    }
-  ],
-  "usage_source_summary": { "measured": 5, "estimated": 1, "unmeasured": 0 },
-  "nested_cost_usd": 0.04,
-  "total_cost_usd_including_nested": 1.46,
-  "skip_rules_applied": [
-    { "rule": "typo-fix", "phase_skipped": "business_analysis", "reason": "$ARGUMENTS matched /^typo/ AND diff < 30 LOC" }
-  ],
-  "post_pipeline_checks": [
-    { "command": "...", "exit_code": 0 }
-  ],
-  "total_input_tokens": 152000,
-  "total_output_tokens": 9800,
-  "total_cached_input_tokens": 88000,
-  "total_cost_usd": 1.42,
-  "cost_scope": "subagent_phases_only",
-  "max_total_cost_usd": null,
-  "cost_cap_overridden": false,
-  "cache_hit_ratio": 0.58,
-  "deps_preflight": {
-    "superpowers": { "status": "available", "missing_skills": [] }
-  }
-}
-```
-
-Compute aggregates from `phases[]`:
-
-- `total_input_tokens` = sum of phase `input_tokens`.
-- `total_output_tokens` = sum of phase `output_tokens`.
-- `total_cached_input_tokens` = sum of phase `cached_input_tokens`.
-- `total_cost_usd` = sum of phase `cost_usd`.
-- `cache_hit_ratio` = `total_cached_input_tokens / max(total_input_tokens, 1)` rounded to 2 decimals.
-- `cost_scope` = always the literal `"subagent_phases_only"`.
-- `usage_source_summary` = counts of `phases[].usage_source` values (`measured` / `estimated` / `unmeasured`). A run with any `estimated` row is not baseline-grade; `docs/cost-baseline.md` aggregates only fully measured runs.
-- `nested_cost_usd` and `total_cost_usd_including_nested` — copied from the final `usage-report.sh` output (run it once more here, after the last phase). `nested_cost_usd` is the measured cost of subagents that phase agents spawned themselves (superpowers skills, `Explore`); it is real pipeline spend that no earlier version could see. `total_cost_usd` keeps its historical meaning (phase dispatches only) so `cost_scope` stays truthful.
-
-> Token counts are **measured** by the `SubagentStop` hook from each subagent's own transcript (3d-1); the Agent tool result never carried them. A row is `estimated` (char-length / 4) only when the hooks could not measure it — jq missing, transcript not found, or the run marker not fresh.
-
-> **What `total_cost_usd` does not include.** Only subagent spawns are metered. The orchestrator's own consumption — this skill's body, stack-profile globbing and parsing, workflow resolution and schema validation, and the approval-gate exchanges — runs on the session model and is invisible here. Treat `total_cost_usd` as a floor for the run, not the full bill. The `cost_scope` field exists so downstream consumers (`docs/cost-baseline.md`, `/sdlc:doctor`) cannot silently misread it as a total.
-
-Print the final summary to the user (`finalize-telemetry.sh` renders exactly this block):
-
-```
-✅ SDLC pipeline completed for "{task_slug}"
-
-Stack:           {stack} (priority {priority})
-Branch:          {branch_name} ({branch_action}, from {base_branch}) → PR base {pr_base_branch}
-Task type:       {task_type} · workflow {active_workflow}
-Phases run:      {N} ({skip_rules_applied summary})
-Wall clock:      {wall_clock_seconds}s
-Cost:            ${total_cost_usd}
-
-Phase results:
-  ✅ business_analysis     ({agent}, {tokens}, ${cost})
-  ✅ development           ({agent}, {tokens}, ${cost})
-  ✅ qa                    ({agent}, {tokens}, ${cost})
-  ✅ security              ({agent}, {tokens}, ${cost})
-  ✅ documentation         ({agent}, {tokens}, ${cost})
-
-Artifacts:
-  docs/plans/{task_slug}/01-business-analysis.md
-  docs/plans/{task_slug}/02-development.md
-  ...
-  docs/plans/{task_slug}/_telemetry.json
-
-Post-pipeline checks:
-  ✅ vendor/bin/pint --test
-  ✅ php artisan test (47 passed)
-  ✅ php artisan route:list
-
-PR: {pr_url_if_created}
-```
 
 When `CONTEXT.requires_back_merge` is set (a `hotfix` or `release` whose PR targets `main`),
 append this line — the obligation is real and the pipeline does not discharge it:
@@ -1453,10 +874,6 @@ append this line — the obligation is real and the pipeline does not discharge 
     pipeline does not open that second PR.
 ```
 
-`_telemetry.json` is assembled from three sources: the final `usage-report.sh` output
-(per-dispatch tokens and cost), the state file (`phase_status`, `git_flow`, workflow, skips,
-`resume_count`) and CONTEXT. Add `"resumed": true|false` and `"resume_count": N` at the top
-level; a resumed run's `wall_clock_seconds` counts from the original `started_at`.
 
 **Delete the state file** (`.claude/.sdlc-run-active.json`, written in Step 2) once
 telemetry is written and the summary is printed — a pipeline is no longer "active" once
@@ -1675,88 +1092,6 @@ RETURN: PR URL + 1-paragraph release-notes blurb suitable for changelog.
 
 ---
 
-## Hard rules for the orchestrator
-
-You **never**:
-- Read or write project source files directly. Delegate to agents.
-- Run any Bash command beyond the post-pipeline checks and the Bash allowlist below. Delegate to agents.
-- Skip phases except per Step 0c skip-rules.
-- Continue past a failed phase validation without user input.
-- Modify files inside `~/.claude/plugins/cache/**`.
-- Dispatch an agent that is not named in `EFFECTIVE_PROFILE.agents_per_phase` (or added
-  via `agent_overrides` in `sdlc.local.yaml`) — not even if a project-local agent (e.g.
-  `.claude/agents/tester.md`) looks like a better fit for the phase than the profile's
-  declared agent. This is what the Step 2 run marker and the `enforce-agent-model.sh`
-  deny rule enforce; the orchestrator must not route around it by improvising a name.
-- Dispatch a phase agent with `run_in_background`. Every phase in Step 3 is synchronous
-  by design (see "Execution model" above) — a backgrounded dispatch skips the Step 3d
-  artifact-file validation and the Step 3d-1 telemetry capture for that phase entirely.
-  A parallel group is not an exception: its members are concurrent **foreground** calls
-  issued in one message (3c-group), and the orchestrator still blocks until all of them
-  return. (`batch-pipeline` is a separate skill with a separate execution model and is
-  not governed by this rule.)
-  artifact-file validation and the Step 3d-1 telemetry capture for that phase entirely.
-- Commit, merge, rebase, force-push, tag, or delete a branch. Branch *creation* (below) is the
-  only history-shaping act the orchestrator performs; committing belongs to the documentation
-  phase and merging belongs to a human reviewing the PR.
-
-### Bash allowlist (Steps R, 0b-git, 0c, 2, 3d-1 and 5 only)
-
-Branch setup needs git plumbing and telemetry needs one read-only script, which is why the
-Bash rule above is scoped rather than absolute. Exactly these are permitted:
-
-**Read-only (Steps R / 0b-git / 0c / 2)** — `git rev-parse` (including `--abbrev-ref HEAD` for
-the Step R branch guard and `--git-path info/exclude` for the Step 2 exclusion), `git symbolic-ref`,
-`git for-each-ref`, `git branch` (listing only), `git config --get` / `--get-regexp`,
-`git ls-remote --heads`, `git status --porcelain`, `git diff` (the Step 0c signals),
-`git rev-list --count`, `git check-ref-format`, `git flow version` (the F-2a CLI-availability
-probe), and `scripts/detect-git-flow.sh`. Step 0c's rule-4 content check additionally
-pipes one of those reads — `git diff {BASE}...HEAD | grep '^+' | grep -nE '<pattern>'` —
-which stays read-only: `grep` over a diff, never over the working tree.
-
-**Read-only (Steps 0a–1c fallback / 3d-1 / 5)** — `scripts/run-plan.sh`, `scripts/deps-preflight.sh` (`--write-cache` writes only the plugin-data stamp), `scripts/detect-stack.sh --shape-only` and `bash "${CLAUDE_PLUGIN_ROOT}/scripts/usage-report.sh" {task_slug} --project-root .` (dev checkout: `plugins/sdlc/scripts/…`). They read the repo and `docs/plans/{task_slug}/_usage.jsonl` and print JSON.
-
-**Writing one artifact (Step 5)** — `bash "${CLAUDE_PLUGIN_ROOT}/scripts/finalize-telemetry.sh" {task_slug} --project-root . [--aborted-at-phase X] [--extra JSON]`. It writes exactly `docs/plans/{task_slug}/_telemetry.json` and prints the final summary.
-
-**Mutating** — only three, each narrowly conditioned:
-
-- `git fetch origin {base_branch}` — only when the base ref does not resolve locally
-  (GIT-FLOW Step F-3). One attempt, no retry loop.
-- `git checkout -b {branch_name} {base_branch}` — only after the GIT-FLOW Step F gate
-  resolves to *create*, and only when GIT-FLOW Step F-2a's git-flow-CLI conditions do
-  *not* all hold. Unconditional in headless mode per Step F-4 when F-2a does not apply.
-- `git flow {feature|release|hotfix} start {topic}` — only after the GIT-FLOW Step F gate
-  resolves to *create* **and** every GIT-FLOW Step F-2a condition holds (git-flow model,
-  CLI installed, repo initialized via `git flow init`, task_type in the native-subcommand
-  table). Never `git flow init`, `git flow {subcommand} finish`, or any other subcommand —
-  the orchestrator only starts branches, it never finishes or inits git-flow itself.
-
-Anything outside this list is a delegation to an agent or a job for the user, not something to
-improvise with a shell command.
-
-You **always**:
-- Use file paths under `docs/plans/{task_slug}/` for inter-phase data.
-- Pass agents COMPACT prompts. Never inline a previous phase's full output.
-- Update `phase_status` + `updated_at` in the state file at every phase boundary (3d-0) — it is
-  the only thing that makes a crashed run resumable, and it keeps the hooks armed.
-- Save telemetry, even if the pipeline is aborted (with `aborted_at_phase` field).
-- Print final summary to the user, even on partial completion.
-- Run Step R before Step 0a — never start a second run on top of a fresh state file without
-  asking.
-
-### Prompt-caching discipline
-
-The Step 3b-1 prompt layout (stable prefix → per-call CONTEXT trailer) exists so that the cacheable portion of each agent invocation stays byte-identical across runs of the same phase. Violations defeat caching and inflate cost.
-
-Hard rules:
-
-- The stable prefix MUST contain ZERO references to `task_slug`, ISO timestamps, run UUIDs, or any per-call value. All such values live in the trailer.
-- The stable prefix's `convention_skills` list MUST be sorted deterministically — never insertion-ordered.
-- The stable prefix's `phase_prompts_injection` MUST be concatenated in a deterministic order (alphabetical by source plugin name) to keep multi-plugin merges byte-stable.
-- Do NOT splice user-supplied free text (e.g. raw `$ARGUMENTS`) into the stable prefix. `$ARGUMENTS` belongs in `_brief.md`, which the agent reads via the inputs list.
-- When adding new phase guidance, prefer extending the agent's `.md` body (truly stable system prompt) over enriching the orchestrator's prefix.
-
----
 
 ## Failure modes and recovery
 

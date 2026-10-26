@@ -106,7 +106,7 @@
   },
   "skip_rules": {
     "typo_fix": {
-      "description": "Consumed by pipeline-orchestrator SKILL.md Step 0c-2 skip-rule 1. A match, combined with LOC_TOUCHED < 30, skips the business_analysis phase and uses $ARGUMENTS directly as the development spec. Same compile contract as .types: complete ECMAScript regex sources, compiled with .flags. Unanchored on purpose — \"fix the typo in the header\" is the same task as \"typo in the header\" — with the LOC ceiling, not the wording, doing the real gating. Two stems carry no left boundary at all: Ukrainian verbal prefixes attach directly to them (переформатувати, відформатувати, перейменувати), so a left boundary would make the pattern match only the bare stem — which is the form nobody writes.",
+      "description": "Consumed by pipeline-orchestrator references/fallback-steps.md Step 0c-2 skip-rule 1 (and by scripts/run-plan.sh). A match, combined with LOC_TOUCHED < 30, skips the business_analysis phase and uses $ARGUMENTS directly as the development spec. Same compile contract as .types: complete ECMAScript regex sources, compiled with .flags. Unanchored on purpose — \"fix the typo in the header\" is the same task as \"typo in the header\" — with the LOC ceiling, not the wording, doing the real gating. Two stems carry no left boundary at all: Ukrainian verbal prefixes attach directly to them (переформатувати, відформатувати, перейменувати), so a left boundary would make the pattern match only the bare stem — which is the form nobody writes.",
       "patterns": [
         "(?<![\\p{L}\\p{N}])typos?(?![\\p{L}\\p{N}])",
         "(?<![\\p{L}\\p{N}])misspell",
