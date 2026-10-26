@@ -259,6 +259,8 @@ MSG=$(printf '%s' "$OUT" | jq -r '.systemMessage // ""')
 assert_contains "post: failing check surfaces as systemMessage" "type error on line 3" "$MSG"
 assert_contains "post: message names the agent" "laravel-architect" "$MSG"
 assert_contains "post: message frames output as a retry hint" "retry hint" "$MSG"
+assert_contains "post: finding logged for the orchestrator relay" "type error on line 3" \
+    "$(jq -r 'select(.event == "post_check" and .agent_id == "a1") | .message' "$PROJ/docs/plans/demo/_usage.jsonl" 2>/dev/null)"
 assert_eq "post: never denies (SubagentStop cannot)" "allow" "$(decision "$OUT")"
 
 fresh_project "post-cap"

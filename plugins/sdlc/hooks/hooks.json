@@ -28,6 +28,17 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "SubagentHandback",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/hooks/phase-output-guard.sh\" ]; then exec bash \"${CLAUDE_PLUGIN_ROOT}/hooks/phase-output-guard.sh\"; fi; f=\"${PWD}/plugins/sdlc/hooks/phase-output-guard.sh\"; if [ -f \"$f\" ]; then exec bash \"$f\"; fi; exit 0'",
+            "timeout": 15,
+            "description": "Handoff-contract guard for agents that deliver their report through SubagentHandback (Claude Code v2.1.271+, auto mode): checks tool_input.message with the same rules as the SubagentStop guard and denies the hand-back once with the reason, so the phase agent fixes its report before the orchestrator receives it."
+          }
+        ]
       }
     ],
     "SubagentStart": [

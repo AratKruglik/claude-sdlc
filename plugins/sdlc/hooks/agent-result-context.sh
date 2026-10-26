@@ -10,7 +10,8 @@
 #   - Reads docs/plans/{slug}/_usage.jsonl through scripts/usage-report.sh (read-only) and
 #     picks the record for THIS dispatch: same bare agent_type, same phase/aspect/pass, latest
 #     started_at.
-#   - Emits hookSpecificOutput.additionalContext, at most a dozen lines. When the state file
+#   - Emits hookSpecificOutput.additionalContext, at most a dozen lines plus the latest
+#     `post_check` findings post-implement-check.sh logged for this agent_id. When the state file
 #     carries a numeric max_total_cost_usd and the measured phase total exceeds it, the 💸 block
 #     the orchestrator must print verbatim (SKILL.md 3d-3) is included — the decision
 #     (continue / stop) stays with the orchestrator and the user.
@@ -74,6 +75,18 @@ text=$(printf '%s' "$report" | jq -r \
          else empty end)
     end' 2>/dev/null)
 [ -n "$text" ] || quiet
+
+# Typecheck / lint findings a stack's post-implement-check.sh logged for this agent.
+agent_id=$(printf '%s' "$report" | jq -r --arg at "$agent_type" --arg ph "$PARSED_PHASE" --arg as "$PARSED_ASPECT" --arg pa "$PARSED_PASS" '
+    [ .dispatches[] | select((.nested | not) and .agent_type == $at and .phase == $ph
+                             and ((.aspect // "") == $as) and ((.pass // "") == $pa)) ]
+    | sort_by(.started_at // "") | last | .agent_id // empty' 2>/dev/null)
+if [ -n "$agent_id" ]; then
+    check=$(jq -R 'fromjson? // empty' "${root}/docs/plans/${slug}/_usage.jsonl" 2>/dev/null \
+        | jq -rs --arg id "$agent_id" '[.[] | select(.event == "post_check" and .agent_id == $id) | .message] | last // empty' 2>/dev/null)
+    [ -z "$check" ] || text="${text}
+${check}"
+fi
 
 jq -cn --arg t "$text" '{hookSpecificOutput:{hookEventName:"PostToolUse", additionalContext:$t}}'
 exit 0

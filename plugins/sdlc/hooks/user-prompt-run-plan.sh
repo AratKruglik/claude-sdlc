@@ -20,6 +20,7 @@ HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLANNER="${HOOK_DIR}/../scripts/run-plan.sh"
 MARKER="=== SDLC RUN PLAN (precomputed by hooks/user-prompt-run-plan.sh) ==="
 END_MARKER="=== END RUN PLAN ==="
+CONTEXT_CAP="${SDLC_RUN_PLAN_CONTEXT_CAP:-9500}"
 
 command -v jq >/dev/null 2>&1 || exit 0
 [ -f "$PLANNER" ] || exit 0
@@ -59,11 +60,26 @@ plan=$(bash "$PLANNER" "${args[@]}" 2>/dev/null) || exit 0
 [ -n "$plan" ] || exit 0
 jq -e 'type == "object" and (.error // null) == null' <<<"$plan" >/dev/null 2>&1 || exit 0
 
+# Diagnostics the orchestrator never reads (the unmatched-profile list alone is ~1.5K chars)
+# are dropped: additionalContext is capped at 10,000 characters, and past the cap Claude Code
+# swaps the text for a 2K preview, which silently loses the fast path.
 compact=$(jq -c '
-    if .git_flow.documented_convention_hits then
+    del(.generated_at, .stack.all_profiles, .stack.matched_profiles, .stack.plugins_root,
+        .stack.repo, .stack.stack_md_scanned)
+    | if .git_flow.documented_convention_hits then
         .git_flow.documented_convention_hits |= map(.text |= (if length > 200 then .[0:200] + "…" else . end))
-    else . end' <<<"$plan" 2>/dev/null) || exit 0
+      else . end' <<<"$plan" 2>/dev/null) || exit 0
 
-jq -cn --arg m "$MARKER" --arg e "$END_MARKER" --arg p "$compact" \
-    '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: ($m + "\n" + $p + "\n" + $e)}}'
+context="${MARKER}
+${compact}
+${END_MARKER}"
+if [ "$(jq -rn --arg c "$context" '$c | length')" -gt "$CONTEXT_CAP" ]; then
+    plan_file="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}}/run-plan/$(jq -r '.session_id // "session"' <<<"$payload").json"
+    mkdir -p "$(dirname "$plan_file")" 2>/dev/null && printf '%s\n' "$compact" > "$plan_file" || exit 0
+    context="${MARKER}
+The run plan exceeds the hook context cap. Read ${plan_file} once and use its JSON as the run plan.
+${END_MARKER}"
+fi
+
+jq -cn --arg c "$context" '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: $c}}'
 exit 0

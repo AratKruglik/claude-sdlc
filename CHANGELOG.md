@@ -3,6 +3,32 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [Unreleased]
+
+### Fixed
+
+- **Agent roster on marketplace installs.** `run-plan.sh` took the version directory for the
+  plugin name whenever the path held `/plugins/` — which `~/.claude/plugins/cache/…` always
+  does — so the roster read `2.0.0:laravel-architect` and every framework-agent dispatch failed.
+  The name now comes from the plugin manifest, with the version-directory rule as fallback.
+- **Handoff guard under `SubagentHandback`.** From Claude Code v2.1.271 an agent may deliver its
+  report through the `SubagentHandback` tool, leaving `last_assistant_message` empty, so
+  `phase-output-guard.sh` blocked every compliant phase once and `last_message_chars` read 0.
+  Both hooks now read the handed-back report from the subagent transcript
+  (`agent_transcript_path`), and the guard also runs as `PreToolUse(SubagentHandback)`, denying
+  a non-compliant hand-back once before the orchestrator receives it.
+- **Post-implement findings reach the orchestrator.** `post-implement-check.sh` reported only
+  through `systemMessage`, which is shown to the user and never to the model, so the 3e retry
+  hint could not fire. It now also logs a `post_check` row that `agent-result-context.sh` relays
+  in the `PostToolUse(Agent)` context of that dispatch.
+- **Laravel convention skills.** `laravel-plugin/stack.md` named them `laravel:…`; the plugin
+  namespace is `laravel-plugin:…`. New CI step `scripts/ci/check-skill-refs.sh` resolves every
+  convention-skill reference against plugin manifests and `runtime-dependencies.json`.
+- **Run plan near the context cap.** A Laravel + Inertia-Vue plan was ~9.4K of the 10,000-char
+  `additionalContext` cap, past which Claude Code swaps it for a 2K preview and the fast path is
+  lost. The hook drops diagnostics the orchestrator never reads (~7.4K now) and, if the plan
+  still exceeds the cap, writes it to `${CLAUDE_PLUGIN_DATA}/run-plan/` and injects a pointer.
+
 ## [2.1.0] — 2026-10-17 — marketplace v2.1.0 / all plugins v2.1.0
 
 Static and repeated orchestration work moves off the session model into hooks and bash + jq

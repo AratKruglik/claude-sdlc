@@ -117,6 +117,14 @@ write_trio "$PROJ" "qa-engineer" "Phase 3/4: qa" "a7" 0.09
 OUT=$(run_hook "$PROJ" "sdlc:qa-engineer" "Phase 3/4: qa")
 assert_contains "two dispatches of one phase -> latest record reported" "cost_usd=0.09" "$(context "$OUT")"
 
+fresh_project "post-check" null
+write_trio "$PROJ" "laravel-architect" "Phase 2/5: development — backend [pass:implement]" "pc1" 0.30
+jq -cn '{event:"post_check",agent_id:"pc0",ts:"t",message:"stale finding of another agent"}' >> "$PROJ/docs/plans/demo/_usage.jsonl"
+jq -cn '{event:"post_check",agent_id:"pc1",ts:"t",message:"Post-implement check after laravel-architect reported problems: app/Foo.php:12"}' >> "$PROJ/docs/plans/demo/_usage.jsonl"
+CTX=$(context "$(run_hook "$PROJ" "laravel-plugin:laravel-architect" "Phase 2/5: development — backend [pass:implement]")")
+assert_contains "post_check row of this agent -> relayed to the orchestrator" "app/Foo.php:12" "$CTX"
+case "$CTX" in *"stale finding"*) assert_eq "post_check of another agent -> not relayed" "absent" "present" ;; *) assert_eq "post_check of another agent -> not relayed" "absent" "absent" ;; esac
+
 echo
 printf '%d passed, %d failed\n' "$pass_count" "$fail_count"
 [ "$fail_count" -eq 0 ]

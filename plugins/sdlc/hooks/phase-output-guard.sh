@@ -14,8 +14,13 @@
 #     usage-report.sh pairs rows: this agent_id's `start` row, matched FIFO to the earliest
 #     unmatched `pending` row of the same bare agent_type. A pending with phase null is a
 #     nested dispatch (a skill, Explore) and is left alone.
-#   - `stop_hook_active == true` means this hook already blocked once for this agent. It never
-#     blocks twice: a second miss is the orchestrator's call, not an infinite loop.
+#   - Also registered as PreToolUse(SubagentHandback): a subagent that hands its report back
+#     through that tool (Claude Code v2.1.271+, auto mode) is checked on the report itself,
+#     and a violation denies the hand-back with the same reason, so the parent never receives
+#     a non-compliant report followed by a corrected one.
+#   - Never blocks twice for one agent: `stop_hook_active == true`, or a `guard_block` row
+#     for this agent_id in the usage log, means it already did. A second miss is the
+#     orchestrator's call, not an infinite loop.
 #   - Prints nothing when the contract holds. Fails open on every error.
 set -uo pipefail
 
@@ -29,8 +34,12 @@ quiet() { exit 0; }
 payload=$(cat 2>/dev/null) || quiet
 [ -n "$payload" ] || quiet
 command -v jq >/dev/null 2>&1 || quiet
-[ "$(json_get "$payload" "hook_event_name")" = "SubagentStop" ] || quiet
-[ "$(json_get "$payload" "stop_hook_active")" != "true" ] || quiet
+event=$(json_get "$payload" "hook_event_name")
+case "$event" in
+    SubagentStop) [ "$(json_get "$payload" "stop_hook_active")" != "true" ] || quiet ;;
+    PreToolUse)   [ "$(json_get "$payload" "tool_name")" = "SubagentHandback" ] || quiet ;;
+    *)            quiet ;;
+esac
 
 agent_id=$(json_get "$payload" "agent_id")
 [ -n "$agent_id" ] || quiet
@@ -44,6 +53,7 @@ slug=$(json_get "$state" "task_slug")
 
 log="${root}/docs/plans/${slug}/_usage.jsonl"
 [ -f "$log" ] || quiet
+! grep -qF "\"event\":\"guard_block\",\"agent_id\":\"${agent_id}\"" "$log" 2>/dev/null || quiet
 
 # FIFO pairing identical to usage-report.sh: each start consumes the earliest pending of its
 # agent_type; the pending paired with THIS agent_id is the dispatch under review.
@@ -92,7 +102,11 @@ case "$pass" in
         ;;
 esac
 
-message=$(json_get "$payload" "last_assistant_message")
+if [ "$event" = PreToolUse ]; then
+    message=$(json_get "$payload" "tool_input.message")
+else
+    message=$(handoff_message "$payload")
+fi
 
 has_line() {
     printf '%s\n' "$message" | grep -q "^${1}" 2>/dev/null
@@ -142,5 +156,11 @@ fi
 
 reason="Phase handoff contract not yet satisfied for ${phase}${aspect:+ — $aspect}${pass:+ [pass:$pass]} (the orchestrator validates exactly this and would otherwise re-dispatch you from scratch):${problems}"
 
-jq -cn --arg r "$reason" '{decision:"block", reason:$r}'
+append_row "$log" "$(jq -cn --arg id "$agent_id" --arg ts "$(now_iso)" --arg e "$event" \
+    '{event:"guard_block", agent_id:$id, ts:$ts, hook_event:$e}')"
+if [ "$event" = PreToolUse ]; then
+    jq -cn --arg r "$reason" '{hookSpecificOutput:{hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r}}'
+else
+    jq -cn --arg r "$reason" '{decision:"block", reason:$r}'
+fi
 exit 0

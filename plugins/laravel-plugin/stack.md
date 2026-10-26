@@ -40,8 +40,8 @@ Note: this plugin does NOT declare `development.frontend`. That slot is filled b
 - php-foundation:php-conventions
 - php-foundation:composer-tooling
 - php-foundation:php-testing
-- laravel:laravel-conventions
-- laravel:eloquent-patterns
+- laravel-plugin:laravel-conventions
+- laravel-plugin:eloquent-patterns
 
 ## Extra phases
 
@@ -71,7 +71,7 @@ For development phase (backend aspect), inject:
 > - Eloquent over raw SQL; if raw SQL is necessary, use parameterized bindings
 > - Resource controllers with explicit `__invoke` methods for non-CRUD endpoints
 >
-> Apply skills: `laravel:laravel-conventions`, `laravel:eloquent-patterns`.
+> Apply skills: `laravel-plugin:laravel-conventions`, `laravel-plugin:eloquent-patterns`.
 >
 > If Laravel Boost MCP is available (`mcp__laravel-boost__artisan`), prefer it for `make:*` Artisan commands; otherwise use Bash.
 >
