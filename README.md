@@ -260,10 +260,10 @@ output) is guarded by prompt text rather than enforced. It is off by default.
 | Command | Purpose |
 |---|---|
 | `/sdlc:start "feature"` | Run the full pipeline (5 phases, QA and security in parallel) |
-| `/sdlc:batch "task1" "task2"` | Run pipelines in parallel for multiple tasks (isolated worktrees) |
+| `/sdlc:batch "task1" "task2"` | Run pipelines in parallel for multiple tasks (isolated worktrees). Typed only — Claude does not start it on its own |
 | `/sdlc:list-stacks` | Show detected stack profiles and their priorities |
 | `/sdlc:doctor` | Preflight check: dependencies, stack detection, git branching model, cost baseline |
-| `/sdlc:security-init` | Materialize security-patterns.yaml for the security-guidance plugin |
+| `/sdlc:security-init` | Materialize security-patterns.yaml for the security-guidance plugin. Typed only — Claude does not start it on its own |
 
 ### `/sdlc:start` flags
 
@@ -674,6 +674,8 @@ Claude Code subagent frontmatter supports:
 Note the asymmetry between the two levers: `model` can be overridden per dispatch (the `Agent` tool takes a `model` parameter), but `effort` cannot — it is read from frontmatter only. An agent invoked twice in one phase therefore shares one `effort` value across both invocations, which is why the development phase varies `model` between its passes but not `effort`. See `MODEL-ROUTING.md` §6.
 
 `model_plan` is this marketplace's own optional field, not a Claude Code one — the orchestrator resolves it for the development planning pass and falls back to `model` when absent.
+
+The orchestrator skill itself sets `effort: medium` in its frontmatter: with a precomputed run plan its turns are dispatch and gate bookkeeping. The override lasts while the skill is active in the main session and does not reach phase agents, which run at their own `effort` from the table below.
 
 ### model+effort table for all agents
 
