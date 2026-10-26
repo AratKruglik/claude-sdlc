@@ -3,7 +3,12 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
-## [Unreleased]
+## [2.2.0] — 2026-10-26 — marketplace v2.2.0 / sdlc v2.2.0
+
+A smaller orchestrator skill and explicit invocation rules. Only `sdlc` is bumped; every other
+plugin keeps its version and needs no update. One behavior change: `/sdlc:batch` and
+`/sdlc:security-init` now run only when typed — Claude no longer starts them from a
+natural-language request.
 
 ### Changed
 

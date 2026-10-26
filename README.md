@@ -2,7 +2,13 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v2.1.1** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external.
+**v2.2.0** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external.
+
+What changed in 2.2.0 (`sdlc` only; the other plugins keep their versions) — see the [CHANGELOG](CHANGELOG.md):
+
+- **Smaller orchestrator skill** — `pipeline-orchestrator/SKILL.md` drops from 106 KB to ~70 KB; fallback, resume, parallel-aspect and telemetry text loads only when its branch runs.
+- **Run plan in batch subagents** — with no RUN PLAN block in context, the orchestrator runs `run-plan.sh` itself instead of the inline algorithms.
+- **Typed-only side-effect commands** — `/sdlc:batch` and `/sdlc:security-init` run only when typed; internal skills are hidden from the `/` menu.
 
 What is fixed in 2.1.1 (`sdlc`, `laravel-plugin`, `php-foundation`; the other plugins stay at 2.1.0) — see the [CHANGELOG](CHANGELOG.md):
 
