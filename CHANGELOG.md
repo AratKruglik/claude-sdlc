@@ -19,6 +19,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [S
 - **Run plan without the hook.** When no RUN PLAN block is in context — `/sdlc:batch` runs the
   skill inside a subagent, where `UserPromptSubmit` does not fire — the orchestrator now runs
   `scripts/run-plan.sh` once and uses its JSON, instead of walking the inline algorithms.
+- **Invocation frontmatter.** `/sdlc:batch` and `/sdlc:security-init` set
+  `disable-model-invocation: true`: both have side effects (a fan-out of pipelines, files
+  written into the project), so they run only when typed, and their descriptions leave the
+  per-session skill listing. `pipeline-orchestrator`, `batch-pipeline` and
+  `architect-conventions` set `user-invocable: false` — they are reached through
+  `/sdlc:start`, `/sdlc:batch` and agent `skills:` preloading, never typed. The orchestrator
+  runs at `effort: medium`: with a run plan its turns are dispatch and gate bookkeeping. Phase
+  agents keep their own `effort`, so the override does not reach them.
 
 ## [2.1.1] — 2026-10-26 — marketplace v2.1.1 / sdlc, laravel-plugin, php-foundation v2.1.1
 

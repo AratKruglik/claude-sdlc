@@ -1,5 +1,7 @@
 ---
 name: pipeline-orchestrator
+user-invocable: false
+effort: medium
 description: |
   Universal SDLC pipeline orchestrator with stack provider auto-discovery.
   Reads stack.md profiles from installed plugins, picks the highest-priority match,

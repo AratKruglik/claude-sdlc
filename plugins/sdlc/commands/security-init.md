@@ -1,6 +1,7 @@
 ---
 description: Materialize stack-specific security-patterns.yaml and claude-security-guidance.md into the current project for the security-guidance plugin to pick up. Safe to re-run — preserves user-defined rules outside the managed block.
 argument-hint: "[--dry-run]"
+disable-model-invocation: true
 ---
 
 # /sdlc:security-init

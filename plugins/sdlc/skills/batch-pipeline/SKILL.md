@@ -1,5 +1,6 @@
 ---
 name: batch-pipeline
+user-invocable: false
 description: |
   Parallel SDLC batch runner. Analyzes a list of independent task descriptions,
   groups them by heuristic file-conflict prediction, dispatches one worktree-isolated
