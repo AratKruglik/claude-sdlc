@@ -36,21 +36,10 @@ log=$(usage_log_path "$root" "$slug") || exit 0
 agent_id=$(json_get "$payload" "agent_id")
 [ -n "$agent_id" ] || exit 0
 agent_type=$(bare_agent "$(json_get "$payload" "agent_type")")
-session_id=$(json_get "$payload" "session_id")
-transcript_path=$(json_get "$payload" "transcript_path")
-last_message=$(json_get "$payload" "last_assistant_message")
+last_message=$(handoff_message "$payload")
 last_chars=${#last_message}
 ts=$(now_iso)
-
-# ── locate the subagent's own transcript ────────────────────────────────────
-subagent_file=""
-if [ -n "$transcript_path" ] && [ -n "$session_id" ]; then
-    candidate="$(dirname "$transcript_path")/${session_id}/subagents/agent-${agent_id}.jsonl"
-    [ -f "$candidate" ] && subagent_file="$candidate"
-fi
-if [ -z "$subagent_file" ] && [ -n "$session_id" ] && [ -d "${HOME}/.claude/projects" ]; then
-    subagent_file=$(find "${HOME}/.claude/projects" -path "*/${session_id}/*" -name "agent-${agent_id}.jsonl" 2>/dev/null | head -1)
-fi
+subagent_file=$(subagent_transcript "$payload")
 
 if [ -z "$subagent_file" ]; then
     if [ "$tool" = jq ]; then

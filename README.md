@@ -2,7 +2,15 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v2.1.0** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external.
+**v2.1.1** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external.
+
+What is fixed in 2.1.1 (`sdlc`, `laravel-plugin`, `php-foundation`; the other plugins stay at 2.1.0) — see the [CHANGELOG](CHANGELOG.md):
+
+- **Framework agents dispatch on marketplace installs** — the run plan no longer qualifies them with the version directory (`2.0.0:laravel-architect`).
+- **Handoff guard in auto mode** — a report delivered through `SubagentHandback` is checked as the report, instead of blocking every compliant phase once.
+- **Typecheck findings reach the orchestrator** — the post-implement check is relayed in the `Agent` result context, not only shown to the user.
+- **Laravel convention skills resolve** — `laravel-plugin:…` namespace, guarded by a new CI check.
+- **Run plan stays under the hook context cap** — smaller block, with a file fallback above 10K characters.
 
 What is new in 2.1.0 — static work leaves the model, see [Hook Fast Path](#hook-fast-path-static-work-leaves-the-model):
 
@@ -573,7 +581,7 @@ config edit would be a bug.
 | `pre-commit-guard.sh` | `PreToolUse` / `Bash` | Denies `git commit --no-verify` and staged secrets (API keys, AWS key ids, private key blocks, hardcoded credential literals), naming `file:line`. Warns — never denies — on `console.log` / `dd(` / `var_dump(` / `debugger` outside test paths. |
 | `config-protection.sh` | `PreToolUse` / `Edit\|Write` | Denies edits to the stack's tooling config (`pint.json`, `phpstan.neon*`, `eslint.config.*`, `ruff.toml`, `.editorconfig`, `checkstyle.xml`, …) — unless the run's `task_type` is `chore`, which is how tooling config is deliberately changed. |
 | `post-implement-check.sh` | `SubagentStop` | Runs the stack's typecheck or linter **once** after an architect finishes, over the diff against the base branch, and relays failures to the orchestrator as a retry hint (≤40 lines). Resolves the tool through `run-tool.sh` (below): locally when installed, inside the project's Docker Compose service otherwise, silent when neither has it. |
-| `phase-output-guard.sh` | `SubagentStop` | Checks that a finished phase agent wrote its `docs/plans/{slug}/0X-*.md` deliverable and the required compact-summary lines (QA counts, security severities and entry points, PR URL, …), applies the security fact-forcing rule and the 3000-token handoff budget. On a miss it returns `decision: block`, so the agent finishes in place instead of being re-dispatched cold. Blocks at most once per agent (`stop_hook_active`). |
+| `phase-output-guard.sh` | `SubagentStop`, `PreToolUse(SubagentHandback)` | Checks that a finished phase agent wrote its `docs/plans/{slug}/0X-*.md` deliverable and the required compact-summary lines (QA counts, security severities and entry points, PR URL, …), applies the security fact-forcing rule and the 3000-token handoff budget. On a miss it returns `decision: block`, so the agent finishes in place instead of being re-dispatched cold. An agent that hands its report back through `SubagentHandback` (v2.1.271+) is checked on that report, and a non-compliant hand-back is denied. Blocks at most once per agent (`stop_hook_active` or a logged `guard_block`). |
 
 Why `config-protection` denies rather than warns: an agent that loosens a linter rule so its
 own diff passes has widened the project's standards to fit one feature, and a diff review is
@@ -600,7 +608,7 @@ fallback; the hooks are the default.
 | Where | Hook / script | What the model no longer does |
 |---|---|---|
 | typing `/sdlc:start` | `UserPromptSubmit` → `hooks/user-prompt-run-plan.sh` → `scripts/run-plan.sh` | Steps 0a–1c and the slug: dependency preflight, stack detection (cache-aware), git-flow detection with task-type classification and branch proposal, diff signals and skip rules, `sdlc.local.yaml` keys, workflow resolution. The plan arrives as one context block with the 🔌 / 🎯 / 🌿 / ✂️ / `workflow:` text pre-rendered. The branch gate and the plan approval gate are still asked. |
-| every phase `Agent()` return | `PostToolUse(Agent)` → `hooks/agent-result-context.sh` | Running `usage-report.sh` and picking its own record; summing the cost cap. The hook injects the dispatch's measured usage line, the running total, and the 💸 block when the cap is exceeded. |
+| every phase `Agent()` return | `PostToolUse(Agent)` → `hooks/agent-result-context.sh` | Running `usage-report.sh` and picking its own record; summing the cost cap. The hook injects the dispatch's measured usage line, the running total, the 💸 block when the cap is exceeded, and the stack's post-implement typecheck/lint findings for that agent. |
 | every phase agent stop | `SubagentStop` → `hooks/phase-output-guard.sh` | Glob-checking the deliverable file and re-dispatching when it is missing (see Run-Scoped Guards). |
 | session start / resume / compact | `SessionStart` → `hooks/session-start-run-context.sh` | Rediscovering an in-progress run after compaction: one line with task, branch and the next unfinished step, only while a fresh state file exists. |
 | end of run | `scripts/finalize-telemetry.sh` | Assembling `_telemetry.json` and its aggregates by hand; it also prints the final summary block. |

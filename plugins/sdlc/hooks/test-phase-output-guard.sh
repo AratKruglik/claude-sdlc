@@ -13,6 +13,8 @@ GUARD="${HOOK_DIR}/phase-output-guard.sh"
 command -v jq >/dev/null 2>&1 || { echo "SKIP: jq not available"; exit 0; }
 
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/sdlc-phase-guard.XXXXXX")
+# The transcript lookup falls back to searching ~/.claude/projects; never let it reach the real one.
+export HOME="$TMP_ROOT/home"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
 pass_count=0
@@ -178,6 +180,59 @@ printf '# QA\n' > "$PROJ/docs/plans/demo/03-qa-backend.md"
 OUT=$(run_guard "$PROJ" "sdlc:qa-engineer" "b2" "$QA_OK")
 assert_eq "FIFO pairing: second start maps to second pending (frontend file missing)" "block" "$(decision "$OUT")"
 assert_contains "FIFO pairing: reason names the frontend path" "03-qa-frontend.md" "$(reason "$OUT")"
+
+# --- SubagentHandback (v2.1.271+): the report is a tool call, last_assistant_message is empty ---
+
+# $1 = transcript path, $2 = handed-back report
+write_handback_transcript() {
+    jq -cn --arg m "$2" '{type:"assistant", message:{id:"m1", content:[{type:"tool_use", name:"SubagentHandback", input:{message:$m}}]}}' > "$1"
+}
+
+# $1 = project, $2 = agent_type, $3 = agent_id, $4 = transcript path
+run_guard_handback_stop() {
+    bash "$GUARD" <<EOF
+{"hook_event_name":"SubagentStop","cwd":"$1","session_id":"s1","agent_id":"$3","agent_type":"$2","stop_hook_active":false,"last_assistant_message":"","agent_transcript_path":"$4"}
+EOF
+}
+
+# $1 = project, $2 = agent_type, $3 = agent_id, $4 = handed-back report
+run_guard_handback_pre() {
+    bash "$GUARD" <<EOF
+{"hook_event_name":"PreToolUse","cwd":"$1","session_id":"s1","agent_id":"$3","agent_type":"$2","tool_name":"SubagentHandback","tool_input":{"message":$(printf '%s' "$4" | jq -Rs .)}}
+EOF
+}
+permission() { [ -n "$1" ] && printf '%s' "$1" | jq -r '.hookSpecificOutput.permissionDecision // "none"' 2>/dev/null || echo none; }
+
+fresh_project "handback-stop-ok"
+write_state "$PROJ"
+write_dispatch "$PROJ" "sdlc:qa-engineer" "Phase 3/4: qa" "h1"
+printf '# QA\n' > "$PROJ/docs/plans/demo/03-qa.md"
+write_handback_transcript "$PROJ/agent-h1.jsonl" "$QA_OK"
+OUT=$(run_guard_handback_stop "$PROJ" "sdlc:qa-engineer" "h1" "$PROJ/agent-h1.jsonl")
+assert_eq "handback: report read from transcript, empty last message -> quiet" "none" "$(decision "$OUT")"
+
+fresh_project "handback-pre-bad"
+write_state "$PROJ"
+write_dispatch "$PROJ" "sdlc:qa-engineer" "Phase 3/4: qa" "h2"
+printf '# QA\n' > "$PROJ/docs/plans/demo/03-qa.md"
+OUT=$(run_guard_handback_pre "$PROJ" "sdlc:qa-engineer" "h2" "tests done")
+assert_eq "handback pre: missing lines -> deny" "deny" "$(permission "$OUT")"
+assert_contains "handback pre: reason names the missing line" "ITERATIONS_USED:" "$(printf '%s' "$OUT" | jq -r '.hookSpecificOutput.permissionDecisionReason')"
+OUT=$(run_guard_handback_pre "$PROJ" "sdlc:qa-engineer" "h2" "tests done")
+assert_eq "handback pre: never denies twice" "none" "$(permission "$OUT")"
+write_handback_transcript "$PROJ/agent-h2.jsonl" "tests done"
+OUT=$(run_guard_handback_stop "$PROJ" "sdlc:qa-engineer" "h2" "$PROJ/agent-h2.jsonl")
+assert_eq "handback: stop after a pre deny, report still bad -> block" "block" "$(decision "$OUT")"
+
+fresh_project "handback-pre-ok"
+write_state "$PROJ"
+write_dispatch "$PROJ" "sdlc:qa-engineer" "Phase 3/4: qa" "h3"
+printf '# QA\n' > "$PROJ/docs/plans/demo/03-qa.md"
+OUT=$(run_guard_handback_pre "$PROJ" "sdlc:qa-engineer" "h3" "$QA_OK")
+assert_eq "handback pre: compliant report -> allowed" "none" "$(permission "$OUT")"
+
+OUT=$(printf '{"hook_event_name":"PreToolUse","cwd":"%s","agent_id":"h3","agent_type":"sdlc:qa-engineer","tool_name":"Bash","tool_input":{"command":"ls"}}' "$PROJ" | bash "$GUARD")
+assert_eq "pre on another tool -> quiet" "" "$OUT"
 
 echo
 printf '%d passed, %d failed\n' "$pass_count" "$fail_count"

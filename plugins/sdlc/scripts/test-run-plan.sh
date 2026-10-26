@@ -251,9 +251,23 @@ assert_field "laravel: extra phase inserted"           '.workflow.resolved_phase
 assert_field "laravel: roster qualified by plugin"     '.effective_profile.roster | index("laravel-plugin:laravel-architect") != null' "true" "$out"
 assert_field "laravel: core agent stays sdlc"          '.effective_profile.roster | index("sdlc:business-analyst") != null' "true" "$out"
 assert_field "laravel: phase status keys"              '.effective_profile.phase_status_keys | join(",")' "business_analysis,development/backend,database,qa,security,documentation" "$out"
-assert_field "laravel: convention skills sorted"       '.effective_profile.convention_skills[0]' "laravel:eloquent-patterns" "$out"
+assert_field "laravel: convention skills sorted"       '.effective_profile.convention_skills[0]' "laravel-plugin:eloquent-patterns" "$out"
 assert_field "laravel: post checks"                    '.effective_profile.post_pipeline_checks | index("php artisan test") != null' "true" "$out"
 assert_field "laravel: injection phases"               '.effective_profile.injection_phases["laravel-plugin"] | join(",")' "development,qa,security" "$out"
+
+# Installed layout: ~/.claude/plugins/cache/{marketplace}/{plugin}/{version}/ — the path holds
+# "/plugins/" as well, which once made the version directory pass for the plugin name.
+CACHE_ROOT="$TMP_ROOT/home/.claude/plugins/cache"
+for p in "$PLUGINS_ROOT"/*/; do
+    p=$(basename "$p")
+    mkdir -p "$CACHE_ROOT/mkt/$p"
+    cp -R "$PLUGINS_ROOT/$p" "$CACHE_ROOT/mkt/$p/9.9.9"
+done
+out=$(bash "$PLAN" --repo "$LV" --plugins-root "$CACHE_ROOT" --stack-cache-dir "$TMP_ROOT/stack-cache-installed" \
+    --deps-cache-dir "$TMP_ROOT/deps-cache" --arguments "Add subscription billing" 2>/dev/null)
+assert_field "installed cache: roster qualified by plugin" '.effective_profile.roster | index("laravel-plugin:laravel-architect") != null' "true" "$out"
+assert_field "installed cache: no version as plugin"   '[.effective_profile.roster[] | select(startswith("9.9.9:"))] | length' "0" "$out"
+assert_field "installed cache: primary plugin name"    '.effective_profile.primary.plugin' "laravel-plugin" "$out"
 
 out=$(run_plan "$LV" --arguments "Add subscription billing --stack=vanilla")
 assert_field "--stack: forced"                         '.stack.forced' "true" "$out"

@@ -378,14 +378,18 @@ fi
 stack_json=$(jq -c --arg src "$stack_source" --argjson age "${stack_age_minutes:-0}" '
     . + {source: $src, cache_age_minutes: (if $src == "cache" then $age else null end), forced: (.forced // false)}' <<<"$stack_json")
 
+# The manifest name is the namespace Claude Code qualifies agents and skills with. Without a
+# manifest: installed cache is {marketplace}/{plugin}/{version}/stack.md, a dev checkout
+# plugins/{plugin}/stack.md — and the installed path contains ~/.claude/plugins/ too, so the
+# version directory, not the path, tells them apart.
 plugin_name_of() {
-    local src="$1" dir
-    dir=$(dirname "$src")
-    case "$dir" in
-        */plugins/*) printf '%s' "$(basename "$dir")" ;;
-        *)
-            # Installed cache: {marketplace}/{plugin}/{version}/stack.md
-            printf '%s' "$(basename "$(dirname "$dir")")" ;;
+    local dir name
+    dir=$(dirname "$1")
+    name=$(jq -r '.name // empty' "$dir/.claude-plugin/plugin.json" 2>/dev/null)
+    if [ -n "$name" ]; then printf '%s' "$name"; return; fi
+    case "$(basename "$dir")" in
+        [0-9]*) basename "$(dirname "$dir")" ;;
+        *) basename "$dir" ;;
     esac
 }
 

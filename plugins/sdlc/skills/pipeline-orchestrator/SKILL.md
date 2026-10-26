@@ -56,6 +56,9 @@ as the fallback for a session where the hook did not fire (no `jq`, hook disable
 skips hooks). Decisions that need a human — the branch gate, the plan approval, ties and halts —
 are never taken by the plan: it reports them under `halts[]` / `gate_default` and you ask.
 
+When the plan would exceed the hook context cap, the block instead names a JSON file: `Read` it
+once and treat its content exactly as the inline plan.
+
 Trust the plan only for the prompt it was computed for: the block carries the `arguments` it saw;
 if they differ from `$ARGUMENTS`, ignore it and fall back. `warnings[]` are printed once, verbatim.
 
@@ -1211,8 +1214,8 @@ A retry after a `maxTurns` hit must narrow the scope (one aspect, or the failing
 rather than re-issuing the same prompt — the cap will be reached again otherwise.
 
 **Post-implement check findings.** A stack's `post-implement-check.sh` hook runs its
-typecheck or linter once after each architect finishes and relays the output as a
-`systemMessage`. Treat that as a **retry hint for the implement pass**, not as a verdict:
+typecheck or linter once after each architect finishes; the findings arrive in the
+`PostToolUse(Agent)` context right after the `SDLC telemetry` line for that dispatch. Treat that as a **retry hint for the implement pass**, not as a verdict:
 on a parallel-aspect run some diagnostics come from a peer's unfinished work. Re-dispatch
 the aspect with the relevant lines appended to the prompt; never edit the code yourself,
 and never fail a member on diagnostics outside its own aspect's paths.

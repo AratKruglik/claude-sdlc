@@ -91,6 +91,9 @@ jobs:
       - name: Check relative markdown links
         run: bash scripts/ci/check-links.sh
 
+      - name: Check convention skill references
+        run: bash scripts/ci/check-skill-refs.sh
+
   plugins:
     name: claude plugin validate --strict
     runs-on: ubuntu-latest

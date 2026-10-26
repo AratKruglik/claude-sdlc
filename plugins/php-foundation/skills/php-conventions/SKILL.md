@@ -19,7 +19,7 @@ paths: ["**/*.php"]
 
 # PHP Conventions (stack-agnostic, PHP 8.1+)
 
-This skill encodes idioms that reduce bugs and improve readability in any PHP codebase. Apply alongside the active framework plugin's conventions skill (e.g., `laravel:laravel-conventions`, `symfony:symfony-conventions`).
+This skill encodes idioms that reduce bugs and improve readability in any PHP codebase. Apply alongside the active framework plugin's conventions skill (e.g., `laravel-plugin:laravel-conventions`, `symfony-plugin:symfony-conventions`).
 
 ## Detection
 

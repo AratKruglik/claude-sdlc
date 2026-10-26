@@ -16,8 +16,10 @@
 #   - Skips silently when the language does not apply or the tool is neither installed locally
 #     nor inside a running compose service: a missing `tsc` is a project that does not use it,
 #     not a finding.
-#   - Output goes to `systemMessage`, capped at 40 lines. It is advice for the orchestrator's
-#     3e validation, never a block. SubagentStop cannot deny a permission; it can return
+#   - Output, capped at 40 lines, goes to `systemMessage` for the user and as a `post_check`
+#     row to the run's usage log, which agent-result-context.sh relays to the orchestrator —
+#     systemMessage alone never reaches the model. It is advice for the orchestrator's 3e
+#     validation, never a block. SubagentStop cannot deny a permission; it can return
 #     `decision: block` to keep the subagent running (phase-output-guard.sh does that for the
 #     handoff contract), but a type error is deliberately left for the orchestrator to route
 #     into a retry rather than forced on the agent here.
@@ -84,7 +86,15 @@ ${trimmed}
 These are diagnostics, not a verdict: some may come from work another aspect has not finished.
 Treat them as a retry hint for this aspect's implement-pass validation."
 
+# systemMessage only reaches the user. The orchestrator gets the findings from
+# agent-result-context.sh (PostToolUse(Agent)), which picks up this row by agent_id.
+agent_id=$(json_get "$payload" "agent_id")
+slug=$(json_get "$state" "task_slug")
 if command -v jq >/dev/null 2>&1; then
+    if [ -n "$agent_id" ] && [ -n "$slug" ] && log=$(usage_log_path "$root" "$slug"); then
+        append_row "$log" "$(jq -cn --arg id "$agent_id" --arg ts "$(now_iso)" --arg m "$message" \
+            '{event:"post_check", agent_id:$id, ts:$ts, message:$m}')"
+    fi
     jq -cn --arg m "$message" '{systemMessage:$m}'
 else
     python3 -c 'import json,sys; print(json.dumps({"systemMessage":sys.argv[1]},separators=(",",":")))' "$message" 2>/dev/null || exit 0

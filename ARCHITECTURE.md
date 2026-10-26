@@ -175,8 +175,8 @@ detect:
 - documentation: document-writer              # core agent
 
 ## Convention skills to apply
-- laravel:laravel-conventions
-- laravel:eloquent-patterns
+- laravel-plugin:laravel-conventions
+- laravel-plugin:eloquent-patterns
 
 ## Extra phases
 - name: database
@@ -189,7 +189,7 @@ detect:
 For development phase, inject:
   "Use Artisan commands for code generation: php artisan make:model -mfsc, etc.
    Follow PSR-12 and Laravel conventions.
-   Apply skills: laravel:laravel-conventions, laravel:eloquent-patterns"
+   Apply skills: laravel-plugin:laravel-conventions, laravel-plugin:eloquent-patterns"
 
 For qa phase, inject:
   "Use Pest/PHPUnit with Laravel testing helpers (RefreshDatabase, actingAs).

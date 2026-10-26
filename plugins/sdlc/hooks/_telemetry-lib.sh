@@ -118,6 +118,40 @@ bare_agent() {
     printf '%s' "${1##*:}"
 }
 
+# $1 = SubagentStop payload. Prints the subagent's own transcript path, or nothing.
+# agent_transcript_path is the documented field; the rebuilt path covers older builds.
+subagent_transcript() {
+    local payload="$1" file session_id transcript_path agent_id
+    file=$(json_get "$payload" "agent_transcript_path")
+    [ -n "$file" ] && [ -f "$file" ] && { printf '%s' "$file"; return 0; }
+    session_id=$(json_get "$payload" "session_id")
+    transcript_path=$(json_get "$payload" "transcript_path")
+    agent_id=$(json_get "$payload" "agent_id")
+    [ -n "$session_id" ] && [ -n "$agent_id" ] || return 0
+    if [ -n "$transcript_path" ]; then
+        file="$(dirname "$transcript_path")/${session_id}/subagents/agent-${agent_id}.jsonl"
+        [ -f "$file" ] && { printf '%s' "$file"; return 0; }
+    fi
+    [ -d "${HOME}/.claude/projects" ] || return 0
+    find "${HOME}/.claude/projects" -path "*/${session_id}/*" -name "agent-${agent_id}.jsonl" 2>/dev/null | head -1
+}
+
+# $1 = SubagentStop payload. Prints the report the subagent handed to its parent. From Claude
+# Code v2.1.271 a subagent may deliver it through the SubagentHandback tool, and
+# last_assistant_message then holds only the text after that call — usually nothing.
+handoff_message() {
+    local payload="$1" file msg=""
+    file=$(subagent_transcript "$payload")
+    if [ -n "$file" ] && command -v jq >/dev/null 2>&1; then
+        msg=$(jq -R 'fromjson? // empty' "$file" 2>/dev/null | jq -rs '
+            [.[] | select(.type == "assistant") | .message.content[]?
+             | select(.type == "tool_use" and .name == "SubagentHandback") | .input.message // empty]
+            | last // empty' 2>/dev/null)
+    fi
+    [ -n "$msg" ] || msg=$(json_get "$payload" "last_assistant_message")
+    printf '%s' "$msg"
+}
+
 # Parse the orchestrator's description contract
 #   Phase {N}/{M}: {phase}[ — {aspect}][ [pass:{pass}]]
 # into three globals: PARSED_PHASE, PARSED_ASPECT, PARSED_PASS (empty when absent).
