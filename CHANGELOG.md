@@ -3,7 +3,11 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
-## [Unreleased]
+## [2.1.1] — 2026-10-26 — marketplace v2.1.1 / sdlc, laravel-plugin, php-foundation v2.1.1
+
+Patch release for runtime contracts that broke or slowed `/sdlc:start` on marketplace installs
+and in auto mode. Only the three plugins with changes are bumped; every other plugin stays at
+2.1.0 and needs no update. No breaking changes.
 
 ### Fixed
 

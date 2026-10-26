@@ -2,7 +2,15 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v2.1.0** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external.
+**v2.1.1** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external.
+
+What is fixed in 2.1.1 (`sdlc`, `laravel-plugin`, `php-foundation`; the other plugins stay at 2.1.0) — see the [CHANGELOG](CHANGELOG.md):
+
+- **Framework agents dispatch on marketplace installs** — the run plan no longer qualifies them with the version directory (`2.0.0:laravel-architect`).
+- **Handoff guard in auto mode** — a report delivered through `SubagentHandback` is checked as the report, instead of blocking every compliant phase once.
+- **Typecheck findings reach the orchestrator** — the post-implement check is relayed in the `Agent` result context, not only shown to the user.
+- **Laravel convention skills resolve** — `laravel-plugin:…` namespace, guarded by a new CI check.
+- **Run plan stays under the hook context cap** — smaller block, with a file fallback above 10K characters.
 
 What is new in 2.1.0 — static work leaves the model, see [Hook Fast Path](#hook-fast-path-static-work-leaves-the-model):
 
