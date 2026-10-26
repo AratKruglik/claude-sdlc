@@ -2,7 +2,13 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v2.1.1** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external.
+**v2.2.0** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external.
+
+What changed in 2.2.0 (`sdlc` only; the other plugins keep their versions) — see the [CHANGELOG](CHANGELOG.md):
+
+- **Smaller orchestrator skill** — `pipeline-orchestrator/SKILL.md` drops from 106 KB to ~70 KB; fallback, resume, parallel-aspect and telemetry text loads only when its branch runs.
+- **Run plan in batch subagents** — with no RUN PLAN block in context, the orchestrator runs `run-plan.sh` itself instead of the inline algorithms.
+- **Typed-only side-effect commands** — `/sdlc:batch` and `/sdlc:security-init` run only when typed; internal skills are hidden from the `/` menu.
 
 What is fixed in 2.1.1 (`sdlc`, `laravel-plugin`, `php-foundation`; the other plugins stay at 2.1.0) — see the [CHANGELOG](CHANGELOG.md):
 
@@ -254,10 +260,10 @@ output) is guarded by prompt text rather than enforced. It is off by default.
 | Command | Purpose |
 |---|---|
 | `/sdlc:start "feature"` | Run the full pipeline (5 phases, QA and security in parallel) |
-| `/sdlc:batch "task1" "task2"` | Run pipelines in parallel for multiple tasks (isolated worktrees) |
+| `/sdlc:batch "task1" "task2"` | Run pipelines in parallel for multiple tasks (isolated worktrees). Typed only — Claude does not start it on its own |
 | `/sdlc:list-stacks` | Show detected stack profiles and their priorities |
 | `/sdlc:doctor` | Preflight check: dependencies, stack detection, git branching model, cost baseline |
-| `/sdlc:security-init` | Materialize security-patterns.yaml for the security-guidance plugin |
+| `/sdlc:security-init` | Materialize security-patterns.yaml for the security-guidance plugin. Typed only — Claude does not start it on its own |
 
 ### `/sdlc:start` flags
 
@@ -602,8 +608,9 @@ moving a key to an environment variable is never blocked.
 
 Everything the orchestrator used to re-derive on the session model with `Glob`/`Read`/`git` calls
 is now computed by bash + jq and handed to it, either by a hook or by one script call. The
-inline algorithms stay in `pipeline-orchestrator/SKILL.md` as the definition and the no-`jq`
-fallback; the hooks are the default.
+inline algorithms stay in `pipeline-orchestrator/references/fallback-steps.md` as the definition and
+the no-`jq` fallback, loaded only when neither the hook nor `scripts/run-plan.sh` produced a plan;
+the hooks are the default.
 
 | Where | Hook / script | What the model no longer does |
 |---|---|---|
@@ -667,6 +674,8 @@ Claude Code subagent frontmatter supports:
 Note the asymmetry between the two levers: `model` can be overridden per dispatch (the `Agent` tool takes a `model` parameter), but `effort` cannot — it is read from frontmatter only. An agent invoked twice in one phase therefore shares one `effort` value across both invocations, which is why the development phase varies `model` between its passes but not `effort`. See `MODEL-ROUTING.md` §6.
 
 `model_plan` is this marketplace's own optional field, not a Claude Code one — the orchestrator resolves it for the development planning pass and falls back to `model` when absent.
+
+The orchestrator skill itself sets `effort: medium` in its frontmatter: with a precomputed run plan its turns are dispatch and gate bookkeeping. The override lasts while the skill is active in the main session and does not reach phase agents, which run at their own `effort` from the table below.
 
 ### model+effort table for all agents
 

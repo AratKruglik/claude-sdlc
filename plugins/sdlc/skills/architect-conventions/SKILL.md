@@ -1,5 +1,6 @@
 ---
 name: architect-conventions
+user-invocable: false
 description: |
   Shared conventions for every SDLC development-phase architect agent: hard rules,
   code quality bar, workflow steps (superpowers invocation, spec reading, codebase

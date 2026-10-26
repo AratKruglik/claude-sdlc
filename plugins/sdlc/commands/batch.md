@@ -1,6 +1,7 @@
 ---
 description: Run SDLC pipelines in parallel for multiple tasks — decomposes scope, detects file conflicts, dispatches worktree-isolated pipelines.
 argument-hint: '"Task 1" "Task 2" ... [--file=path] [--stack=NAME] [--dry-run]'
+disable-model-invocation: true
 ---
 
 # /sdlc:batch

@@ -3,6 +3,36 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [2.2.0] — 2026-10-26 — marketplace v2.2.0 / sdlc v2.2.0
+
+A smaller orchestrator skill and explicit invocation rules. Only `sdlc` is bumped; every other
+plugin keeps its version and needs no update. One behavior change: `/sdlc:batch` and
+`/sdlc:security-init` now run only when typed — Claude no longer starts them from a
+natural-language request.
+
+### Changed
+
+- **`pipeline-orchestrator/SKILL.md` split into a core and on-demand references.** The core
+  (106 KB → ~70 KB) keeps what every run executes: the run-plan fast path, Step R's decision,
+  the gates, Step 3 dispatch, Steps 4–5, base prompts and the hard rules — now placed right
+  after the language policy, so they sit inside the part of a skill Claude Code re-attaches
+  after compaction. Text read only on a branch moved verbatim to
+  `skills/pipeline-orchestrator/references/`: `fallback-steps.md` (inline Steps 0a–1c),
+  `resume.md` (R-1…R-5), `parallel-aspects.md` (experimental 3b) and `telemetry.md` (the
+  `phases[]` mapping and `_telemetry.json` shape for a jq-less run). Each step keeps its
+  heading in the core with a pointer to where its fallback lives.
+- **Run plan without the hook.** When no RUN PLAN block is in context — `/sdlc:batch` runs the
+  skill inside a subagent, where `UserPromptSubmit` does not fire — the orchestrator now runs
+  `scripts/run-plan.sh` once and uses its JSON, instead of walking the inline algorithms.
+- **Invocation frontmatter.** `/sdlc:batch` and `/sdlc:security-init` set
+  `disable-model-invocation: true`: both have side effects (a fan-out of pipelines, files
+  written into the project), so they run only when typed, and their descriptions leave the
+  per-session skill listing. `pipeline-orchestrator`, `batch-pipeline` and
+  `architect-conventions` set `user-invocable: false` — they are reached through
+  `/sdlc:start`, `/sdlc:batch` and agent `skills:` preloading, never typed. The orchestrator
+  runs at `effort: medium`: with a run plan its turns are dispatch and gate bookkeeping. Phase
+  agents keep their own `effort`, so the override does not reach them.
+
 ## [2.1.1] — 2026-10-26 — marketplace v2.1.1 / sdlc, laravel-plugin, php-foundation v2.1.1
 
 Patch release for runtime contracts that broke or slowed `/sdlc:start` on marketplace installs

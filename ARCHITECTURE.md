@@ -72,7 +72,8 @@ sdlc-marketplace/
 │   │   │   └── security-init.md         ← /sdlc:security-init (security patterns)
 │   │   ├── skills/
 │   │   │   └── pipeline-orchestrator/
-│   │   │       └── SKILL.md             ← SINGLE orchestrator (955 lines)
+│   │   │       ├── SKILL.md             ← SINGLE orchestrator (core, ~1100 lines)
+│   │   │       └── references/          ← read on demand: no-plan fallback, resume, parallel aspects, telemetry
 │   │   ├── agents/
 │   │   │   ├── business-analyst.md      ← opus + effort:high (critical reasoning)
 │   │   │   ├── developer.md             ← sonnet + model_plan:opus (vanilla fallback)

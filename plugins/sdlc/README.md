@@ -19,7 +19,8 @@ sdlc/
 ├── security-patterns.yaml                    # 6 core_ stack-agnostic rules
 ├── commands/                                 # start, doctor, batch, list-stacks, security-init
 ├── skills/
-│   ├── pipeline-orchestrator/SKILL.md        # the orchestrator
+│   ├── pipeline-orchestrator/SKILL.md        # the orchestrator (core: fast path, dispatch, gates)
+│   │   └── references/                       # read on demand: fallback-steps, resume, parallel-aspects, telemetry
 │   ├── architect-conventions/SKILL.md        # shared architect contract
 │   └── batch-pipeline/SKILL.md               # parallel worktree runs
 ├── workflows/                                # default, bugfix, hotfix, refactor, docs-only
