@@ -74,7 +74,11 @@ context="${MARKER}
 ${compact}
 ${END_MARKER}"
 if [ "$(jq -rn --arg c "$context" '$c | length')" -gt "$CONTEXT_CAP" ]; then
-    plan_file="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}}/run-plan/$(jq -r '.session_id // "session"' <<<"$payload").json"
+    # Only the per-user plugin data dir: a shared temp path would let another user plant the
+    # plan the orchestrator is told to trust. Without it, stay silent and let the fallback run.
+    [ -n "${CLAUDE_PLUGIN_DATA:-}" ] || exit 0
+    session=$(jq -r '.session_id // "session"' <<<"$payload" | tr -cd 'A-Za-z0-9_-')
+    plan_file="${CLAUDE_PLUGIN_DATA}/run-plan/${session:-session}.json"
     mkdir -p "$(dirname "$plan_file")" 2>/dev/null && printf '%s\n' "$compact" > "$plan_file" || exit 0
     context="${MARKER}
 The run plan exceeds the hook context cap. Read ${plan_file} once and use its JSON as the run plan.

@@ -18,9 +18,10 @@
 #     through that tool (Claude Code v2.1.271+, auto mode) is checked on the report itself,
 #     and a violation denies the hand-back with the same reason, so the parent never receives
 #     a non-compliant report followed by a corrected one.
-#   - Never blocks twice for one agent: `stop_hook_active == true`, or a `guard_block` row
-#     for this agent_id in the usage log, means it already did. A second miss is the
-#     orchestrator's call, not an infinite loop.
+#   - Never blocks twice per event for one agent: `stop_hook_active == true` on SubagentStop,
+#     a `guard_block` row for this agent_id on PreToolUse. The two are independent, so a
+#     hand-back the harness let through despite the deny still gets the SubagentStop block.
+#     A further miss is the orchestrator's call, not an infinite loop.
 #   - Prints nothing when the contract holds. Fails open on every error.
 set -uo pipefail
 
@@ -53,7 +54,9 @@ slug=$(json_get "$state" "task_slug")
 
 log="${root}/docs/plans/${slug}/_usage.jsonl"
 [ -f "$log" ] || quiet
-! grep -qF "\"event\":\"guard_block\",\"agent_id\":\"${agent_id}\"" "$log" 2>/dev/null || quiet
+if [ "$event" = PreToolUse ]; then
+    ! grep -qF "\"event\":\"guard_block\",\"agent_id\":\"${agent_id}\"" "$log" 2>/dev/null || quiet
+fi
 
 # FIFO pairing identical to usage-report.sh: each start consumes the earliest pending of its
 # agent_type; the pending paired with THIS agent_id is the dispatch under review.

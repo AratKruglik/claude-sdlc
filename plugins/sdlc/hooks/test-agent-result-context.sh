@@ -125,6 +125,11 @@ CTX=$(context "$(run_hook "$PROJ" "laravel-plugin:laravel-architect" "Phase 2/5:
 assert_contains "post_check row of this agent -> relayed to the orchestrator" "app/Foo.php:12" "$CTX"
 case "$CTX" in *"stale finding"*) assert_eq "post_check of another agent -> not relayed" "absent" "present" ;; *) assert_eq "post_check of another agent -> not relayed" "absent" "absent" ;; esac
 
+jq -cn --arg m "$(printf 'x%.0s' $(seq 1 12000))" '{event:"post_check",agent_id:"pc1",ts:"t",message:$m}' >> "$PROJ/docs/plans/demo/_usage.jsonl"
+CTX=$(context "$(run_hook "$PROJ" "laravel-plugin:laravel-architect" "Phase 2/5: development — backend [pass:implement]")")
+assert_eq "long post_check -> context stays under the 10K cap" "true" "$(jq -Rsn --arg c "$CTX" '$c | length < 10000')"
+assert_contains "long post_check -> truncation is stated" "truncated" "$CTX"
+
 echo
 printf '%d passed, %d failed\n' "$pass_count" "$fail_count"
 [ "$fail_count" -eq 0 ]

@@ -222,7 +222,7 @@ OUT=$(run_guard_handback_pre "$PROJ" "sdlc:qa-engineer" "h2" "tests done")
 assert_eq "handback pre: never denies twice" "none" "$(permission "$OUT")"
 write_handback_transcript "$PROJ/agent-h2.jsonl" "tests done"
 OUT=$(run_guard_handback_stop "$PROJ" "sdlc:qa-engineer" "h2" "$PROJ/agent-h2.jsonl")
-assert_eq "handback: stop after a pre deny -> quiet" "none" "$(decision "$OUT")"
+assert_eq "handback: stop after a pre deny, report still bad -> block" "block" "$(decision "$OUT")"
 
 fresh_project "handback-pre-ok"
 write_state "$PROJ"

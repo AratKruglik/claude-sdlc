@@ -100,6 +100,8 @@ assert_eq "context fits the cap"                "true" "$(context_of "$out" | jq
 out=$(SDLC_RUN_PLAN_CONTEXT_CAP=500 CLAUDE_PLUGIN_DATA="$TMP_ROOT/data" run_hook "/sdlc:start Add metrics")
 assert_contains "over the cap: pointer to the file" "Read $TMP_ROOT/data/run-plan/session.json once" "$(context_of "$out")"
 assert_eq "over the cap: file holds the plan"   "add-metrics" "$(jq -r '.task_slug' "$TMP_ROOT/data/run-plan/session.json" 2>/dev/null)"
+out=$(SDLC_RUN_PLAN_CONTEXT_CAP=500 CLAUDE_PLUGIN_DATA= run_hook "/sdlc:start Add metrics")
+assert_eq "over the cap, no plugin data dir: silent (no shared temp file)" "" "$out"
 
 mkdir -p "$PROJ/plugins/sdlc/scripts" "$PROJ/plugins/evil-plugin"
 printf '#!/usr/bin/env bash\n' > "$PROJ/plugins/sdlc/scripts/run-plan.sh"
