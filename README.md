@@ -2,7 +2,18 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v2.2.0** — 27 marketplace entries: 24 local (1 core + 5 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 3 Java/.NET stacks + 4 Python stacks) plus 3 optional external.
+**v2.3.0** — 31 marketplace entries: 28 local (1 core + 6 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 4 JVM/.NET stacks + 4 Python stacks + 2 Dart/Flutter stacks) plus 3 optional external.
+
+What changed in 2.3.0 — see the [CHANGELOG](CHANGELOG.md) for the per-plugin version table and upgrade notes:
+
+- **Dart, Flutter and Kotlin** — four new plugins: `dart-foundation` (shared skills), `dart-plugin` (priority 100, pub packages, CLIs, shelf / dart_frog servers), `flutter-plugin` (priority 300, backend + frontend, mobile / web / desktop) and `kotlin-plugin` (priority 120, Ktor / CLI / library on the JVM). All four debut at 2.3.0.
+- **Every other stack plugin audited against current docs** — Next.js 16, NestJS 12 + Prisma 7, Angular 22, React Router 7/8, vue-router 5, RNTL 14, MMKV 4, Inertia 3, Laravel 13 (real Boost MCP tools), Symfony 8, Spring Boot 4, .NET 10, FastAPI, Flask and Django guidance now defaults to the current major; the older form stays as a one-line version boundary.
+- **Detection fixes** — `aspnet-core-plugin` detected nothing before (now glob-aware, `.slnx` supported); `nodejs-plugin` no longer matches on `@types/node`, so Vite SPAs and Laravel/Symfony projects stop colliding with it — a framework-less Node service needs `--stack=nodejs`; Django, FastAPI and Flask also read `Pipfile` / `setup.py`; Spring Boot is found through a Gradle version catalog.
+- **Hooks** — `dotnet format` actually formats; Gradle projects get a compile check; Dart hooks need the 2.3.0 `sdlc` core (`--lang dart`).
+- **Security patterns** — a core regex that did not compile and a dozen rules that missed their target or fired on safe code are fixed and tested; exact duplicates of foundation rules are gone.
+
+Plugin versions: `sdlc`, `dart-foundation`, `dart-plugin`, `flutter-plugin`, `kotlin-plugin` at 2.3.0; `nodejs-plugin`, `aspnet-core-plugin`, `django-plugin`, `fastapi-plugin`, `flask-plugin`, `spring-boot-plugin`, `java-plugin` at 2.2.0 (detection or hook behaviour changed); the rest at 2.1.1 (`laravel-plugin` and `php-foundation` at 2.1.2).
+
 
 What changed in 2.2.0 (`sdlc` only; the other plugins keep their versions) — see the [CHANGELOG](CHANGELOG.md):
 

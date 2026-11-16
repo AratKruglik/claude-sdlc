@@ -3,7 +3,42 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
-## [Unreleased]
+## [2.3.0] — 2026-11-16 — marketplace v2.3.0 / sdlc v2.3.0
+
+Four new stack plugins and a marketplace-wide audit. Every plugin changed, so every plugin is
+bumped; plugin versions follow the level of the change — minor where detection or hook behaviour
+changed, patch for corrected guidance and patterns, and 2.3.0 for plugins that debut here.
+
+| Plugin | From | To |
+|---|---|---|
+| `angular-plugin` | 2.1.0 | 2.1.1 |
+| `aspnet-core-plugin` | 2.1.0 | 2.2.0 |
+| `csharp-foundation` | 2.1.0 | 2.1.1 |
+| `dart-foundation` | new | 2.3.0 |
+| `dart-plugin` | new | 2.3.0 |
+| `django-plugin` | 2.1.0 | 2.2.0 |
+| `fastapi-plugin` | 2.1.0 | 2.2.0 |
+| `flask-plugin` | 2.1.0 | 2.2.0 |
+| `flutter-plugin` | new | 2.3.0 |
+| `inertia-react-plugin` | 2.1.0 | 2.1.1 |
+| `inertia-vue-plugin` | 2.1.0 | 2.1.1 |
+| `java-foundation` | 2.1.0 | 2.1.1 |
+| `java-plugin` | 2.1.0 | 2.2.0 |
+| `js-foundation` | 2.1.0 | 2.1.1 |
+| `kotlin-plugin` | new | 2.3.0 |
+| `laravel-plugin` | 2.1.1 | 2.1.2 |
+| `nestjs-plugin` | 2.1.0 | 2.1.1 |
+| `nextjs-plugin` | 2.1.0 | 2.1.1 |
+| `nodejs-plugin` | 2.1.0 | 2.2.0 |
+| `php-foundation` | 2.1.1 | 2.1.2 |
+| `python-foundation` | 2.1.0 | 2.1.1 |
+| `python-plugin` | 2.1.0 | 2.1.1 |
+| `react-native-plugin` | 2.1.0 | 2.1.1 |
+| `react-plugin` | 2.1.0 | 2.1.1 |
+| `sdlc` | 2.2.0 | 2.3.0 |
+| `spring-boot-plugin` | 2.1.0 | 2.2.0 |
+| `symfony-plugin` | 2.1.0 | 2.1.1 |
+| `vue-plugin` | 2.1.0 | 2.1.1 |
 
 ### Added
 
@@ -65,6 +100,19 @@ Marketplace-wide audit of every stack plugin against current framework documenta
 - **Docs.** Install commands in eight plugin READMEs pointed at the old `ROLIQUE/claude-plugins`
   marketplace; "Stop hook" descriptions now match the PostToolUse / SubagentStop hooks that
   ship.
+
+### Upgrade notes
+
+- **Update `sdlc` first.** The Dart and Kotlin hooks and the Dart / Flutter project-shape probe
+  need `sdlc` 2.3.0 (`run-tool.sh --lang dart`). A plugin `dependencies` entry cannot carry a
+  version, so on an older installed `sdlc` the Dart hooks stay silent instead of failing.
+- **Framework-less Node services** no longer auto-detect as `nodejs`; run with `--stack=nodejs`.
+  Projects with Express, Fastify, Koa, Hapi, Hono or NestJS are unaffected.
+- **.NET projects now activate `aspnet-core-plugin`.** They used to resolve to `vanilla`, so the
+  pipeline's agents and phase prompts change on those projects.
+- **Laravel agents run Artisan through Bash.** Laravel Boost has no Artisan or route tool; it is
+  used for schema, read-only SQL and documentation lookup.
+- **`/sdlc:security-init`** needs to be re-run to pick up the corrected security patterns.
 
 ## [2.2.0] — 2026-10-26 — marketplace v2.2.0 / sdlc v2.2.0
 

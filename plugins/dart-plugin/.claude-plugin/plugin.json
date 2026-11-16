@@ -1,6 +1,6 @@
 {
   "name": "dart-plugin",
-  "version": "2.1.0",
+  "version": "2.3.0",
   "description": "Plain Dart backend stack provider for the SDLC marketplace (priority=100). Detects any pubspec.yaml project and registers a dart-architect agent (Sonnet/medium) as the development-phase backend implementer. Handles CLI tools, pub packages, and servers (shelf, dart_frog, serverpod-free plain HTTP). Flutter projects are claimed by flutter-plugin (priority 300, backend + frontend), so dart-plugin stays inactive there. Reuses shared skills from dart-foundation (dart-conventions, dart-tooling, dart-testing).",
   "author": {
     "name": "Oleksii Kruhlyk",

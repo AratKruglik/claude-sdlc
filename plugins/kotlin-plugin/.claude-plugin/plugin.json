@@ -1,6 +1,6 @@
 {
   "name": "kotlin-plugin",
-  "version": "2.1.0",
+  "version": "2.3.0",
   "description": "Kotlin/JVM backend stack provider for the SDLC marketplace (priority=120). Detects the Kotlin JVM plugin in Gradle or Maven build files. Adds kotlin-architect agent (Sonnet/medium) for Kotlin libraries, CLIs and services (Ktor, plain JVM), plus kotlin-conventions, kotlin-coroutines and kotlin-testing skills (JUnit 5 / Kotest, MockK, runTest). Beats java-plugin (100); spring-boot-plugin (150) still wins on Spring projects. Reuses java-foundation build tooling.",
   "author": {
     "name": "Oleksii Kruhlyk",
