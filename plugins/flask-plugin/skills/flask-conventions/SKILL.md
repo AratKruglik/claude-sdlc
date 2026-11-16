@@ -92,8 +92,14 @@ Initialize extensions at **module level** in `app/extensions.py`, then call `.in
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import DeclarativeBase
 
-db = SQLAlchemy()
+
+class Base(DeclarativeBase):
+    pass
+
+
+db = SQLAlchemy(model_class=Base)  # Flask-SQLAlchemy < 3.1: SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
 login_manager.login_view = "auth.login"
@@ -218,7 +224,7 @@ class UserCreateSchema(Schema):
     display_name = fields.String(required=True)
 
     @validates("password")
-    def validate_password(self, value: str) -> None:
+    def validate_password(self, value: str, **kwargs) -> None:
         if len(value) < 8:
             raise ValidationError("Password must be at least 8 characters.")
 
@@ -233,6 +239,8 @@ class UserReadSchema(Schema):
     display_name = fields.String(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
 ```
+
+`**kwargs` absorbs the `data_key` argument marshmallow 4 passes to `@validates` methods (3.x passes none).
 
 Usage in a view:
 
@@ -306,7 +314,7 @@ login_manager.login_view = "auth.login"  # redirect for @login_required
 @login_manager.user_loader
 def load_user(user_id: str):
     from app.users.models import User
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 ```
 
 The `User` model must implement `UserMixin`:
@@ -395,7 +403,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 @jwt_required()
 def get_current_user():
     user_id = get_jwt_identity()
-    user = User.query.get(int(user_id))
+    user = db.session.get(User, int(user_id))
     return jsonify(user_read_schema.dump(user))
 
 
@@ -423,7 +431,7 @@ Organize templates under `app/templates/`. Use a base template with blocks:
 <body>
     <nav>
         {% if current_user.is_authenticated %}
-            <a href="{{ url_for('auth.logout') }}">Log out</a>
+            <form method="post" action="{{ url_for('auth.logout') }}"><button type="submit">Log out</button></form>
         {% else %}
             <a href="{{ url_for('auth.login') }}">Log in</a>
         {% endif %}

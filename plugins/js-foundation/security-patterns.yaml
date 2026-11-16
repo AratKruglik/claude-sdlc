@@ -18,7 +18,7 @@ patterns:
     reminder: "document.write() is unsafe and deprecated. Use DOM APIs (createElement, appendChild, insertAdjacentHTML with sanitized content) instead."
 
   - rule_name: js_child_process_exec
-    regex: "(?:child_process|require\\(['\"]child_process['\"]\\)).*\\.exec\\s*\\("
+    regex: "\\bexec(?:Sync)?\\b.*child_process|child_process['\"]?\\)?\\.exec(?:Sync)?\\s*\\("
     paths: ["**/*.js", "**/*.ts", "**/*.mjs", "**/*.cjs"]
     exclude_paths: ["**/*.test.*", "**/*.spec.*", "**/test/**", "**/tests/**"]
     reminder: "child_process.exec() passes input through a shell — vulnerable to command injection. Use execFile() or spawn() with an args array instead of a shell string. Never concatenate user-controlled data into the command string."

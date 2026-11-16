@@ -276,7 +276,7 @@ else
     echo "Security-guidance plugin: ⚠️ not installed (see below)"
     echo
     echo "ℹ️  security-guidance plugin not detected. Install it to activate these rules:"
-    echo "   /plugin install security-guidance@claude-plugins"
+    echo "   /plugin install security-guidance@claude-plugins-official"
     echo "   /reload-plugins"
 fi
 echo

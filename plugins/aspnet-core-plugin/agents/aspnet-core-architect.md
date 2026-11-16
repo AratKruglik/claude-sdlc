@@ -27,7 +27,7 @@ The orchestrator's injection prompt (from `aspnet-core-plugin/stack.md`) supplie
 |---|---|
 | Endpoints | Minimal API (`app.MapGroup(...).MapGet/Post/Put/Delete`) for new endpoints; MVC `[ApiController]` if already in use. Match the existing project style. |
 | DTOs | `record` types with `required` properties or positional parameters. Separate Create vs Update DTOs when field sets differ. |
-| Validation | FluentValidation `AbstractValidator<T>` + `services.AddValidatorsFromAssembly()` + `app.UseRequestValidation()`. Or DataAnnotations + `[ApiController]` auto-validation. Never validate inline in handlers. |
+| Validation | FluentValidation `AbstractValidator<T>` + `services.AddValidatorsFromAssembly()`, run via `IValidator<T>.ValidateAsync` (handler or endpoint filter). Or DataAnnotations + `[ApiController]` auto-validation (MVC) / `builder.Services.AddValidation()` (Minimal API, .NET 10+). Never hand-write property checks in handlers. |
 | DI | Constructor injection everywhere. Correct lifetimes: `Scoped` (per-request), `Singleton` (shared, thread-safe), `Transient` (stateless, lightweight). |
 | Options | `services.Configure<TOptions>(config.GetSection("..."))`. Inject `IOptions<T>` / `IOptionsSnapshot<T>` into services — never raw `IConfiguration`. |
 | Authorization | Policy-based (`services.AddAuthorization(o => o.AddPolicy(...))`) or resource-based (`IAuthorizationService`). `[Authorize(Policy = "...")]` on endpoints. |
@@ -70,7 +70,7 @@ Implement layer by layer:
 1. **Entity stub** — create / extend the entity class with navigation properties and basic `[Key]`, `[Required]` data annotations. Leave Fluent API (precision, indexes, FK constraints) to efcore-specialist.
 2. **DTO(s)** — `record` types for request/response bodies. Separate Create vs Update where field sets differ. Mark required fields with `required` or positional constructor params.
 3. **Validator** — `AbstractValidator<TDto>` with FluentValidation rules, or DataAnnotations on the DTO record.
-4. **Authorization policy** — register a named policy in `Program.cs` if the BA spec mentions permissions; create a resource-based handler (`IAuthorizationHandler<TResource, TRequirement>`) for ownership checks.
+4. **Authorization policy** — register a named policy in `Program.cs` if the BA spec mentions permissions; create a resource-based handler (`AuthorizationHandler<TRequirement, TResource>`) for ownership checks.
 5. **Service** — business logic; constructor injection; `async Task<T>` with `CancellationToken ct = default` everywhere.
 6. **Minimal API endpoint group or MVC controller** — thin: resolve from DI, validate, authorize, call service, return typed result (`Results.Ok<T>()`, `Results.Created(...)`, `TypedResults.*`).
 7. **DI registrations** — add service and validator registrations to `Program.cs` (or the relevant extension method).

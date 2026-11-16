@@ -31,10 +31,10 @@ Beyond the foundation skill's SQLAlchemy detection, determine the Flask-SQLAlche
 grep -E "flask.sqlalchemy" requirements.txt pyproject.toml
 ```
 
-- **Flask-SQLAlchemy 3.x** (released 2022+): Uses SQLAlchemy 2.0 under the hood. Supports `Mapped`/`mapped_column` style with `db.Model`. This is the baseline for new projects.
-- **Flask-SQLAlchemy 2.x** (legacy): Uses `db.Column()` style. Still common in existing projects.
+- **Flask-SQLAlchemy 3.1+** (released 2023): requires SQLAlchemy 2.0. Supports `Mapped`/`mapped_column` style with `db.Model` when the extension is created with `model_class=Base` (a `DeclarativeBase` subclass). This is the baseline for new projects.
+- **Flask-SQLAlchemy 3.0 and 2.x** (legacy): Use `db.Column()` style; no `model_class` typed base. Still common in existing projects.
 
-Always use **Flask-SQLAlchemy 3.x style** for new code. When working in an existing project using 2.x style throughout, match the existing style. Never mix `db.Column()` and `mapped_column()` in the same model.
+Always use **Flask-SQLAlchemy 3.1+ style** for new code. When working in an existing project using `db.Column()` style throughout, match the existing style. Never mix `db.Column()` and `mapped_column()` in the same model.
 
 ---
 
@@ -46,8 +46,14 @@ Define extensions at module level in `app/extensions.py` and call `.init_app(app
 # app/extensions.py
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import DeclarativeBase
 
-db = SQLAlchemy()
+
+class Base(DeclarativeBase):
+    pass
+
+
+db = SQLAlchemy(model_class=Base)  # Flask-SQLAlchemy < 3.1: SQLAlchemy()
 migrate = Migrate()
 ```
 
@@ -72,7 +78,7 @@ def create_app(config_name: str = "development") -> Flask:
 
 ## Model definition with db.Model
 
-Models inherit from `db.Model` instead of a hand-written `DeclarativeBase`; all mapped-column, typing, and relationship rules from the foundation skill apply unchanged.
+Models inherit from `db.Model` (built on the `Base` passed as `model_class`), not from `Base` directly; all mapped-column, typing, and relationship rules from the foundation skill apply unchanged.
 
 ```python
 from datetime import datetime
@@ -97,7 +103,7 @@ class User(db.Model):
     )
 ```
 
-### Flask-SQLAlchemy 2.x with db.Column (legacy)
+### Flask-SQLAlchemy ≤ 3.0 with db.Column (legacy)
 
 ```python
 from app.extensions import db
@@ -176,7 +182,7 @@ The foundation skill's lazy-strategy catalog applies; in synchronous Flask the s
 - `lazy="select"` — the SQLAlchemy default; loads on first attribute access with a separate `SELECT`. Safe in synchronous Flask (unlike async FastAPI, where it can block the event loop).
 - `lazy="joined"` — JOIN in the same query; best for one-to-one relations or small, always-needed collections.
 - `lazy="subquery"` — valid in synchronous Flask (unlike async where it is not supported). Useful for loading collections alongside the parent.
-- `lazy="dynamic"` — deprecated in 2.0, do not use (see foundation skill).
+- `lazy="dynamic"` — legacy in 2.0, do not use in new code; prefer `lazy="write_only"` (see foundation skill).
 
 For N+1 prevention on list endpoints, use query-time `options(joinedload(...))` or `options(selectinload(...))` as shown in the foundation skill.
 

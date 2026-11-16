@@ -65,12 +65,14 @@ Use `record` (class) for immutable reference-type value objects; `readonly recor
 // Immutable DTO — all positional parameters become init-only properties
 public record Money(decimal Amount, string Currency)
 {
-    // Compact validation in the record body
-    public Money
-    {
-        if (Amount < 0) throw new ArgumentOutOfRangeException(nameof(Amount), "Amount must be non-negative.");
-        ArgumentException.ThrowIfNullOrWhiteSpace(Currency);
-    }
+    // C# has no Java-style compact constructor: validate in the property initializers
+    public decimal Amount { get; init; } = Amount >= 0
+        ? Amount
+        : throw new ArgumentOutOfRangeException(nameof(Amount), "Amount must be non-negative.");
+
+    public string Currency { get; init; } = !string.IsNullOrWhiteSpace(Currency)
+        ? Currency
+        : throw new ArgumentException("Currency is required.", nameof(Currency));
 
     public Money Add(Money other)
     {
@@ -137,7 +139,7 @@ _ = Task.Run(async () =>
 });
 ```
 
-**Never use `.Result` or `.Wait()` on a Task** — it risks deadlocks on synchronisation-context–bound runtimes (ASP.NET Core, WinForms).
+**Never use `.Result` or `.Wait()` on a Task** — it risks deadlocks on synchronisation-context–bound runtimes (WinForms, WPF, classic ASP.NET) and thread-pool starvation in ASP.NET Core.
 
 ## IDisposable / IAsyncDisposable — resource cleanup
 

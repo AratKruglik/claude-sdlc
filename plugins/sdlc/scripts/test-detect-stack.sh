@@ -67,6 +67,18 @@ assert_field "case2 backend aspect is laravel" '.active_profiles.backend.stack' 
 assert_field "case2 database aspect is laravel" '.active_profiles.database.stack' "laravel" "$OUT"
 assert_field "case2 frontend aspect is empty" '.active_profiles.frontend' "null" "$OUT"
 
+# ── Case 2b: glob file_exists (`**/appsettings.json`) matches a solution layout, not node_modules ──
+REPO="$TMP_ROOT/dotnet-repo"
+mkdir -p "$REPO/src/Api"
+touch "$REPO/App.slnx" "$REPO/src/Api/appsettings.json"
+OUT=$(run_detect "$REPO")
+assert_field "case2b nested appsettings.json detects aspnet-core" '.active_profiles.backend.stack' "aspnet-core" "$OUT"
+REPO="$TMP_ROOT/not-dotnet-repo"
+mkdir -p "$REPO/node_modules/pkg"
+touch "$REPO/node_modules/pkg/appsettings.json"
+OUT=$(run_detect "$REPO")
+assert_field "case2b dependency dirs are not searched" '.primary_profile.stack' "vanilla" "$OUT"
+
 # ── Case 3: Laravel + Inertia/Vue → full-stack fan-out ──
 REPO="$TMP_ROOT/laravel-inertia-vue-repo"
 mkdir -p "$REPO"

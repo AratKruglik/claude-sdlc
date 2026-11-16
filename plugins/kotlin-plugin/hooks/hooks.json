@@ -1,0 +1,49 @@
+{
+  "_comment": "Hooks for kotlin-plugin. PostToolUse: on .kt/.kts edits, apply Spotless (Gradle or Maven) or ktlintFormat when the build file declares it, run through sdlc/hooks/run-tool.sh (local wrapper first, then a running Docker Compose service, skipped silently when neither works or no build file exists). PreToolUse: config protection. SubagentStop: batched Kotlin compile after the architect, resolved the same way.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -j '.tool_input.file_path // empty' 2>/dev/null || python3 -c 'import json,sys; sys.stdout.write(json.load(sys.stdin)[\"tool_input\"][\"file_path\"])' 2>/dev/null); case \"$f\" in *.kt|*.kts) s=$(bash -c 'n=run-tool.sh; r=\"${CLAUDE_PLUGIN_ROOT}\"; bs=\\\\; r=\"${r//\"$bs\"//}\"; s=\"\"; if [ -n \"$r\" ]; then for c in \"$r/../sdlc/hooks/$n\" \"$r/../../sdlc/${r##*/}/hooks/$n\" \"$r\"/../../sdlc/*/hooks/\"$n\"; do if [ -f \"$c\" ] && [ ! -e \"${c%/hooks/*}/.orphaned_at\" ]; then s=\"$c\"; break; fi; done; fi; if [ -z \"$s\" ] && [ -f \"${PWD}/plugins/sdlc/hooks/$n\" ]; then s=\"${PWD}/plugins/sdlc/hooks/$n\"; fi; printf %s \"$s\"'); [ -n \"$s\" ] || exit 0; if grep -qs spotless build.gradle.kts build.gradle; then bash \"$s\" --lang java --quiet -- ./gradlew -q spotlessApply; elif grep -qs ktlint build.gradle.kts build.gradle; then bash \"$s\" --lang java --quiet -- ./gradlew -q ktlintFormat; elif [ -f pom.xml ] && grep -q spotless pom.xml; then bash \"$s\" --lang java --quiet -- ./mvnw -q spotless:apply -Dspotless.check.skip=true; fi; exit 0;; esac",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'n=config-protection.sh; r=\"${CLAUDE_PLUGIN_ROOT}\"; bs=\\\\; r=\"${r//\"$bs\"//}\"; s=\"\"; if [ -n \"$r\" ]; then for c in \"$r/../sdlc/hooks/$n\" \"$r/../../sdlc/${r##*/}/hooks/$n\" \"$r\"/../../sdlc/*/hooks/\"$n\"; do if [ -f \"$c\" ] && [ ! -e \"${c%/hooks/*}/.orphaned_at\" ]; then s=\"$c\"; break; fi; done; fi; if [ -z \"$s\" ] && [ -f \"${PWD}/plugins/sdlc/hooks/$n\" ]; then s=\"${PWD}/plugins/sdlc/hooks/$n\"; fi; if [ -n \"$s\" ]; then exec bash \"$s\" 'detekt*.yml' '.editorconfig'; fi; exit 0'",
+            "description": "Protect this stack's tooling config (detekt*.yml;.editorconfig) from being edited mid-run to make a diff pass. Denies only while an sdlc run state file is fresh and task_type is not chore; silent otherwise.",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "kotlin-architect",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'n=post-implement-check.sh; r=\"${CLAUDE_PLUGIN_ROOT}\"; bs=\\\\; r=\"${r//\"$bs\"//}\"; s=\"\"; if [ -n \"$r\" ]; then for c in \"$r/../sdlc/hooks/$n\" \"$r/../../sdlc/${r##*/}/hooks/$n\" \"$r\"/../../sdlc/*/hooks/\"$n\"; do if [ -f \"$c\" ] && [ ! -e \"${c%/hooks/*}/.orphaned_at\" ]; then s=\"$c\"; break; fi; done; fi; if [ -z \"$s\" ] && [ -f \"${PWD}/plugins/sdlc/hooks/$n\" ]; then s=\"${PWD}/plugins/sdlc/hooks/$n\"; fi; if [ -n \"$s\" ]; then exec bash \"$s\" --lang java -- ./gradlew -q compileKotlin compileTestKotlin; fi; exit 0'",
+            "description": "Batched post-implement check: runs `./gradlew -q compileKotlin compileTestKotlin` once after this stack's architect finishes and relays failures to the orchestrator as a retry hint. Resolved through hooks/_runner-lib.sh: local install first, then a running compose service; silent when java does not apply to the project, the tool is absent in both places, or no run is active.",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'n=post-implement-check.sh; r=\"${CLAUDE_PLUGIN_ROOT}\"; bs=\\\\; r=\"${r//\"$bs\"//}\"; s=\"\"; if [ -n \"$r\" ]; then for c in \"$r/../sdlc/hooks/$n\" \"$r/../../sdlc/${r##*/}/hooks/$n\" \"$r\"/../../sdlc/*/hooks/\"$n\"; do if [ -f \"$c\" ] && [ ! -e \"${c%/hooks/*}/.orphaned_at\" ]; then s=\"$c\"; break; fi; done; fi; if [ -z \"$s\" ] && [ -f \"${PWD}/plugins/sdlc/hooks/$n\" ]; then s=\"${PWD}/plugins/sdlc/hooks/$n\"; fi; if [ -n \"$s\" ]; then exec bash \"$s\" --lang java -- ./mvnw -q test-compile; fi; exit 0'",
+            "description": "Batched post-implement check: runs `./mvnw -q test-compile` (Maven projects; a no-op when ./mvnw is absent) once after this stack's architect finishes and relays failures to the orchestrator as a retry hint. Resolved through hooks/_runner-lib.sh: local install first, then a running compose service; silent when java does not apply to the project, the tool is absent in both places, or no run is active.",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

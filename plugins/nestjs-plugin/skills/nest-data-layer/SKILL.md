@@ -190,10 +190,16 @@ Each migration is timestamped — never edit after merge. Write a follow-up.
 ```ts
 // src/prisma/prisma.service.ts
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../generated/prisma/client';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
+  constructor(config: ConfigService) {
+    super({ adapter: new PrismaPg({ connectionString: config.getOrThrow<string>('DATABASE_URL') }) });
+  }
+
   async onModuleInit() {
     await this.$connect();
   }
@@ -208,11 +214,19 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
 export class PrismaModule {}
 ```
 
+The above is Prisma 7 (driver adapter, client generated into the project). On Prisma ≤6 there is no adapter and no constructor, `PrismaClient` is imported from `@prisma/client`, the generator is `prisma-client-js`, and the datasource block carries `url = env("DATABASE_URL")`. Read the installed `prisma` version from `package.json` and match it.
+
 ### Schema (`prisma/schema.prisma`)
 
 ```prisma
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
 
 model User {
   id           String   @id @default(uuid())
@@ -227,6 +241,8 @@ model User {
   @@map("users")
 }
 ```
+
+In Prisma 7 the connection URL lives in `prisma.config.ts` (`datasource: { url: env('DATABASE_URL') }`, from `prisma/config`), not in the schema.
 
 ### Service usage
 
@@ -267,7 +283,7 @@ For interactive transactions across services, pass `tx` down. Avoid `$transactio
 ### Migrations
 
 ```bash
-npx prisma migrate dev --name add_user_metadata    # dev: generate + apply
+npx prisma migrate dev --name add_user_metadata    # dev: create + apply migration (Prisma 7 no longer runs generate here)
 npx prisma migrate deploy                           # prod: apply only
 npx prisma generate                                 # regenerate client after schema change
 ```

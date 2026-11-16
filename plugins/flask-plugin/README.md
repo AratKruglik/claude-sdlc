@@ -53,8 +53,8 @@ Both modes can coexist in a single Flask application. `flask-architect` detects 
 ## Installation
 
 ```bash
-# From the claude-sdlc marketplace root
-claude plugin install flask-plugin
+/plugin install flask-plugin@sdlc-marketplace
+# sdlc and python-foundation install as dependencies
 ```
 
-The plugin activates automatically when `Flask` or `flask` is found in `pyproject.toml` or `requirements.txt`.
+The plugin activates automatically when `Flask` or `flask` is found in `pyproject.toml`, `requirements.txt`, `Pipfile`, `setup.py`, or `setup.cfg`.

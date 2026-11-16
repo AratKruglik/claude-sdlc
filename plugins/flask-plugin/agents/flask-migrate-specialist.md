@@ -40,14 +40,14 @@ If none of those — skip. Don't manufacture work.
 
 ## SQLAlchemy column finalization patterns
 
-When the development phase left column type stubs, apply these patterns. Use Flask-SQLAlchemy 3.x `Mapped`/`mapped_column` style for new code; fall back to `db.Column` style only when the existing project uses Flask-SQLAlchemy 2.x throughout.
+When the development phase left column type stubs, apply these patterns. Use Flask-SQLAlchemy 3.1+ `Mapped`/`mapped_column` style for new code; fall back to `db.Column` style only when the existing project uses Flask-SQLAlchemy ≤ 3.0 or `db.Column` throughout.
 
 ```python
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
@@ -65,7 +65,7 @@ class Order(db.Model):
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
     total: Mapped[Decimal] = mapped_column(Numeric(precision=10, scale=2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default="now()", nullable=False
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     status: Mapped[str] = mapped_column(String(50), nullable=False)
 
@@ -145,7 +145,7 @@ Write a detailed report to `docs/plans/{task_slug}/02b-database.md`:
 ## Models finalized
 - `app/users/models.py`
   - Columns: id (Integer PK), email (String 255, unique), display_name (String 100),
-    created_at (DateTime timezone=True, server_default=now())
+    created_at (DateTime timezone=True, server_default=func.now())
   - Indexes: unique(email), (status, created_at)
   - Relations: orders → Order, lazy=select, cascade=all delete-orphan
 

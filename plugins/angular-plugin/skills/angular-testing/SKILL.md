@@ -1,10 +1,10 @@
 ---
 name: angular-testing
 description: |
-  Testing Angular 18-21: TestBed, component harnesses (@angular/cdk/testing), Karma+Jasmine (default historical) vs Jest (jest-preset-angular, modern), Angular Testing Library (RTL-style). HttpClient mocking via HttpTestingController. NgRx Effects testing. Cypress / Playwright e2e.
+  Testing Angular 18-22: TestBed, component harnesses (@angular/cdk/testing), Vitest (CLI default since 21) vs Karma+Jasmine (legacy, ≤20 default) vs Jest (jest-preset-angular), Angular Testing Library (RTL-style). HttpClient mocking via HttpTestingController. NgRx Effects testing. Cypress / Playwright e2e.
 
   Use this skill to:
-  - Detect runner (Karma+Jasmine vs Jest) and configure correctly.
+  - Detect runner (Vitest vs Karma+Jasmine vs Jest) and configure correctly.
   - Write component tests with TestBed.
   - Use component harnesses for Material / custom UI components.
   - Mock HttpClient via provideHttpClientTesting + HttpTestingController.
@@ -25,19 +25,23 @@ paths: ["**/*.spec.ts", "src/**/*.ts"]
 
 | Layer | Framework |
 |---|---|
-| Component, service, pipe, directive unit | **Karma + Jasmine** (Angular CLI default historically) OR **Jest** (`jest-preset-angular`, modern preferred) |
+| Component, service, pipe, directive unit | **Vitest** (Angular CLI default since 21) OR **Karma + Jasmine** (legacy, ≤20 default) OR **Jest** (`jest-preset-angular`) |
 | Component (alt RTL-style) | `@testing-library/angular` |
 | End-to-end | **Playwright** or **Cypress** (`ng add @cypress/schematic`) |
 
-Match what's installed. Modern Angular projects (17+) often switch to Jest for speed; legacy projects stick with Karma.
+Match what's installed: `angular.json` test builder `@angular/build:unit-test` → Vitest (default since 21, `ng test --watch=false`); `karma.conf.js` → Karma (legacy, ≤20 default); `jest.config.*` → Jest.
 
-## Karma + Jasmine setup (default)
+## Vitest setup (default since 21)
 
-`ng new` ships with Karma + Jasmine pre-configured. Tests in `*.spec.ts`. Run via `ng test` (watch mode) or `ng test --watch=false --browsers=ChromeHeadless` (CI).
+`ng new` ships with Vitest pre-configured (`@angular/build:unit-test` builder in `angular.json`; Karma is opt-in). Tests in `*.spec.ts`. Run via `ng test` (watch mode) or `ng test --watch=false` (CI). Jasmine-style `describe`/`it`/`expect` work as-is; spies are `vi.fn()` / `vi.spyOn()`.
+
+## Karma + Jasmine setup (legacy, ≤20 default)
+
+Angular ≤20 `ng new` ships with Karma + Jasmine pre-configured. Run via `ng test` (watch mode) or `ng test --watch=false --browsers=ChromeHeadless` (CI).
 
 `karma.conf.js` and `tsconfig.spec.json` already in project. Don't modify unless customizing.
 
-## Jest setup (modern)
+## Jest setup
 
 ```bash
 pnpm add -D jest jest-preset-angular @types/jest
@@ -50,7 +54,7 @@ import type { Config } from 'jest';
 
 const config: Config = {
   preset: 'jest-preset-angular',
-  setupFilesAfterEach: ['<rootDir>/setup-jest.ts'],
+  setupFilesAfterEnv: ['<rootDir>/setup-jest.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
@@ -63,7 +67,9 @@ export default config;
 `setup-jest.ts`:
 
 ```ts
-import 'jest-preset-angular/setup-jest';
+import { setupZoneTestEnv } from 'jest-preset-angular/setup-env/zone';
+
+setupZoneTestEnv();
 ```
 
 Update `tsconfig.spec.json`:
@@ -156,7 +162,7 @@ beforeEach(async () => {
 
 `useValue` swaps the real service with a mock. `useFactory: () => mock` for factory-style.
 
-For Karma+Jasmine: replace `jest.fn()` with `jasmine.createSpy('name')` or `jasmine.createSpyObj('UsersService', ['loadUsers'])`.
+Examples in this skill use Jest spies. On Vitest: replace `jest.fn()` with `vi.fn()`. For Karma+Jasmine: replace `jest.fn()` with `jasmine.createSpy('name')` or `jasmine.createSpyObj('UsersService', ['loadUsers'])`.
 
 ## HttpClient testing
 
@@ -450,7 +456,7 @@ coveragePathIgnorePatterns: ['/node_modules/', '\\.module\\.ts$', 'src/main.ts']
 
 ## Iteration cap (from QA agent)
 
-The qa-engineer agent has a hard 3-attempt cap on fixing failing tests. After attempt #3, mark `xit(...)` (Jasmine) or `it.skip(...)` (Jest) with a comment, report in QA summary.
+The qa-engineer agent has a hard 3-attempt cap on fixing failing tests. After attempt #3, mark `xit(...)` (Jasmine) or `it.skip(...)` (Vitest / Jest) with a comment, report in QA summary.
 
 ## Anti-patterns
 
@@ -464,4 +470,4 @@ The qa-engineer agent has a hard 3-attempt cap on fixing failing tests. After at
 - ❌ E2E tests against real backend without seed/mocked endpoints.
 - ❌ Mocking the SUT instead of its dependencies.
 - ❌ Karma `--watch=true` in CI — tests hang waiting for changes.
-- ❌ Mixing `jasmine.createSpy()` and `jest.fn()` in the same project — pick one runner.
+- ❌ Mixing `jasmine.createSpy()`, `vi.fn()` and `jest.fn()` in the same project — use the installed runner's spies.

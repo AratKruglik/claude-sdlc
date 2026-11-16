@@ -12,9 +12,9 @@ detect:
 
 # Angular Stack Profile
 
-Angular 18-21 SPA frontend stack provider. Triggers when `package.json` contains `"@angular/core"`. Priority=200 — opinionated full framework (like NestJS). Wins over `react-plugin` / `vue-plugin` (150) on extremely-rare cross-stack projects via priority.
+Angular 18-22 SPA frontend stack provider. Triggers when `package.json` contains `"@angular/core"`. Priority=200 — opinionated full framework (like NestJS). Wins over `react-plugin` / `vue-plugin` (150) on extremely-rare cross-stack projects via priority.
 
-**Targets Angular 17+** with focus on 18-21 modern era (signals stable, standalone-first, new control flow `@if`/`@for`/`@switch`). NgModule legacy projects also covered — agent detects style at runtime and mirrors.
+**Targets Angular 17+** with focus on 18-22 modern era (signals stable, standalone-first, new control flow `@if`/`@for`/`@switch`). NgModule legacy projects also covered — agent detects style at runtime and mirrors.
 
 Composes naturally with backend plugins (nodejs / nestjs / laravel) via aspect resolution.
 
@@ -58,7 +58,7 @@ For development phase, inject:
    Detect forms approach: `ReactiveFormsModule` import → Reactive Forms (preferred); `FormsModule` only → Template-driven (`[(ngModel)]`).
    Detect SSR: `@angular/ssr` (Angular 17+) or `@nguniversal/express-engine` (older) → Angular Universal present (pointer-only in this plugin; recommend separate spec for full SSR feature).
    Detect UI library: `@angular/material` (Angular Material), `primeng` (PrimeNG), `ng-zorro-antd` (NG-ZORRO), `@taiga-ui/core` (Taiga UI), Bootstrap-based (`@ng-bootstrap/ng-bootstrap`). Mirror its component patterns.
-   Detect testing runner: `karma.conf.js` + `karma-jasmine` → Karma+Jasmine (Angular CLI default historically); `jest.config.{js,ts}` + `jest-preset-angular` → Jest (modern preferred).
+   Detect testing runner: `angular.json` test builder `@angular/build:unit-test` → Vitest (default since 21, `ng test --watch=false`); `karma.conf.js` → Karma (legacy, ≤20 default); `jest.config.*` → Jest.
    New code conventions:
    - Standalone components: `@Component({ standalone: true, imports: [...] })`. No NgModule needed.
    - Use `inject()` function (Angular 14.1+) over constructor injection — type-narrowing-friendly.
@@ -71,7 +71,7 @@ For development phase, inject:
 
 For qa phase, inject:
   "Angular testing strategy:
-   - Detect runner: Karma+Jasmine (`karma.conf.js`) → run `ng test --watch=false`; Jest (`jest.config.{js,ts}` + `jest-preset-angular`) → `npm test` (Jest defaults to single-run in CI mode).
+   - Detect runner: `angular.json` test builder `@angular/build:unit-test` → Vitest (default since 21, `ng test --watch=false`); `karma.conf.js` → Karma (legacy, ≤20 default); `jest.config.*` → Jest (`npm test`, single-run by default). Mocks: `vi.fn()` on Vitest, `jasmine.createSpy()` on Karma, `jest.fn()` on Jest.
    - TestBed setup: `TestBed.configureTestingModule({ imports: [StandaloneComponent], providers: [...] }).compileComponents()`. For NgModule projects: use `declarations` + `imports`.
    - Mock providers: `{ provide: UsersService, useValue: mock }` or `useFactory: () => mock`.
    - HttpClient testing: `provideHttpClient()` + `provideHttpClientTesting()` + `HttpTestingController` from `@angular/common/http/testing`. Always call `httpMock.verify()` in afterEach to catch outstanding requests.

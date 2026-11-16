@@ -20,15 +20,15 @@ paths: ["**/*.py", "**/templates/**"]
 
 # Django Conventions
 
-This skill encodes the conventions used across modern Django projects (Django 4.x / 5.x). Apply alongside `python-foundation:python-conventions` (language idioms) and `django-plugin:django-orm-patterns` (model/query patterns) when implementing features.
+This skill encodes the conventions used across modern Django projects (Django 5.x / 6.x). Apply alongside `python-foundation:python-conventions` (language idioms) and `django-plugin:django-orm-patterns` (model/query patterns) when implementing features.
 
 ## 1. Detection
 
 Before writing code, read:
 - `manage.py` — confirms this is a Django project.
-- `settings.py` or `settings/base.py` — check `DJANGO_VERSION`, `INSTALLED_APPS`, `REST_FRAMEWORK` dict (DRF present?), `AUTH_USER_MODEL`.
+- `settings.py` or `settings/base.py` — check `INSTALLED_APPS`, `REST_FRAMEWORK` dict (DRF present?), `AUTH_USER_MODEL`.
 - The project `urls.py` — understand the existing URL hierarchy and namespace conventions.
-- `requirements.txt` or `pyproject.toml` — note the exact Django version and whether DRF, `django-environ`, `django-filter`, `pytest-django`, etc. are present.
+- `requirements.txt` or `pyproject.toml` — note the exact Django version (or run `python -m django --version`; there is no version setting) and whether DRF, `django-environ`, `django-filter`, `pytest-django`, etc. are present.
 
 ## 2. Project and app layout
 

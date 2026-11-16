@@ -5,7 +5,7 @@ description: |
 
   Use this skill to:
   - Build Reactive Forms with typed FormGroup/FormControl.
-  - Use FormBuilder для concise syntax.
+  - Use FormBuilder for concise syntax.
   - Implement custom synchronous and async validators.
   - Wire FormArray for dynamic field lists.
   - Map server errors back to form fields.

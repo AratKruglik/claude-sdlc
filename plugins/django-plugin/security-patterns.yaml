@@ -18,7 +18,7 @@ patterns:
     reminder: "mark_safe() / |safe marks content as HTML-safe and bypasses Django's auto-escaping. Only use on content that has been explicitly sanitized (e.g., via bleach). Never pass user-controlled data directly."
 
   - rule_name: django_raw_sql
-    regex: "\\.raw\\s*\\([^)]*[fF]['\"]|\\.extra\\s*\\([^)]*[fF]['\"]|\\.raw\\s*\\([^)]*%\\s*[({]|\\.extra\\s*\\([^)]*%\\s*[({]"
+    regex: "\\.extra\\s*\\([^)]*[fF]['\"]|\\.raw\\s*\\([^)]*%\\s*[({]|\\.extra\\s*\\([^)]*%\\s*[({]"
     paths: ["**/*.py"]
     exclude_paths: ["**/test_*.py", "**/*_test.py", "**/tests/**"]
     reminder: ".raw() and .extra() with f-strings or % formatting risks SQL injection. Use parameterized .raw('... WHERE id = %s', [id]) or prefer ORM methods — QuerySet.filter() is parameterized by default."

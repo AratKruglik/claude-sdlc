@@ -12,7 +12,7 @@ detect:
 
 # Vue Stack Profile
 
-Vue 3 SPA frontend stack provider. Triggers when `package.json` contains `"vue"`. Priority=150 — equal to `react-plugin` (frontend tie on Vue+React migration projects → orchestrator HALT с error → use `--stack=NAME`).
+Vue 3 SPA frontend stack provider. Triggers when `package.json` contains `"vue"`. Priority=150 — equal to `react-plugin` (frontend tie on Vue+React migration projects → orchestrator HALT with error → use `--stack=NAME`).
 
 **Vue 3 primary**, Vue 2 fallback notes for legacy projects. Nuxt projects also match (Nuxt has `vue` in deps); without `nuxt-plugin` (Phase 11+ roadmap) this plugin is acceptable fallback. Future `nuxt-plugin` priority=250 will override.
 
@@ -50,7 +50,7 @@ For development phase, inject:
    Detect state: `pinia` (Vue 3 default store), `vuex` (Vue 2 legacy — recommend Pinia for new code if Vue 3).
    Detect forms: `vee-validate` (most common), `@vueuse/core` for VueUse forms helpers, native v-model patterns.
    Detect validation: `zod`, `yup`, `valibot`.
-   Detect UI library (use what's installed; do not introduce new): Vuetify, Quasar, PrimeVue, Naive UI, Element Plus, shadcn-vue (radix-vue), HeadlessUI Vue. Mirror its component import patterns.
+   Detect UI library (use what's installed; do not introduce new): Vuetify, Quasar, PrimeVue, Naive UI, Element Plus, shadcn-vue (reka-ui, or legacy radix-vue), HeadlessUI Vue. Mirror its component import patterns.
    Detect styling: scoped <style scoped>, CSS Modules, Tailwind, UnoCSS.
    For Vue 3: prefer `<script setup lang=\"ts\">` over plain `<script>`. Composition API over Options API.
    `ref` for primitives AND objects (works everywhere, no destructure footgun); `reactive` only when team convention says so. Don't destructure `reactive()` — loses reactivity (use `toRefs()`).

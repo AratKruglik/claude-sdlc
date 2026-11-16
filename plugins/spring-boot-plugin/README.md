@@ -14,6 +14,7 @@ Matches any project where at least one build file contains a Spring Boot marker:
 - `pom.xml` contains `spring-boot`
 - `build.gradle` contains `org.springframework.boot`
 - `build.gradle.kts` contains `org.springframework.boot`
+- `gradle/libs.versions.toml` contains `org.springframework.boot` (version-catalog plugin alias)
 
 ## Agents
 
@@ -29,7 +30,7 @@ Matches any project where at least one build file contains a Spring Boot marker:
 | `spring-boot-plugin:spring-data-jpa` | JPA entities, JpaRepository, JPQL, N+1 avoidance, Flyway/Liquibase migrations, pagination |
 | `java-foundation:java-conventions` | Modern Java idioms (records, Optional, streams, immutability) |
 | `java-foundation:build-tooling` | Maven/Gradle wrapper, BOM dependency management |
-| `java-foundation:jvm-testing` | JUnit 5, Mockito, AssertJ, Testcontainers, @WebMvcTest/@DataJpaTest guidance |
+| `java-foundation:jvm-testing` | JUnit 5, Mockito, AssertJ, Testcontainers (the Spring slices — `@WebMvcTest` / `@DataJpaTest` — are in this plugin's `stack.md` qa prompt) |
 
 ## Dependencies
 

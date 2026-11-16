@@ -2,7 +2,7 @@
 
 Django backend + database stack provider for the SDLC marketplace.
 
-Registers Django projects (detected via `manage.py` or Django in `pyproject.toml`/`requirements.txt`) and substitutes specialized agents for the development and database phases. Provides two convention skills and reuses `python-foundation` for language idioms, tooling, and testing.
+Registers Django projects (detected via a Django `manage.py`, or Django in `pyproject.toml`/`requirements.txt`/`Pipfile`/`setup.py`/`setup.cfg`) and substitutes specialized agents for the development and database phases. Provides two convention skills and reuses `python-foundation` for language idioms, tooling, and testing.
 
 ## Agents
 
@@ -36,14 +36,6 @@ Reused from `python-foundation`:
 ## Install
 
 ```bash
-# From the claude-sdlc marketplace root
-npx claude-sdlc install django-plugin
-```
-
-Or add to your project's `.claude-sdlc/plugins.json`:
-
-```json
-{
-  "plugins": ["sdlc", "python-foundation", "django-plugin"]
-}
+/plugin install django-plugin@sdlc-marketplace
+# sdlc and python-foundation install as dependencies
 ```

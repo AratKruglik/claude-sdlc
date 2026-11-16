@@ -10,11 +10,20 @@ detect:
     - file_contains:
         path: requirements.txt
         pattern: "[Ff]lask"
+    - file_contains:
+        path: Pipfile
+        pattern: "[Ff]lask"
+    - file_contains:
+        path: setup.py
+        pattern: "[Ff]lask"
+    - file_contains:
+        path: setup.cfg
+        pattern: "[Ff]lask"
 ---
 
 # Flask Stack Profile (backend + database)
 
-Registers Flask projects with the SDLC pipeline. Auto-detected by `Flask` or `flask` listed in `pyproject.toml` or `requirements.txt`.
+Registers Flask projects with the SDLC pipeline. Auto-detected by `Flask` or `flask` listed in `pyproject.toml`, `requirements.txt`, `Pipfile`, `setup.py`, or `setup.cfg`.
 
 Flask is a minimalist microframework supporting **both** server-rendered Jinja2 templates and JSON APIs. `flask-architect` handles both modes — it detects the project's rendering mode from the existing codebase and the business analysis spec. Database migrations use Flask-Migrate, which wraps Alembic and is managed via `flask db` commands.
 
@@ -39,6 +48,7 @@ Note: this plugin does NOT declare `development.frontend` for SPA mode. That slo
 - python-foundation:python-conventions
 - python-foundation:python-tooling
 - python-foundation:pytest-testing
+- python-foundation:sqlalchemy-patterns
 - flask-plugin:flask-conventions
 - flask-plugin:sqlalchemy-patterns
 
@@ -67,7 +77,7 @@ For development phase (backend aspect), inject:
 > - Flask version.
 > - Auth: `flask-login` (session-based) vs `flask-jwt-extended` (token/stateless).
 > - Validation: `marshmallow`/`flask-marshmallow` (for JSON APIs) vs `flask-wtf` (for HTML forms).
-> - ORM: `flask-sqlalchemy` version (3.x uses `db.Model` with `Mapped`/`mapped_column`; 2.x uses `db.Column`).
+> - ORM: `flask-sqlalchemy` version (3.1+ uses `db.Model` with `Mapped`/`mapped_column`; 3.0 and 2.x use `db.Column`).
 >
 > Apply `flask-plugin:flask-conventions`:
 > - **App factory:** `create_app(config_name="development")` in `app/__init__.py`. Initialize extensions with `init_app(app)`. Register Blueprints via a `register_blueprints(app)` helper.
@@ -84,7 +94,7 @@ For development phase (backend aspect), inject:
 > Apply `python-foundation:python-conventions` (type hints, dataclasses for value objects, enums for choices).
 >
 > After writing code:
-> - `flask --app <module> check` — Flask app config check (if available in the project).
+> - `flask --app <module> routes` — imports the app through the factory and lists the registered routes; fix any import or config error it raises.
 > - Formatting (`ruff format`, per file) and `ruff check .` (once, after you return) are hook-driven — do not run them yourself; lint findings reach the orchestrator as a retry hint.
 >
 > Note: for SPA frontends, provide an explicit **JSON API contract** (endpoint path + HTTP method + Marshmallow schema shape) in the development report for the SPA frontend architect.

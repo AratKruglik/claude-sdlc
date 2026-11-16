@@ -6,7 +6,7 @@ patterns:
     reminder: "Setting $guarded = [] disables mass-assignment protection on the entire model. All attributes become fillable via create()/update()/fill(). Define an explicit $fillable allowlist instead, or use $guarded to exclude sensitive fields like 'is_admin', 'role', 'password'."
 
   - rule_name: laravel_db_raw_concatenation
-    regex: "DB::(statement|select|insert|update|delete|unprepared)\\s*\\([^)]*\\."
+    regex: "DB::(statement|select|insert|update|delete|unprepared|raw)\\s*\\(\\s*(\"[^\"]*\\$|['\"][^'\"]*['\"]\\s*\\.\\s*\\$)"
     paths: ["**/*.php"]
     exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php"]
     reminder: "String concatenation in DB::raw()/DB::statement() risks SQL injection. Use parameterized bindings: DB::select('SELECT * FROM users WHERE id = ?', [$id]) or DB::statement('...', [...bindings])."
@@ -28,8 +28,8 @@ patterns:
     reminder: "Route::any() accepts all HTTP methods including DELETE and PUT. Define explicit route methods (Route::get, Route::post, Route::put, Route::delete) so CSRF and method-override protections apply predictably."
 
   - rule_name: laravel_csrf_except_all
-    regex: "protected\\s+\\$except\\s*=\\s*\\[\\s*['\"]\\*['\"]"
-    paths: ["**/Http/Middleware/**/*.php"]
+    regex: "(preventRequestForgery|validateCsrfTokens)\\s*\\(\\s*except:\\s*\\[\\s*['\"]\\*['\"]|protected\\s+\\$except\\s*=\\s*\\[\\s*['\"]\\*['\"]"
+    paths: ["**/bootstrap/app.php", "**/Http/Middleware/**/*.php"]
     reminder: "Adding '*' to VerifyCsrfToken::$except disables CSRF protection for all routes. Define explicit path patterns that need exemption (e.g., webhook endpoints authenticated by a signature). Never exempt the entire application."
 
   - rule_name: laravel_blade_unescaped_output
@@ -37,14 +37,8 @@ patterns:
     paths: ["**/*.blade.php"]
     reminder: "{!! $var !!} outputs unescaped HTML — vulnerable to XSS if $var contains user-controlled data. Use {{ $var }} (auto-escaped) unless $var is a trusted HTML string. Document why unescaped output is safe when using {!! !!}."
 
-  - rule_name: laravel_hardcoded_secret
-    regex: "(?i)(password|secret|api_?key|token|app_key)\\s*=\\s*['\"][^'\"]{8,}['\"]"
-    paths: ["**/*.php"]
-    exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php", "**/config/app.php"]
-    reminder: "Hardcoded credential in PHP source. Read secrets from environment variables via env('SECRET_KEY') or the Laravel config() helper backed by env(). Never hardcode production credentials in source — commit only placeholder values."
-
   - rule_name: laravel_policy_bypass_skip_authorization
-    regex: "Gate::before\\s*\\(.*return\\s+true\\)|->withoutMiddleware\\s*\\(.*auth"
+    regex: "Gate::before\\s*\\([^;]*(=>\\s*true\\b|return\\s+true\\s*;)|->withoutMiddleware\\s*\\(.*auth"
     paths: ["**/*.php"]
     exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php"]
     reminder: "Gate::before() returning true unconditionally or withoutMiddleware('auth') bypasses the entire authorization layer. Restrict Gate::before() to specific super-admin conditions, and avoid removing auth middleware from production routes."

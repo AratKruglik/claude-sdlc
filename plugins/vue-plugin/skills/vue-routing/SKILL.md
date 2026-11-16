@@ -303,16 +303,14 @@ const route = useRoute();
 const userId = route.params.id as string;       // cast — type-safe-ish
 ```
 
-### `unplugin-vue-router` (file-based, generates types)
+### File-based typed routes (built into vue-router 5)
 
-```bash
-pnpm add -D unplugin-vue-router
-```
+vue-router 5 ships the file-based routing plugin in core — no extra package. vue-router 4 uses `unplugin-vue-router` (`pnpm add -D unplugin-vue-router`, import from `unplugin-vue-router/vite`); read the installed major from `package.json`.
 
 `vite.config.ts`:
 
 ```ts
-import VueRouter from 'unplugin-vue-router/vite';
+import VueRouter from 'vue-router/vite';
 
 export default defineConfig({
   plugins: [VueRouter({ routesFolder: 'src/pages' }), vue()],

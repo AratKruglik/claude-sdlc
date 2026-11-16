@@ -17,13 +17,13 @@ patterns:
     reminder: "unserialize() on untrusted data enables object-injection / POP-chain attacks. Use json_decode() for data interchange. If unserialize() is unavoidable, pass ['allowed_classes' => false] (or an explicit allowlist)."
 
   - rule_name: php_hardcoded_secret
-    regex: "(?i)(password|secret|api_?key|token|credential)\\s*=>?\\s*['\"][^'\"]{6,}['\"]"
+    regex: "(?i)(password|secret|api_?key|token|credential)['\"]?\\s*(=>?|:)\\s*['\"][^'\"|\\s]{6,}['\"]"
     paths: ["**/*.php", "**/*.yaml", "**/*.yml", "**/*.env*"]
     exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php", "**/.env.example", "**/.env.dist"]
     reminder: "Hardcoded secret detected. Credentials must come from environment variables (getenv / $_ENV / framework env helpers) or a secrets manager — never from source code."
 
   - rule_name: php_sql_concatenation
-    regex: "(query|exec|prepare)\\s*\\(\\s*['\"][^'\"]*\\$|->where\\(\\s*['\"][^'\"]*\\.\\s*\\$"
+    regex: "(query|exec|prepare)\\s*\\(\\s*(\"[^\"]*\\$|['\"][^'\"]*['\"]\\s*\\.\\s*\\$)|->where\\(\\s*['\"][^'\"]*['\"]\\s*\\.\\s*\\$"
     paths: ["**/*.php"]
     exclude_paths: ["**/tests/**", "**/Tests/**", "**/*Test.php"]
     reminder: "String concatenation in SQL/DQL risks injection. Use parameter bindings (PDO prepared statements with placeholders, Eloquent/query-builder bindings, or Doctrine named/positional parameters) — never interpolate user input."

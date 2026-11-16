@@ -62,7 +62,7 @@ For development phase (backend aspect), inject:
 > - You DO design the backend API contract that the frontend will consume — document it clearly in your output for the frontend agent.
 >
 > Use Artisan commands for code generation where appropriate:
-> `php artisan make:model -mfsc`, `make:request`, `make:policy`, `make:action` (if Spatie laravel-actions installed).
+> `php artisan make:model -mfsc`, `make:request`, `make:policy`, `make:action` (if `lorisleiva/laravel-actions` installed).
 >
 > Follow PSR-12 and Laravel conventions:
 > - Action pattern (single-action invokable classes when business logic is non-trivial)
@@ -73,7 +73,7 @@ For development phase (backend aspect), inject:
 >
 > Apply skills: `laravel-plugin:laravel-conventions`, `laravel-plugin:eloquent-patterns`.
 >
-> If Laravel Boost MCP is available (`mcp__laravel-boost__artisan`), prefer it for `make:*` Artisan commands; otherwise use Bash.
+> Run Artisan commands through Bash. If Laravel Boost MCP is available, use it for schema inspection (`database-schema`), read-only SQL (`database-query`) and version-specific docs (`search-docs`).
 >
 > Formatting and static analysis are hook-driven: the plugin's PostToolUse hook runs Pint on every file you write, and its SubagentStop hook runs `phpstan analyse` once after you return, relaying failures to the orchestrator as a retry hint. Do not run either yourself — a formatter pass per edit and a repo-wide phpstan from the agent are duplicate work paid in tokens.
 
@@ -96,7 +96,7 @@ For security phase, inject:
 > - **`.env` exposure:** Verify no `.env` is committed (check `.gitignore`). Verify no env values leak into client-side bundles.
 > - **`APP_DEBUG`:** Production config should have `APP_DEBUG=false`. If the changes touch `.env.example`, verify.
 > - **Mail / Queue / Cache config:** Verify no credentials hardcoded; all from `config()` reading `env()`.
-> - **CSRF on state-changing routes:** Any non-GET route in `routes/web.php` must be inside the default web middleware group (which includes `VerifyCsrfToken`).
+> - **CSRF on state-changing routes:** Any non-GET route in `routes/web.php` must be inside the default web middleware group (which includes the CSRF middleware — `ValidateCsrfToken` on 11–12, `PreventRequestForgery` on 13+).
 
 ## Post-pipeline checks
 
@@ -108,8 +108,8 @@ These run after the documentation phase. They are advisory — failures are repo
 
 ## MCP integration
 
-The `laravel-boost` MCP server provides Artisan-aware tools (`mcp__laravel-boost__artisan`, `mcp__laravel-boost__schema`, `mcp__laravel-boost__route_list`, `mcp__laravel-boost__tinker`). When wired, agents use it instead of Bash for Artisan operations.
+The `laravel-boost` MCP server provides application-aware tools (`mcp__laravel-boost__database-schema`, `mcp__laravel-boost__database-query`, `mcp__laravel-boost__search-docs`, `mcp__laravel-boost__tinker` when `boost.tinker_tool_enabled`). When wired, agents use it for schema inspection and docs lookup. It has no tool that runs Artisan — `make:*`, `migrate` and `route:list` always go through Bash.
 
 **Detection:** if `laravel/boost` appears in `composer.json` `require-dev`, the server is likely installed. Wiring is manual — see `mcp.json` for the fragment to merge into the project's `.mcp.json`.
 
-**Graceful degradation:** agents fall back to `php artisan …` (or `docker compose exec -T app php artisan …`) when Boost MCP tools are unavailable.
+**Graceful degradation:** agents fall back to `php artisan db:show` / `db:table` / `tinker` (or the `docker compose exec -T app php artisan …` form) when Boost MCP tools are unavailable.

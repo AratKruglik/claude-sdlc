@@ -1,9 +1,4 @@
 patterns:
-  - rule_name: node_child_process_exec
-    regex: "(?:child_process|require\\(['\"]child_process['\"]\\)).*\\.exec\\s*\\("
-    paths: ["**/*.js", "**/*.ts", "**/*.mjs"]
-    reminder: "child_process.exec() passes input through a shell — vulnerable to injection. Use execFile() or spawn() with an args array and no shell option."
-
   - rule_name: node_sql_string_concat
     regex: "(?:query|execute|raw)\\s*\\([^)]*(?:\\+|\\$\\{)[^)]*(?:req\\.|params\\.|body\\.|query\\.)"
     paths: ["**/*.js", "**/*.ts"]
@@ -14,4 +9,4 @@ patterns:
     substrings: ["eval("]
     paths: ["**/*.js", "**/*.ts", "**/*.mjs"]
     exclude_paths: ["**/*.test.*", "**/*.spec.*", "**/webpack*", "**/rollup*", "**/vite*"]
-    reminder: "eval() executes arbitrary strings — code injection risk. Refactor to use static logic or a safe sandbox (vm2, isolated-vm)."
+    reminder: "eval() executes arbitrary strings — code injection risk. Refactor to use static logic or real isolation (isolated-vm, a separate process, or a container) — in-process sandboxes such as vm2 are not safe for untrusted code."

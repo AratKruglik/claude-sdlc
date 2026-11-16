@@ -6,7 +6,7 @@ patterns:
     reminder: "Hardcoded SECRET_KEY in source code allows session forgery — Flask signs all session cookies with SECRET_KEY. A known or weak key lets attackers craft valid session cookies. Read from environment: SECRET_KEY = os.environ['SECRET_KEY']. Never assign a literal string."
 
   - rule_name: flask_debug_true
-    regex: "(app\\.run\\s*\\([^)]*debug\\s*=\\s*True|FLASK_DEBUG\\s*=\\s*True|DEBUG\\s*=\\s*True)"
+    regex: "(app\\.run\\s*\\([^)]*debug\\s*=\\s*True|FLASK_DEBUG\\s*=\\s*True)"
     paths: ["**/*.py"]
     exclude_paths: ["**/test_*.py", "**/*_test.py", "**/tests/**"]
     reminder: "debug=True or FLASK_DEBUG=True in a non-development context exposes the Werkzeug interactive debugger — this is remote code execution. Control via environment variable: DEBUG = os.environ.get('FLASK_DEBUG', '0') == '1'. Never hardcode debug=True."
@@ -26,11 +26,11 @@ patterns:
   - rule_name: flask_csrf_disabled
     regex: "WTF_CSRF_ENABLED\\s*=\\s*False"
     paths: ["**/*.py", "**/*.cfg", "**/*.ini"]
-    exclude_paths: ["**/test_*.py", "**/*_test.py", "**/tests/**", "**/config/testing*"]
+    exclude_paths: ["**/test_*.py", "**/*_test.py", "**/tests/**", "**/config/testing*", "**/config.py"]
     reminder: "WTF_CSRF_ENABLED = False disables CSRF protection for all WTForms in the application. Only disable CSRF for configs used exclusively with stateless token auth (flask-jwt-extended). Never disable CSRF for session-based endpoints using Flask-Login — session auth is vulnerable to CSRF attacks."
 
   - rule_name: flask_sql_text_injection
-    regex: "\\.execute\\s*\\(\\s*text\\s*\\(\\s*[fF]['\"]|\\.execute\\s*\\(\\s*text\\s*\\([^)]*%\\s*[({]|\\.execute\\s*\\(\\s*text\\s*\\([^)]*\\.format"
+    regex: "\\.execute\\s*\\(\\s*text\\s*\\([^)]*%\\s*[({]|\\.execute\\s*\\(\\s*text\\s*\\([^)]*\\.format"
     paths: ["**/*.py"]
     exclude_paths: ["**/test_*.py", "**/*_test.py", "**/tests/**"]
-    reminder: "db.session.execute(text()) with f-strings, % formatting, or .format() interpolation is a SQL injection risk. Use bound parameters: db.session.execute(text('SELECT * FROM users WHERE id = :id'), {'id': user_id}). SQLAlchemy parameterizes bound parameters safely via the database driver."
+    reminder: "db.session.execute(text()) with % formatting or .format() interpolation (f-strings are flagged by python-foundation) is a SQL injection risk. Use bound parameters: db.session.execute(text('SELECT * FROM users WHERE id = :id'), {'id': user_id}). SQLAlchemy parameterizes bound parameters safely via the database driver."

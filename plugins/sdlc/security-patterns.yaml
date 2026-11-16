@@ -13,7 +13,7 @@ patterns:
     reminder: "A private key block in the repository. A key committed once stays in the history after any later removal, so removing the file is not the fix: rotate the key, then move it to a secrets manager or an untracked file referenced by environment variable."
 
   - rule_name: core_cloud_access_key
-    regex: "AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|(?i)aws_secret_access_key\\s*[:=]"
+    regex: "AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|(?i:aws_secret_access_key)\\s*[:=]"
     paths: ["**/*"]
     exclude_paths: ["**/*.example", "**/*.dist", "**/fixtures/**"]
     reminder: "A cloud provider credential. Use the provider's own credential chain (instance role, workload identity, or a local profile) rather than a literal in source. If this key was ever real, rotate it — assume anything committed is compromised."

@@ -14,7 +14,7 @@ Symfony backend + database stack provider. Auto-detects Symfony projects (`compo
 | `skills/symfony-conventions/SKILL.md` | Attribute routing, controllers-as-services, autowiring, Form types, validation, Voters, Serializer, Messenger. |
 | `skills/doctrine-patterns/SKILL.md` | Entity mapping, repositories, parameterized DQL, N+1/fetch joins, relations, batch, generated migrations. |
 | `security-patterns.yaml` | Symfony security regex rules for `security-guidance` (via `/sdlc:security-init`). |
-| `hooks/hooks.json` | Stop hook that runs PHP-CS-Fixer formatting after each session. |
+| `hooks/hooks.json` | PostToolUse hook that formats each edited PHP file with PHP-CS-Fixer; SubagentStop hook that runs PHPStan once after the architect. |
 
 Shared PHP conventions (PSR-12, PHP 8 idioms, Composer, PHPUnit/Pest base) come from `php-foundation`.
 
@@ -40,7 +40,7 @@ Post-pipeline:
 ## Prerequisites
 
 - Symfony 6.4+ / 7.x project with `composer.json` containing `"symfony/framework-bundle"`.
-- For the PHP-CS-Fixer Stop hook: `friendsofphp/php-cs-fixer` in dev deps.
+- For the PHP-CS-Fixer format hook: `friendsofphp/php-cs-fixer` in dev deps.
 - For the database phase: `doctrine/orm` + `doctrine/doctrine-migrations-bundle`. For fixtures: `doctrine/doctrine-fixtures-bundle`.
 - For SPA frontend: install `vue-plugin` or `react-plugin` (wins the frontend aspect; symfony-architect provides the API contract). Twig projects need no frontend plugin.
 - There is no Symfony MCP server — agents use `php bin/console` via Bash (Docker-aware).

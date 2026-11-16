@@ -50,7 +50,7 @@ For development phase, inject:
    - Expo managed: `expo` in deps + `app.json` or `app.config.{js,ts}` present + NO `ios/`/`android/` folders.
    - Expo dev-client / EAS: `expo` in deps + `expo-dev-client` and/or `eas.json` present.
    - Bare RN: `ios/` and `android/` folders present, no `expo` in deps.
-   - Expo ejected (bare via expo eject): `ios/`/`android/` AND `expo` still in deps — treat as bare.
+   - Expo ejected (bare via `npx expo prebuild`; `expo eject` was removed): `ios/`/`android/` AND `expo` still in deps — treat as bare.
    Detect navigation: `@react-navigation/native` + stack/tab/drawer subpackages → React Navigation v7; `expo-router` → file-based routing (Expo 49+).
    Detect storage choice: `@react-native-async-storage/async-storage` (non-secure), `react-native-mmkv` (fast/sync), `expo-secure-store` (Keychain/EncryptedSharedPreferences), `react-native-keychain` (bare alt). Match what's installed.
    Platform-specific code via `Platform.OS` + `.ios.tsx`/`.android.tsx`/`.native.tsx`/`.web.tsx` (Metro picks correct file).
@@ -78,7 +78,7 @@ For security phase, inject:
    - Deep link validation: verify URL scheme matches expected pattern; sanitize params before navigation. Universal Links / App Links require domain verification (apple-app-site-association, assetlinks.json).
    - SSL pinning for production: react-native-ssl-pinning or platform-specific. Mandatory for sensitive apps (banking, health).
    - Biometric auth: `expo-local-authentication` (managed) or `react-native-biometrics` (bare). Use for sensitive actions, not as primary auth.
-   - Build-time env: `react-native-config` (bare) or Expo `extra` field — never hardcode secrets in source.
+   - Build-time env: `react-native-config` (bare) or Expo `process.env.EXPO_PUBLIC_*` (the only `process.env` vars inlined into the app; they ship in the bundle, so never secrets) / `extra` field — never hardcode secrets in source.
    - Code obfuscation: ProGuard (Android) and Hermes minification — verify enabled in production builds.
    - Insecure deserialization: validate JSON from server before passing to navigation params or state.
    - npm audit: run and address Critical/High."

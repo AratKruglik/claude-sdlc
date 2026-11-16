@@ -13,11 +13,14 @@ detect:
     - file_contains:
         path: build.gradle.kts
         pattern: 'org.springframework.boot'
+    - file_contains:
+        path: gradle/libs.versions.toml
+        pattern: 'org.springframework.boot'
 ---
 
 # Spring Boot Stack Profile (backend)
 
-Registers Spring Boot projects with the SDLC pipeline. Auto-detected by presence of `spring-boot` in `pom.xml` or `org.springframework.boot` in `build.gradle` / `build.gradle.kts`.
+Registers Spring Boot projects with the SDLC pipeline. Auto-detected by presence of `spring-boot` in `pom.xml` or `org.springframework.boot` in `build.gradle` / `build.gradle.kts` / `gradle/libs.versions.toml` (plugin applied through a version-catalog alias).
 
 This plugin owns the **backend** aspect. Priority 150 beats `java-plugin` (100) on Spring projects.
 
@@ -68,7 +71,7 @@ For development phase (backend aspect), inject:
 For qa phase, inject:
 > Apply `java-foundation:jvm-testing` plus Spring-specific slices:
 > - `@SpringBootTest` for full-context integration tests (slow — use sparingly, one per feature flow).
-> - `@WebMvcTest(YourController.class)` for controller-layer tests: MockMvc, `@MockBean` for services.
+> - `@WebMvcTest(YourController.class)` for controller-layer tests: MockMvc, `@MockitoBean` for services (Spring Boot 3.4+; on Boot ≤ 3.3 use `@MockBean` from `org.springframework.boot.test.mock.mockito` — read the Boot version from the build file).
 > - `@DataJpaTest` for repository-layer tests: in-memory H2 or Testcontainers PostgreSQL, `TestEntityManager`.
 > - `@ExtendWith(MockitoExtension.class)` for pure service unit tests (no Spring context — fastest).
 >
@@ -76,7 +79,7 @@ For qa phase, inject:
 > @WebMvcTest(UserController.class)
 > class UserControllerTest {
 >     @Autowired MockMvc mvc;
->     @MockBean  UserService userService;
+>     @MockitoBean UserService userService;
 >
 >     @Test
 >     void getUser_existing_returns200() throws Exception {

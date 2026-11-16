@@ -6,16 +6,16 @@ patterns:
     reminder: "[AllowAnonymous] bypasses the global authorization policy. Verify this attribute is intentional on each controller/action — any miscategorised endpoint becomes publicly accessible. Prefer explicit anonymous access on specific endpoints rather than removing authorization from entire controllers."
 
   - rule_name: aspnet_efcore_raw_sql_interpolated
-    regex: "FromSqlRaw\\s*\\([^)]*\\$\"|ExecuteSqlRaw\\s*\\([^)]*\\$\"|FromSqlRaw\\s*\\([^)]*string\\.Format|ExecuteSqlRaw\\s*\\([^)]*string\\.Format"
+    regex: "(FromSqlRaw|ExecuteSqlRaw(Async)?)\\s*\\(\\s*(\\$@?\"|[^)]*(string\\.Format|\"\\s*\\+))"
     paths: ["**/*.cs"]
     exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**"]
-    reminder: "FromSqlRaw / ExecuteSqlRaw with string interpolation or string.Format risks SQL injection. Use FromSql(FormattableString) which auto-parameterizes, or pass explicit SqlParameter / NpgsqlParameter objects. Prefer LINQ queries — they are parameterized by default."
+    reminder: "FromSqlRaw / ExecuteSqlRaw(Async) with string interpolation, concatenation or string.Format risks SQL injection. Use FromSql(FormattableString) which auto-parameterizes, or pass explicit SqlParameter / NpgsqlParameter objects. Prefer LINQ queries — they are parameterized by default."
 
   - rule_name: aspnet_disable_antiforgery
-    regex: "IgnoreAntiforgeryToken|DisableRequestSizeLimit|SuppressImplicitRequiredAttributeForNonNullableReferenceTypes"
+    regex: "IgnoreAntiforgeryToken|DisableAntiforgery\\("
     paths: ["**/*.cs"]
     exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**"]
-    reminder: "Disabling anti-forgery validation ([IgnoreAntiforgeryToken]) on browser-facing POST/PUT/DELETE endpoints removes CSRF protection. Only disable for stateless token-authenticated (JWT/OAuth) API endpoints — verify the endpoint is not also reachable by cookie-authenticated browser sessions."
+    reminder: "Disabling anti-forgery validation ([IgnoreAntiforgeryToken] / .DisableAntiforgery()) on browser-facing POST/PUT/DELETE endpoints removes CSRF protection. Only disable for stateless token-authenticated (JWT/OAuth) API endpoints — verify the endpoint is not also reachable by cookie-authenticated browser sessions."
 
   - rule_name: aspnet_cors_allow_any_with_credentials
     regex: "AllowAnyOrigin\\(\\).*AllowCredentials|AllowCredentials.*AllowAnyOrigin"
@@ -24,7 +24,7 @@ patterns:
     reminder: "AllowAnyOrigin() combined with AllowCredentials() is forbidden by the CORS spec and blocked by all modern browsers. For credentialed cross-origin requests, specify explicit allowed origins with WithOrigins(\"https://app.example.com\")."
 
   - rule_name: aspnet_hardcoded_connection_string
-    regex: "(?i)(connectionstring|datasource|server=|data source=)\\s*[=:]\\s*['\"][^'\"]{10,}"
+    regex: "(?i)(Server|Data Source|Host)\\s*=[^;\"']+;[^\"']*(Password|Pwd)\\s*=\\s*[^;\"'\\s{$]+"
     paths: ["**/*.cs", "**/appsettings.json", "**/appsettings.*.json"]
     exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**", "**/appsettings.Development.json"]
     reminder: "Hardcoded connection string detected. Read connection strings from IConfiguration (environment variable override: ConnectionStrings__DefaultConnection), User Secrets in development, and Azure Key Vault / AWS Secrets Manager in production. Never commit credentials to source control."

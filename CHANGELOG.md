@@ -3,6 +3,117 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [2.3.0] — 2026-11-16 — marketplace v2.3.0 / sdlc v2.3.0
+
+Four new stack plugins and a marketplace-wide audit. Every plugin changed, so every plugin is
+bumped; plugin versions follow the level of the change — minor where detection or hook behaviour
+changed, patch for corrected guidance and patterns, and 2.3.0 for plugins that debut here.
+
+| Plugin | From | To |
+|---|---|---|
+| `angular-plugin` | 2.1.0 | 2.1.1 |
+| `aspnet-core-plugin` | 2.1.0 | 2.2.0 |
+| `csharp-foundation` | 2.1.0 | 2.1.1 |
+| `dart-foundation` | new | 2.3.0 |
+| `dart-plugin` | new | 2.3.0 |
+| `django-plugin` | 2.1.0 | 2.2.0 |
+| `fastapi-plugin` | 2.1.0 | 2.2.0 |
+| `flask-plugin` | 2.1.0 | 2.2.0 |
+| `flutter-plugin` | new | 2.3.0 |
+| `inertia-react-plugin` | 2.1.0 | 2.1.1 |
+| `inertia-vue-plugin` | 2.1.0 | 2.1.1 |
+| `java-foundation` | 2.1.0 | 2.1.1 |
+| `java-plugin` | 2.1.0 | 2.2.0 |
+| `js-foundation` | 2.1.0 | 2.1.1 |
+| `kotlin-plugin` | new | 2.3.0 |
+| `laravel-plugin` | 2.1.1 | 2.1.2 |
+| `nestjs-plugin` | 2.1.0 | 2.1.1 |
+| `nextjs-plugin` | 2.1.0 | 2.1.1 |
+| `nodejs-plugin` | 2.1.0 | 2.2.0 |
+| `php-foundation` | 2.1.1 | 2.1.2 |
+| `python-foundation` | 2.1.0 | 2.1.1 |
+| `python-plugin` | 2.1.0 | 2.1.1 |
+| `react-native-plugin` | 2.1.0 | 2.1.1 |
+| `react-plugin` | 2.1.0 | 2.1.1 |
+| `sdlc` | 2.2.0 | 2.3.0 |
+| `spring-boot-plugin` | 2.1.0 | 2.2.0 |
+| `symfony-plugin` | 2.1.0 | 2.1.1 |
+| `vue-plugin` | 2.1.0 | 2.1.1 |
+
+### Added
+
+- **Dart and Flutter stack providers.** Three new plugins, following the `*-foundation` +
+  stack-provider split the Java, Python, PHP and C# stacks use:
+  - `dart-foundation` — shared skills, no agent or stack profile: `dart-conventions`
+    (Dart 3 null safety, records, patterns, sealed and class modifiers, async discipline),
+    `dart-tooling` (pubspec constraints, pub workspaces/melos, analysis_options, format/analyze/fix,
+    build_runner) and `dart-testing` (package:test, mocktail, async/stream matchers, coverage).
+  - `dart-plugin` (priority 100, `backend`) — detects `pubspec.yaml`; `dart-architect` for
+    packages, CLIs and shelf / dart_frog / `dart:io` servers.
+  - `flutter-plugin` (priority 300, `backend` + `frontend`) — detects `sdk: flutter` in
+    `pubspec.yaml`; `flutter-architect` plus `flutter-conventions`, `flutter-state-management`,
+    `flutter-navigation` and `flutter-testing`. Claiming `backend` too is what keeps
+    `dart-plugin` from activating alongside it on a Flutter project.
+  - Hooks for both: `dart format` per edited file, config protection for
+    `analysis_options.yaml`, `dart analyze` / `flutter analyze` after the architect.
+- **Kotlin stack provider.** `kotlin-plugin` (priority 120, `backend`) detects the Kotlin JVM
+  plugin in `build.gradle(.kts)`, `gradle/libs.versions.toml` or `pom.xml` — above
+  `java-plugin` (100), below `spring-boot-plugin` (150). `kotlin-architect` plus
+  `kotlin-conventions`, `kotlin-coroutines` and `kotlin-testing`; Gradle tooling reused from
+  `java-foundation:build-tooling`. Hooks: Spotless / ktlintFormat on `.kt` edits, config
+  protection for `detekt*.yml`, `compileKotlin compileTestKotlin` after the architect.
+- **`project_shape` knows Kotlin tooling** — Kotest as the test framework, detekt / ktlint as
+  lint and ktlint as format when Spotless is absent, Kover as coverage.
+- **`run-tool.sh --lang dart`** — applies when `pubspec.yaml` exists in the project root.
+- **`project_shape` knows Dart and Flutter** — `detect-stack.sh` reports `dart` / `flutter` as
+  the package manager, `dart test` / `flutter test`, `dart analyze` / `flutter analyze`,
+  `dart format .`, coverage availability, and pub workspaces / melos as a monorepo.
+
+### Fixed
+
+Marketplace-wide audit of every stack plugin against current framework documentation.
+
+- **Detection.** `file_exists` rules now accept globs (`**/appsettings.json`), so
+  `aspnet-core-plugin` detects at all — the rule was read as a literal path and every .NET
+  project resolved to `vanilla`. `.slnx` solutions count as .NET. `nodejs-plugin` no longer
+  matches on `@types/node` / `engines`, which sent Vite SPAs to the backend architect and
+  halted Laravel and Symfony projects on a priority tie — a framework-less Node service now
+  needs `--stack=nodejs`. Django's `manage.py` rule checks the file content (Flask-Script
+  projects tied with Django); Django, FastAPI and Flask also read `Pipfile` / `setup.py` /
+  `setup.cfg`; `FastAPI==` matches case-insensitively; Spring Boot is found through a Gradle
+  version catalog.
+- **Hooks.** `dotnet format` received an absolute path and formatted nothing. Gradle projects
+  on `java-plugin` and `spring-boot-plugin` had no compile check (a second SubagentStop entry
+  runs `./gradlew -q compileJava`); `kotlin-plugin` gained the Maven counterpart.
+- **Security patterns.** `core_cloud_access_key` did not compile in Python `re`. Rules that
+  could not match their target or fired on safe code were rewritten and tested against
+  samples (PHP, Laravel, Symfony, Java, Spring, C#, ASP.NET, Python, Flask, FastAPI, JS,
+  Next.js, React Native); exact duplicates of foundation rules were removed.
+- **Guidance brought to current majors, with the older form kept as a one-line version
+  boundary:** Next.js 16 (async `params`/`cookies`, `proxy.ts`, uncached `fetch`,
+  `useActionState`, `updateTag`), NestJS 12 + Prisma 7, React Router 7/8, vue-router 5,
+  Angular 22 (Vitest default), RNTL 14, MMKV 4, Inertia 3 (lowercase `pages/`, Wayfinder),
+  Laravel 11–13 (Boost MCP tool names, policies, CSRF middleware, `db:table`), Symfony 7.4/8
+  (Voter signature, `EnumType`, non-destructive fixtures), Spring Boot 4 / Hibernate 6,
+  .NET 10 (EF tooling, config precedence, record example), FastAPI (PyJWT + pwdlib, explicit
+  commit), Flask (`flask check` does not exist), Django 5.1+/6.
+- **Docs.** Install commands in eight plugin READMEs pointed at the old `ROLIQUE/claude-plugins`
+  marketplace; "Stop hook" descriptions now match the PostToolUse / SubagentStop hooks that
+  ship.
+
+### Upgrade notes
+
+- **Update `sdlc` first.** The Dart and Kotlin hooks and the Dart / Flutter project-shape probe
+  need `sdlc` 2.3.0 (`run-tool.sh --lang dart`). A plugin `dependencies` entry cannot carry a
+  version, so on an older installed `sdlc` the Dart hooks stay silent instead of failing.
+- **Framework-less Node services** no longer auto-detect as `nodejs`; run with `--stack=nodejs`.
+  Projects with Express, Fastify, Koa, Hapi, Hono or NestJS are unaffected.
+- **.NET projects now activate `aspnet-core-plugin`.** They used to resolve to `vanilla`, so the
+  pipeline's agents and phase prompts change on those projects.
+- **Laravel agents run Artisan through Bash.** Laravel Boost has no Artisan or route tool; it is
+  used for schema, read-only SQL and documentation lookup.
+- **`/sdlc:security-init`** needs to be re-run to pick up the corrected security patterns.
+
 ## [2.2.0] — 2026-10-26 — marketplace v2.2.0 / sdlc v2.2.0
 
 A smaller orchestrator skill and explicit invocation rules. Only `sdlc` is bumped; every other

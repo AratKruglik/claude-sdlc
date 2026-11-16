@@ -1,0 +1,12 @@
+patterns:
+  - rule_name: dart_server_cors_wildcard
+    regex: "['\"]Access-Control-Allow-Origin['\"]\\s*:\\s*['\"]\\*['\"]"
+    paths: ["**/*.dart"]
+    exclude_paths: ["**/test/**", "**/*_test.dart"]
+    reminder: "A wildcard CORS origin lets any site call this API from a victim's browser. Allowlist the real frontend origins, and never combine '*' with credentials."
+
+  - rule_name: dart_server_path_from_request
+    regex: "File\\([^)]*(request|req)\\.(url|uri|requestedUri|params)"
+    paths: ["**/*.dart"]
+    exclude_paths: ["**/test/**", "**/*_test.dart"]
+    reminder: "A file path built from the request is a path-traversal risk. Normalize with package:path, resolve against a fixed base directory and verify the result stays inside it; for static files use shelf_static."

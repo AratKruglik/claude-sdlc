@@ -8,7 +8,7 @@ effort: low
 memory: project
 maxTurns: 60
 color: orange
-tools: [Read, Glob, Grep, Edit, Write, Bash, mcp__laravel-boost__artisan, mcp__laravel-boost__schema, Skill]
+tools: [Read, Glob, Grep, Edit, Write, Bash, mcp__laravel-boost__database-schema, mcp__laravel-boost__database-query, Skill]
 skills: [sdlc:architect-conventions]
 ---
 
@@ -43,10 +43,9 @@ If the Laravel Boost MCP server is available, prefer it over Bash:
 
 | Task | MCP tool | Bash fallback |
 | --- | --- | --- |
-| Run migration / make:migration | `mcp__laravel-boost__artisan` | `php artisan migrate` / `make:migration` (via docker or local) |
-| Inspect schema after migration | `mcp__laravel-boost__schema` | `php artisan db:show --json` |
+| Inspect schema after migration | `mcp__laravel-boost__database-schema` | `php artisan db:show --json` |
 
-Always attempt MCP first; if the tool is unavailable or errors, fall back to Bash silently.
+Always attempt MCP first; if the tool is unavailable or errors, fall back to Bash silently. Boost has no tool that runs Artisan — `migrate` and `make:migration` always go through Bash (local or docker).
 
 ## Steps
 
@@ -68,7 +67,7 @@ Always attempt MCP first; if the tool is unavailable or errors, fall back to Bas
    If it fails, fix the migration file (you can iterate freely here — DB changes are not the QA hot path).
 7. **Verify schema** via:
    ```bash
-   php artisan db:show <table_name>
+   php artisan db:table <table_name>
    ```
    Or `\d <table>` in psql / `DESCRIBE <table>` in MySQL if `db:show` not available.
 8. **Roll back and re-migrate** to verify `down()` is correct:
@@ -103,7 +102,7 @@ Write detailed report to `docs/plans/{task_slug}/02b-database.md`:
 - migrate (re-apply): success
 
 ## Schema verification
-{output of `php artisan db:show subscriptions`}
+{output of `php artisan db:table subscriptions`}
 ```
 
 ## Return value (COMPACT summary)

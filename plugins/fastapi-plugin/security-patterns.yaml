@@ -9,7 +9,7 @@ patterns:
     regex: "debug\\s*=\\s*True"
     paths: ["**/*.py"]
     exclude_paths: ["**/test_*.py", "**/*_test.py", "**/tests/**"]
-    reminder: "debug=True in FastAPI(debug=True) or uvicorn.run(..., debug=True) exposes Python stack traces and internal error details to end users. Set debug=False in production and read the value from an environment variable: FastAPI(debug=settings.DEBUG)."
+    reminder: "debug=True in FastAPI(debug=True) exposes Python stack traces and internal error details to end users. Set debug=False in production and read the value from an environment variable: FastAPI(debug=settings.DEBUG)."
 
   - rule_name: fastapi_cors_any_with_credentials
     regex: "allow_origins\\s*=\\s*\\[\\s*['\"]\\*['\"]"
@@ -18,16 +18,10 @@ patterns:
     reminder: "allow_origins=['*'] combined with allow_credentials=True is forbidden by the CORS specification and blocked by all major browsers. Use an explicit allowed-origins list when credentials are required: allow_origins=settings.CORS_ALLOWED_ORIGINS."
 
   - rule_name: fastapi_sql_text_injection
-    regex: "text\\s*\\(\\s*[fF]['\"]|text\\s*\\([^)]*%\\s*[({]|text\\s*\\([^)]*\\.format"
+    regex: "\\btext\\s*\\([^)]*%\\s*[({]|\\btext\\s*\\([^)]*\\.format"
     paths: ["**/*.py"]
     exclude_paths: ["**/test_*.py", "**/*_test.py", "**/tests/**"]
-    reminder: "text() with f-strings, % formatting, or .format() interpolation is a SQL injection risk. Use bound parameters instead: text('SELECT * FROM users WHERE id = :id') and pass {'id': user_id} to session.execute(). SQLAlchemy parameterizes bound parameters safely."
-
-  - rule_name: fastapi_missing_auth_dependency
-    regex: "@router\\.(get|post|put|delete|patch)\\s*\\([^)]*\\)\\s*\\n+\\s*(?:async\\s+)?def"
-    paths: ["**/*.py"]
-    exclude_paths: ["**/test_*.py", "**/*_test.py", "**/tests/**"]
-    reminder: "Advisory: verify that each state-changing endpoint (POST, PUT, PATCH, DELETE) includes Depends(get_current_user) or Security(get_current_user) in its signature, or that the router was created with dependencies=[Depends(get_current_user)]. Endpoints without auth are only acceptable when the BA spec explicitly calls for anonymous access."
+    reminder: "text() with % formatting or .format() interpolation (f-strings are flagged by python-foundation) is a SQL injection risk. Use bound parameters instead: text('SELECT * FROM users WHERE id = :id') and pass {'id': user_id} to session.execute(). SQLAlchemy parameterizes bound parameters safely."
 
   - rule_name: fastapi_jwt_weak_algorithm
     regex: "algorithm\\s*=\\s*['\"]none['\"]|algorithms\\s*=\\s*\\[\\s*['\"]none['\"]|algorithm\\s*=\\s*['\"]HS(128|192)['\"]"

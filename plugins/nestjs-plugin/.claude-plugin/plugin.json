@@ -1,7 +1,7 @@
 {
   "name": "nestjs-plugin",
-  "version": "2.1.0",
-  "description": "NestJS opinionated backend stack provider for SDLC marketplace. Replaces nodejs-plugin for projects with @nestjs/core. Covers REST + ORM (TypeORM/Prisma/Mongoose) + GraphQL + WebSockets + Microservices. Reuses TypeScript and npm skills from nodejs-plugin.",
+  "version": "2.1.1",
+  "description": "NestJS opinionated backend stack provider for SDLC marketplace. Replaces nodejs-plugin for projects with @nestjs/core. Covers REST + ORM (TypeORM/Prisma/Mongoose) + GraphQL + WebSockets + Microservices. Reuses TypeScript and npm skills from js-foundation.",
   "author": {
     "name": "Oleksii Kruhlyk",
     "url": "https://github.com/AratKruglik"

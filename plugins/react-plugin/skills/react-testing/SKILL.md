@@ -78,7 +78,7 @@ import type { Config } from 'jest';
 const config: Config = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
-  setupFilesAfterEach: ['<rootDir>/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '\\.(css|scss|less)$': 'identity-obj-proxy',
@@ -240,7 +240,7 @@ it('shows users from API', async () => {
 ## Testing routing (React Router)
 
 ```tsx
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router';
 
 it('navigates to user detail', async () => {
   const user = userEvent.setup();

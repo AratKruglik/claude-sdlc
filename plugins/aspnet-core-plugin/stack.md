@@ -10,7 +10,7 @@ detect:
 
 # ASP.NET Core Stack Profile (backend + database)
 
-Registers ASP.NET Core projects with the SDLC pipeline. Auto-detected by the presence of `appsettings.json` or `appsettings.Development.json` — the canonical configuration file for ASP.NET Core applications.
+Registers ASP.NET Core projects with the SDLC pipeline. Auto-detected by the presence of `appsettings.json` or `appsettings.Development.json` in the project root or up to four levels below it (solution layouts such as `src/Api/appsettings.json`; `bin/`, `obj/` and dependency directories are skipped) — the canonical configuration file for ASP.NET Core applications.
 
 This plugin owns the **backend** and **database** aspects. The `aspnet-core-architect` handles Minimal API endpoints or MVC controllers, the DI container, validation, authentication / authorization, and the API contract for SPA frontend plugins:
 
@@ -62,11 +62,11 @@ For development phase (backend aspect), inject:
 > Apply `aspnet-core-plugin:aspnet-conventions`:
 > - **Program.cs composition:** register services in the correct DI lifetime (Scoped for per-request, Singleton for shared, Transient for lightweight stateless). Use the Options pattern (`services.Configure<MyOptions>(config.GetSection("MySection"))`) — never pass raw `IConfiguration` into services.
 > - **Minimal API vs MVC:** prefer Minimal API for new, simple endpoints; use MVC controllers when the project already uses them or when cross-cutting concerns (filters, model binders) are needed.
-> - **Validation:** use FluentValidation or DataAnnotations + `app.UseRequestValidation()`. Never validate inline in handlers/actions.
+> - **Validation:** use FluentValidation (`IValidator<T>.ValidateAsync` in the handler or an endpoint filter) or DataAnnotations — `[ApiController]` auto-validation for MVC, `builder.Services.AddValidation()` for Minimal APIs on .NET 10+ (older targets: validate explicitly). Never hand-write property checks in handlers/actions.
 > - **Authentication / Authorization:** wire `AddAuthentication` + `AddAuthorization` in Program.cs. Use policy-based or resource-based authorization (`IAuthorizationService`). Never inline `user.IsInRole("Admin")` checks.
 > - **Error handling:** use `ProblemDetails` (RFC 9457) via `app.UseExceptionHandler` / `Results.Problem()`. Never return raw exception messages.
 > - **Secrets:** read all credentials from `IConfiguration` (environment variables, User Secrets in dev, Azure Key Vault / AWS Secrets Manager in prod). Never hardcode secrets or connection strings.
-> - **Middleware ordering:** `UseHttpsRedirection` → `UseStaticFiles` → `UseRouting` → `UseAuthentication` → `UseAuthorization` → `MapControllers` / `MapMinimalApi`.
+> - **Middleware ordering:** `UseHttpsRedirection` → `UseStaticFiles` → `UseRouting` → `UseAuthentication` → `UseAuthorization` → `MapControllers` / Minimal API `Map*` endpoints.
 >
 > Apply `csharp-foundation:csharp-conventions` (nullable reference types, records for DTOs, async/await + CancellationToken) and `csharp-foundation:dotnet-tooling` (read global.json and .csproj for the .NET version).
 >

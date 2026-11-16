@@ -28,7 +28,7 @@ This skill covers Django ORM model definitions, query patterns, and database-lev
 
 ## 1. Detection
 
-Check the Django version in `requirements.txt` or `pyproject.toml` before writing constraint code — `Meta.constraints` using `CheckConstraint` uses `condition=` in Django 5.1+ and `check=` in Django 4.x. When uncertain, check the installed version with `python manage.py --version` or read the pinned version from the dependency file.
+Check the Django version in `requirements.txt` or `pyproject.toml` before writing constraint code — `Meta.constraints` using `CheckConstraint` uses `condition=` in Django 5.1+ and `check=` in Django ≤ 5.0 (`check=` is deprecated in 5.1 and removed in 6.0). When uncertain, check the installed version with `python manage.py --version` or read the pinned version from the dependency file.
 
 ## 2. Model definition patterns
 
@@ -49,6 +49,7 @@ class Order(models.Model):
         CANCELLED = 'cancelled', 'Cancelled'
 
     user = models.ForeignKey(User, on_delete=models.PROTECT, related_name='orders')
+    reference = models.CharField(max_length=64)
     product = models.CharField(max_length=255)
     qty = models.PositiveIntegerField()
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -64,7 +65,7 @@ class Order(models.Model):
         ]
         constraints = [
             models.UniqueConstraint(fields=['user', 'reference'], name='unique_user_reference'),
-            # Django 5.1+: condition=; Django 4.x: check=
+            # Django 5.1+: condition=; Django ≤ 5.0: check=
             models.CheckConstraint(condition=models.Q(qty__gt=0), name='orders_order_qty_positive'),
         ]
 
@@ -249,7 +250,7 @@ class Meta:
             fields=['user', 'reference'],
             name='unique_order_reference_per_user',
         ),
-        # Django 5.1+: condition=  |  Django 4.x: check=
+        # Django 5.1+: condition=  |  Django ≤ 5.0: check=
         models.CheckConstraint(
             condition=models.Q(qty__gt=0),
             name='orders_order_qty_must_be_positive',

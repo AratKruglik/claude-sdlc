@@ -115,7 +115,7 @@ Result handling rules:
 
 Transaction/flush discipline:
 - Use `flush()` inside a unit of work to get the generated PK without committing.
-- Commit once per request/unit of work at the boundary the framework defines (FastAPI: the `get_db()` dependency on `yield` exit; Flask: the view/service layer at the end of the request) — never scattered through helper functions.
+- Commit once per request/unit of work at the boundary the framework defines (FastAPI: the endpoint/service that owns the unit of work, before the response is returned; Flask: the view/service layer at the end of the request) — never scattered through helper functions.
 
 ---
 
@@ -174,7 +174,7 @@ Structural rules:
 - `lazy="joined"` — loads the relation with a JOIN in the same query. Best for one-to-one relations or small, always-needed collections.
 - `lazy="raise"` — raises if accessed without explicit eager loading, forcing `selectinload()`/`joinedload()` at query time. Best for large or rarely-needed collections to prevent N+1.
 - `lazy="subquery"` — sync-only; not supported by async drivers.
-- `lazy="dynamic"` — **deprecated in SQLAlchemy 2.0**. Do not use. Replace with explicit `select()` queries.
+- `lazy="dynamic"` — **legacy** in SQLAlchemy 2.0 (returns a legacy `Query`; not asyncio-compatible). Do not use in new code. For large collections use `lazy="write_only"` (`WriteOnlyMapped`) or explicit `select()` queries.
 
 Which strategies are permitted per framework is refined by the framework delta skill (async contexts forbid `select`/`subquery`).
 
@@ -207,7 +207,7 @@ Framework-specific wiring (async `env.py` for FastAPI, `flask db init` scaffoldi
 |---|---|---|
 | `String` without length | Alembic autogenerate produces `VARCHAR` with no length; some databases use `TEXT` or reject it | Always `String(N)` |
 | `Float` for monetary values | IEEE 754 rounding errors on financial calculations | `Numeric(precision, scale)` |
-| `lazy="dynamic"` | Deprecated in SQLAlchemy 2.0; raises a warning | Use `lazy="selectin"`/`lazy="select"` (per framework) or explicit `selectinload()` |
+| `lazy="dynamic"` | Legacy loader superseded in SQLAlchemy 2.0; returns a legacy `Query`, not asyncio-compatible | `lazy="write_only"` for large collections; otherwise `lazy="selectin"`/`lazy="select"` (per framework) or explicit `selectinload()` |
 | `default=datetime.utcnow` | Python-side default — not reflected in DB schema; `utcnow` is deprecated | `server_default=func.now()` with `DateTime(timezone=True)` |
 | Importing models only in routers | Migration tooling never sees them; `--autogenerate` misses tables | Import all models in the central metadata module |
 | Mixing `Column()` and `mapped_column()` | Produces inconsistent metadata; confuses tooling | One style per project; prefer `mapped_column()` for new code |

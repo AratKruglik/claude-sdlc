@@ -94,10 +94,18 @@ sdlc-marketplace/
 │   │   └── agents/react-architect.md    ← sonnet + model_plan:opus
 │   ├── vue-plugin/                      ← Vue 3 SPA frontend (priority: 150)
 │   │   └── agents/vue-architect.md      ← sonnet + model_plan:opus
-│   ├── angular-plugin/                  ← Angular 18-21 frontend (priority: 200)
+│   ├── angular-plugin/                  ← Angular 18-22 frontend (priority: 200)
 │   │   └── agents/angular-architect.md  ← sonnet + model_plan:opus
 │   ├── react-native-plugin/             ← React Native mobile (priority: 300)
 │   │   └── agents/rn-architect.md       ← sonnet + model_plan:opus
+│   ├── kotlin-plugin/                   ← Kotlin/JVM backend (priority: 120)
+│   │   └── agents/kotlin-architect.md   ← sonnet + model_plan:opus
+│   ├── dart-foundation/                 ← shared Dart skills, no stack profile
+│   │   └── skills/                      ← dart-conventions, dart-tooling, dart-testing
+│   ├── dart-plugin/                     ← plain Dart backend (priority: 100)
+│   │   └── agents/dart-architect.md     ← sonnet + model_plan:opus
+│   ├── flutter-plugin/                  ← Flutter, backend + frontend (priority: 300)
+│   │   └── agents/flutter-architect.md  ← sonnet + model_plan:opus
 │   │
 │   └── laravel-plugin/
 │       ├── .claude-plugin/plugin.json   ← dependencies: sdlc
@@ -109,7 +117,7 @@ sdlc-marketplace/
 │       │   ├── laravel-conventions/SKILL.md
 │       │   └── eloquent-patterns/SKILL.md
 │       ├── .mcp.json                    ← laravel-boost, etc.
-│       └── hooks/hooks.json             ← pint auto-format on Stop
+│       └── hooks/hooks.json             ← pint per edited file (PostToolUse)
 ```
 
 > **Key Detail:** There is no `pipeline-orchestrator/` in `laravel-plugin`. Core files remain untouched. The Laravel plugin only adds `stack.md` + specialized agents + convention skills.

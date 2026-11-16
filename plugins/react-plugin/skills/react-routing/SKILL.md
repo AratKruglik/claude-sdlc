@@ -27,20 +27,20 @@ Choose the routing library based on what's already in `package.json`. Don't intr
 
 | Marker (in dependencies) | Library |
 |---|---|
-| `react-router-dom` | React Router v6 (≤6.x) or v7 |
+| `react-router` (v7+) or `react-router-dom` (v6; a re-export in v7, removed in v8) | React Router |
 | `@tanstack/react-router` | TanStack Router |
 | `wouter` | wouter (minimal alternative) |
 | (none) | Single-page; introduce only if BA spec adds multi-page |
 
 ## React Router v6 / v7
 
-The de-facto standard. v7 unified `react-router-dom` and the framework features; for SPA usage the API is similar.
+The de-facto standard. v7 unified `react-router-dom` and the framework features; for SPA usage the API is similar. v7+: import from `react-router`; `react-router-dom` only on v6.
 
 ### Declarative routes (most common)
 
 ```tsx
 // src/main.tsx
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router';
 import App from './App';
 import UsersList from './pages/UsersList';
 import UserDetail from './pages/UserDetail';
@@ -70,7 +70,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
 ```tsx
 // src/App.tsx
-import { Outlet } from 'react-router-dom';
+import { Outlet } from 'react-router';
 
 export default function App() {
   return (
@@ -86,7 +86,7 @@ export default function App() {
 ### Navigation hooks
 
 ```tsx
-import { Link, NavLink, useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
+import { Link, NavLink, useNavigate, useParams, useSearchParams, useLocation } from 'react-router';
 
 // Declarative — Link or NavLink
 <Link to="/users">Users</Link>
@@ -117,7 +117,7 @@ In React Router v6.4+ / v7, route loaders fetch data before render:
 
 ```tsx
 // src/routes/users.tsx
-import { LoaderFunction, useLoaderData } from 'react-router-dom';
+import { LoaderFunction, useLoaderData } from 'react-router';
 
 export const loader: LoaderFunction = async () => {
   const res = await fetch('/api/users');
@@ -140,7 +140,7 @@ Wire in route config:
 For mutations:
 
 ```tsx
-import { ActionFunction, redirect, useActionData } from 'react-router-dom';
+import { ActionFunction, redirect, useActionData } from 'react-router';
 
 export const action: ActionFunction = async ({ request }) => {
   const formData = await request.formData();
@@ -181,7 +181,7 @@ The imported module exports `{ Component, loader, action }`.
 
 ```tsx
 // src/routes/RequireAuth.tsx
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router';
 import { useAuth } from '@/hooks/useAuth';
 
 export function RequireAuth() {
@@ -207,7 +207,7 @@ Wrap protected routes:
 ### Type-safe params with Zod
 
 ```tsx
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import { z } from 'zod';
 
 const ParamsSchema = z.object({ id: z.string().uuid() });
@@ -259,7 +259,7 @@ function UsersPage() {
 
 // src/routes/users.$id.tsx — dynamic segment
 export const Route = createFileRoute('/users/$id')({
-  parseParams: (params) => ({ id: z.string().uuid().parse(params.id) }),
+  params: { parse: (params) => ({ id: z.string().uuid().parse(params.id) }) },
   component: UserDetail,
 });
 ```

@@ -136,7 +136,7 @@ cd ios && pod install                          # iOS only — install CocoaPods 
 
 After install:
 - Run `npm run ios` / `npm run android` to rebuild with new native module.
-- Restart Metro (`npm start --reset-cache` if cached).
+- Restart Metro (`npm start -- --reset-cache` if cached).
 
 Some packages need additional native config (manifest entries, Info.plist keys). Check package README.
 

@@ -72,7 +72,7 @@ For qa phase, inject:
 > Apply `python-foundation:pytest-testing`:
 > - **Unit tests:** pure functions with no I/O — no mocking needed. Cover happy path, edge cases, and error conditions.
 > - **Integration tests:** involve real I/O (DB, filesystem, external API). Use pytest fixtures to set up and tear down state. Parametrize for multiple inputs with `@pytest.mark.parametrize`.
-> - **Mock external I/O:** HTTP via `responses` or `httpx` mock transport, filesystem via `monkeypatch` and `tmp_path`, time via `monkeypatch.setattr(datetime, 'now', ...)`.
+> - **Mock external I/O:** HTTP via `responses` or `httpx` mock transport, filesystem via `monkeypatch` and `tmp_path`, time via `time-machine` / `freezegun` or an injected clock (`datetime.datetime` is immutable — `monkeypatch.setattr(datetime, 'now', ...)` raises `TypeError`).
 > - **Coverage:** run `pytest --cov=src --cov-report=term-missing` (or `pytest --cov=. --cov-report=term-missing` for flat layouts). Aim for ≥ 80 % coverage on new code.
 >
 > Run: `pytest` or `python -m pytest`.

@@ -30,7 +30,7 @@ project-root/
 ├── package.json
 ├── tsconfig.json
 ├── next.config.{js,mjs,ts}
-├── middleware.ts                # optional, runs on every matched request
+├── proxy.ts                     # optional, runs on every matched request (middleware.ts on Next ≤15)
 ├── app/                          # App Router root (modern)
 │   ├── layout.tsx                # ROOT layout (required) — defines <html><body>
 │   ├── page.tsx                  # / route
@@ -98,17 +98,18 @@ The route's UI. Default-exported. Receives:
 
 ```tsx
 type Props = {
-  params: { id: string };          // dynamic segments
-  searchParams: { [key: string]: string | string[] | undefined };
+  params: Promise<{ id: string }>; // dynamic segments
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 export default async function Page({ params, searchParams }: Props) {
-  const data = await getData(params.id);
+  const { id } = await params;
+  const data = await getData(id);
   return <div>...</div>;
 }
 ```
 
-In Next.js 15+, `params` and `searchParams` are PROMISES — `await params` to get values.
+`params` and `searchParams` are async since 15; sync access was removed in 16 (≤14: plain objects — read the installed `next` version from package.json).
 
 ### `loading.tsx`
 
@@ -150,7 +151,8 @@ Triggered by `notFound()` calls in Server Components or Route Handlers.
 ```ts
 // in a page
 import { notFound } from 'next/navigation';
-const user = await db.users.findUnique({ where: { id: params.id } });
+const { id } = await params;
+const user = await db.users.findUnique({ where: { id } });
 if (!user) notFound();
 ```
 
@@ -181,7 +183,7 @@ export async function POST(req: NextRequest) {
 }
 ```
 
-Receives `req: NextRequest` and (for dynamic routes) `{ params }`. Returns `NextResponse` or anything `Response`-compatible.
+Receives `req: NextRequest` and (for dynamic routes) `{ params }` — a Promise, `await` it. Returns `NextResponse` or anything `Response`-compatible.
 
 ## Route groups
 
@@ -218,7 +220,8 @@ Dynamic:
 
 ```tsx
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const user = await getUser(params.id);
+  const { id } = await params;
+  const user = await getUser(id);
   if (!user) return { title: 'Not found' };
   return {
     title: `${user.name} | Dashboard`,
@@ -245,7 +248,7 @@ import Image from 'next/image';
   alt="User profile"
   width={200}
   height={200}
-  priority   // for above-the-fold
+  preload    // for above-the-fold (16+; `priority` on ≤15)
 />;
 
 // Remote images
@@ -333,7 +336,7 @@ export default config;
 | Var pattern | Available in |
 |---|---|
 | `NEXT_PUBLIC_*` | Client AND server (bundled into JS) |
-| Anything else | Server only (Server Components, Route Handlers, Server Actions, middleware) |
+| Anything else | Server only (Server Components, Route Handlers, Server Actions, proxy) |
 
 ```ts
 // Server-only
@@ -360,7 +363,7 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_API_URL: z.string().url(),
   },
-  experimental__runtimeEnv: process.env,
+  experimental__runtimeEnv: { NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL },
 });
 ```
 
@@ -369,7 +372,7 @@ export const env = createEnv({
 - ❌ Putting `"use client"` at the top of a file as a quick fix when `useState` errors appear — analyze the actual need.
 - ❌ Reading `process.env.SECRET_KEY` in a Client Component (it's `undefined` AND a security smell).
 - ❌ `images.domains: ['*']` or omitting `remotePatterns` for remote images.
-- ❌ Putting heavy dependencies in `middleware.ts` — it runs on every request.
+- ❌ Putting heavy dependencies in `proxy.ts` (`middleware.ts` on ≤15) — it runs on every request.
 - ❌ Using `pages/api/` if the project is App Router (mix routes only when migrating; pick one).
 - ❌ Skipping `loading.tsx` for slow data — users get blank pages while async work runs.
 - ❌ Using `<a href>` for internal navigation — use `<Link>` from `next/link` for client-side routing.

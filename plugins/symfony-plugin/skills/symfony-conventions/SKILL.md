@@ -1,7 +1,7 @@
 ---
 name: symfony-conventions
 description: |
-  Consolidated Symfony conventions (Symfony 6.4 / 7.x): attribute routing, controllers as services, autowiring/DI, Form types, Validation constraints, Voters for authorization, the Serializer/DTO contract, and Messenger. Apply when writing or reviewing Symfony backend code.
+  Consolidated Symfony conventions (Symfony 6.4 / 7.4 / 8.x): attribute routing, controllers as services, autowiring/DI, Form types, Validation constraints, Voters for authorization, the Serializer/DTO contract, and Messenger. Apply when writing or reviewing Symfony backend code.
   Activated automatically by symfony-plugin/stack.md as a convention skill for the development phase.
 
   Apply when: writing or reviewing Symfony controllers, services, forms, validators, voters, and serialization.
@@ -14,7 +14,7 @@ user-invocable: false
 paths: ["src/**", "config/**", "templates/**"]
 ---
 
-# Symfony Conventions (6.4 / 7.x)
+# Symfony Conventions (6.4 / 7.4 / 8.x)
 
 This skill encodes the conventions used across modern Symfony projects. Apply alongside `php-foundation:php-conventions` (language idioms) when implementing features.
 
@@ -99,7 +99,7 @@ final class SubscriptionType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
-            ->add('plan', ChoiceType::class, ['choices' => Plan::cases()])
+            ->add('plan', EnumType::class, ['class' => Plan::class])
             ->add('startsAt', DateType::class, ['required' => false]);
     }
 
@@ -160,7 +160,8 @@ final class SubscriptionVoter extends Voter
             && $subject instanceof Subscription;
     }
 
-    protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
+    // The $vote parameter exists since Symfony 7.3 and is part of the signature on 8.x; omit it on 6.4.
+    protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token, ?Vote $vote = null): bool
     {
         $user = $token->getUser();
         if (!$user instanceof User) {
@@ -254,4 +255,3 @@ Dispatch with `$this->bus->dispatch(new SendSubscriptionReceipt($id))`. Configur
 - [ ] Serialized output uses groups/DTOs (no raw-entity exposure)
 - [ ] No hardcoded secrets — `%env(...)%` only
 - [ ] `php bin/console lint:container` passes
-- [ ] `vendor/bin/php-cs-fixer fix` clean

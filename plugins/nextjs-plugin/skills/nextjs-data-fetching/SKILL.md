@@ -1,7 +1,7 @@
 ---
 name: nextjs-data-fetching
 description: |
-  Data fetching, caching, and revalidation patterns in Next.js App Router. Covers native fetch caching, ISR/SSG/SSR per-route choice, generateStaticParams, unstable_cache, revalidatePath/revalidateTag, Route Handlers, dynamic vs static rendering.
+  Data fetching, caching, and revalidation patterns in Next.js App Router. Covers native fetch caching, ISR/SSG/SSR per-route choice, generateStaticParams, 'use cache' / unstable_cache, revalidatePath/updateTag/revalidateTag, Route Handlers, dynamic vs static rendering.
 
   Use this skill to:
   - Pick the right rendering mode (SSG / ISR / SSR / streaming) per route.
@@ -20,7 +20,7 @@ paths: ["app/**", "pages/**", "src/**"]
 
 # Next.js Data Fetching Patterns
 
-Next.js extends `fetch()` with caching/revalidation primitives, and offers `unstable_cache` for non-fetch async work. Plus `revalidatePath` / `revalidateTag` to invalidate after mutations. Get this layer right and pages become fast and consistent.
+Next.js extends `fetch()` with caching/revalidation primitives, and offers the `'use cache'` directive (`unstable_cache` on ≤15) for non-fetch async work. Plus `revalidatePath` / `updateTag` / `revalidateTag` to invalidate after mutations. Get this layer right and pages become fast and consistent.
 
 ## Rendering modes
 
@@ -28,10 +28,10 @@ Per-route, the decision tree:
 
 | Need | Mode | Setup |
 |---|---|---|
-| Data unchanged after build (marketing, docs) | **SSG** (Static) | Default behavior; no special options. |
+| Data unchanged after build (marketing, docs) | **SSG** (Static) | `fetch(url, { cache: 'force-cache' })` — fetch is not cached by default (15+; ≤14 cached by default). |
 | Data changes occasionally (hourly/daily) | **ISR** (revalidate) | `fetch(url, { next: { revalidate: 3600 } })` |
 | Data per-request (dashboards, account pages) | **SSR** (Dynamic) | `fetch(url, { cache: 'no-store' })` or `export const dynamic = 'force-dynamic'` |
-| Data dynamic but tag-invalidatable | **Tagged ISR** | `fetch(url, { next: { tags: ['users'] } })` + `revalidateTag('users')` |
+| Data dynamic but tag-invalidatable | **Tagged ISR** | `fetch(url, { next: { tags: ['users'] } })` + `updateTag('users')` in Server Actions, `revalidateTag('users', 'max')` elsewhere (16+; ≤15: `revalidateTag('users')`) |
 | Streaming / progressive | **RSC + Suspense** | wrap async children in `<Suspense fallback={...}>` |
 
 By default, Next.js prerenders pages at build time (SSG). Adding `cache: 'no-store'` or reading dynamic APIs (`cookies()`, `headers()`, `searchParams`) opts the page into SSR.
@@ -39,8 +39,8 @@ By default, Next.js prerenders pages at build time (SSG). Adding `cache: 'no-sto
 ## Native `fetch` extensions
 
 ```ts
-// SSG: cached forever (default)
-const res = await fetch('https://api.example.com/data');
+// Not cached by default (15+; ≤14 cached by default). Opt in:
+const res = await fetch('https://api.example.com/data', { cache: 'force-cache' });
 
 // Static + revalidate every 60s (ISR)
 const res = await fetch('https://api.example.com/data', { next: { revalidate: 60 } });
@@ -48,7 +48,7 @@ const res = await fetch('https://api.example.com/data', { next: { revalidate: 60
 // Always fresh (SSR)
 const res = await fetch('https://api.example.com/data', { cache: 'no-store' });
 
-// Tag-based: invalidate manually via revalidateTag
+// Tag-based: invalidate manually via updateTag / revalidateTag
 const res = await fetch('https://api.example.com/data', { next: { tags: ['users'] } });
 ```
 
@@ -82,7 +82,7 @@ export const getUserById = (id: string) =>
   )();
 ```
 
-Despite the name, `unstable_cache` is widely used; it's "unstable" by Next's API stability label, not "unreliable."
+In Next 16 `unstable_cache` is replaced by the `'use cache'` directive with `cacheTag` / `cacheLife` from `next/cache` (needs `cacheComponents: true` in `next.config`). Use `unstable_cache` only where the project already does — read the installed `next` version from package.json.
 
 ## `generateStaticParams`
 
@@ -98,8 +98,9 @@ export async function generateStaticParams() {
 // dynamicParams (default true) — allow on-demand generation for slugs not pre-built
 export const dynamicParams = true;
 
-export default async function PostPage({ params }: { params: { slug: string } }) {
-  const post = await db.post.findUnique({ where: { slug: params.slug } });
+export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const post = await db.post.findUnique({ where: { slug } });
   if (!post) notFound();
   return <article>{post.content}</article>;
 }
@@ -163,19 +164,21 @@ export async function POST(req: NextRequest) {
 
 ```ts
 // app/api/users/[id]/route.ts
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const user = await db.users.findUnique({ where: { id: params.id } });
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const user = await db.users.findUnique({ where: { id } });
   if (!user) return NextResponse.json({ error: 'not found' }, { status: 404 });
   return NextResponse.json(user);
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  await db.users.delete({ where: { id: params.id } });
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  await db.users.delete({ where: { id } });
   return new Response(null, { status: 204 });
 }
 ```
 
-In Next.js 15+, `params` is a Promise — `await params`.
+`params` is async since 15; sync access was removed in 16 (≤14: plain object — read the installed `next` version from package.json).
 
 ### Route Handler caching
 
@@ -192,17 +195,17 @@ For most API endpoints, leave dynamic.
 
 ```ts
 // in a Server Action
-import { revalidatePath, revalidateTag } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 
 export async function deleteUser(id: string) {
   'use server';
   await db.users.delete({ where: { id } });
   revalidatePath('/users');                 // path-based — invalidates that route's cache
-  revalidateTag('users');                   // tag-based — invalidates anything fetched with this tag
+  updateTag('users');                       // tag-based — invalidates anything fetched with this tag
 }
 ```
 
-`revalidatePath` is the simpler tool. `revalidateTag` is more granular when one resource is fetched in many places.
+`revalidatePath` is the simpler tool. Tags are more granular when one resource is fetched in many places: `updateTag('users')` in Server Actions, `revalidateTag('users', 'max')` elsewhere (16+). On ≤15 use single-arg `revalidateTag('users')`.
 
 ## Streaming with Suspense
 
@@ -235,19 +238,19 @@ The shell renders immediately; each Suspense boundary streams in independently. 
 ## Edge vs Node runtime
 
 ```ts
-export const runtime = 'edge';   // or 'nodejs' (default)
+export const runtime = 'nodejs'; // default; 'edge' is legacy
 ```
 
-Edge:
+Edge (legacy — prefer the Node.js runtime; keep `'edge'` only where the project already uses it):
 - Lower cold-start, geographically distributed.
 - Limited Node APIs — no `fs`, no native modules.
 - DB clients usually don't work on edge (use HTTP-based clients like Neon serverless, Planetscale's HTTP client).
 
-Default to `nodejs` unless you have a clear performance reason and your code is edge-compatible.
+Default to `nodejs`; do not introduce `runtime = 'edge'` in new code.
 
 ## Anti-patterns
 
-- ❌ Fetching the same data multiple times across components without leveraging fetch dedup or `unstable_cache`.
+- ❌ Fetching the same data multiple times across components without leveraging fetch dedup or `'use cache'` / `unstable_cache`.
 - ❌ Using `cache: 'no-store'` everywhere — defeats Next's caching, makes every request hit origin.
 - ❌ Forgetting `revalidatePath` after a mutation — users see stale data.
 - ❌ `cookies()` / `headers()` reads in a function intended to be cached — they make the route dynamic.

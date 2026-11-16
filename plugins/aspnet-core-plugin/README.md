@@ -14,7 +14,7 @@ ASP.NET Core backend + database stack provider. Auto-detects ASP.NET Core projec
 | `skills/aspnet-conventions/SKILL.md` | Program.cs composition, Minimal API endpoint groups, DI lifetimes, Options pattern, FluentValidation, ProblemDetails error handling, structured logging, JWT authentication, HTTPS/HSTS, configuration layering, health checks. |
 | `skills/efcore-patterns/SKILL.md` | DbContext design, ApplyConfigurationsFromAssembly, Fluent API (column types, relations, indexes), AsNoTracking projections, avoiding N+1 (Include / AsSplitQuery), transactions, parameterized raw SQL (FromSql). |
 | `security-patterns.yaml` | ASP.NET Core security regex rules for `security-guidance` (via `/sdlc:security-init`). |
-| `hooks/hooks.json` | Stop hook that runs `dotnet format` formatting after each session. |
+| `hooks/hooks.json` | PostToolUse hook that runs `dotnet format` on each edited `.cs` file; SubagentStop hook that runs `dotnet build --no-restore` once after the architect. |
 
 Shared C# conventions (nullable reference types, records, async/await, naming, dotnet CLI, NuGet, xUnit/Moq/FluentAssertions) come from `csharp-foundation`.
 
@@ -39,8 +39,8 @@ Post-pipeline:
 ## Prerequisites
 
 - ASP.NET Core project targeting .NET 6.0 or later with an `appsettings.json` file.
-- For the `dotnet format` Stop hook: .NET SDK installed locally or a Docker service named `app`.
-- For the database phase: `Microsoft.EntityFrameworkCore.Tools` as a dev dependency (`dotnet add package Microsoft.EntityFrameworkCore.Tools`).
+- For the `dotnet format` / `dotnet build` hooks: .NET SDK installed locally or a running Docker Compose service that has it.
+- For the database phase: the `dotnet-ef` tool (`dotnet tool install --global dotnet-ef`) and the `Microsoft.EntityFrameworkCore.Design` package (`dotnet add package Microsoft.EntityFrameworkCore.Design`).
 - For SPA frontend: install `vue-plugin` or `react-plugin` (wins the frontend aspect; aspnet-core-architect provides the API contract). Razor Pages / Blazor Server projects need no frontend plugin.
 - There is no ASP.NET Core MCP server — agents use `dotnet` CLI via Bash (Docker-aware).
 
@@ -62,7 +62,7 @@ cd /path/to/your/aspnet/project
 #   🎯 aspnet-core  priority=100 (matches: appsettings.json found)
 ```
 
-If you see only `vanilla`, your project doesn't have an `appsettings.json` in any subdirectory (or it is a plain console / class-library project without ASP.NET Core).
+If you see only `vanilla`, your project doesn't have an `appsettings.json` within four directory levels of the root (or it is a plain console / class-library project without ASP.NET Core).
 
 ## Running
 

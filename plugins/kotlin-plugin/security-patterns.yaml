@@ -1,0 +1,29 @@
+patterns:
+  - rule_name: kotlin_process_exec
+    regex: "Runtime\\.getRuntime\\(\\)\\.exec|ProcessBuilder\\("
+    paths: ["**/*.kt"]
+    exclude_paths: ["**/test/**", "**/*Test.kt"]
+    reminder: "Runtime.exec / ProcessBuilder with user-controlled input is command injection. Pass a fixed executable and an argument list, never a shell string built from user data."
+
+  - rule_name: kotlin_sql_template
+    regex: "(executeQuery|execute|prepareStatement|createQuery|createNativeQuery|exec)\\(\\s*\"[^\"]*\\$\\{?\\w"
+    paths: ["**/*.kt"]
+    exclude_paths: ["**/test/**", "**/*Test.kt"]
+    reminder: "A Kotlin string template inside SQL is SQL injection. Use bound parameters (PreparedStatement ?, named parameters, Exposed DSL, jOOQ bind values)."
+
+  - rule_name: kotlin_hardcoded_secret
+    regex: "(?i)(password|secret|api_?key|token|credential)\\s*=\\s*\"[^\"$]{8,}\""
+    paths: ["**/*.kt", "**/*.conf"]
+    exclude_paths: ["**/test/**", "**/*Test.kt"]
+    reminder: "Hardcoded secret detected. Read credentials from environment variables (Ktor: ${?ENV_VAR} in application.conf) or a secrets manager."
+
+  - rule_name: kotlin_ktor_cors_any_host
+    substrings: ["anyHost()"]
+    paths: ["**/*.kt"]
+    exclude_paths: ["**/test/**", "**/*Test.kt"]
+    reminder: "Ktor CORS anyHost() lets any site call this API from a victim's browser. Use allowHost(...) for the real frontend origins, especially with allowCredentials = true."
+
+  - rule_name: kotlin_unsafe_deserialization
+    regex: "ObjectInputStream|enableDefaultTyping|activateDefaultTyping"
+    paths: ["**/*.kt"]
+    reminder: "Java native deserialization or Jackson default typing on untrusted input enables gadget-chain RCE. Use kotlinx.serialization or Jackson without polymorphic default typing."

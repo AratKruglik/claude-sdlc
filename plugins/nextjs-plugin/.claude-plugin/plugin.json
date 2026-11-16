@@ -1,7 +1,7 @@
 {
   "name": "nextjs-plugin",
-  "version": "2.1.0",
-  "description": "Next.js full-stack React framework stack provider for SDLC marketplace. Multi-aspect ownership (backend + frontend). App Router, Server Components, Server Actions, Route Handlers, ISR/SSG/SSR. Reuses TypeScript and npm skills from nodejs-plugin.",
+  "version": "2.1.1",
+  "description": "Next.js full-stack React framework stack provider for SDLC marketplace. Multi-aspect ownership (backend + frontend). App Router, Server Components, Server Actions, Route Handlers, ISR/SSG/SSR. Reuses TypeScript and npm skills from js-foundation.",
   "author": {
     "name": "Oleksii Kruhlyk",
     "url": "https://github.com/AratKruglik"

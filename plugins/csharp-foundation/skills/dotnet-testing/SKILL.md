@@ -10,7 +10,7 @@ description: |
   - Measure coverage with coverlet and enforce a minimum threshold.
 
   Do NOT use this skill for:
-  - ASP.NET Core-specific integration tests (WebApplicationFactory, HttpClient — those are in aspnet-core-plugin:aspnet-conventions).
+  - ASP.NET Core-specific integration tests (WebApplicationFactory, HttpClient — those are in the qa-phase prompt of aspnet-core-plugin/stack.md).
   - EF Core in-memory or SQL Server LocalDB test patterns (aspnet-core-plugin:efcore-patterns).
   - C# language idioms — see csharp-foundation:csharp-conventions.
 user-invocable: false
@@ -28,7 +28,7 @@ xUnit is the primary test framework for .NET. Use NUnit or MSTest only when the 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>  <!-- match the project under test (net8.0 / net9.0 on older codebases) -->
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
@@ -100,7 +100,7 @@ public class UserServiceTests
 
 **Test method naming:** `MethodName_Condition_ExpectedOutcome` — readable without additional comments.
 
-**xUnit constructor vs `[Theory]` setup:** Use the constructor for shared setup of the system under test; use `[ClassFixture<T>]` for expensive shared resources (DB connections, servers) that are reused across tests in the class.
+**xUnit constructor vs `[Theory]` setup:** Use the constructor for shared setup of the system under test; implement `IClassFixture<T>` on the test class for expensive shared resources (DB connections, servers) that are reused across tests in the class.
 
 ## Parameterised tests — [Theory]
 
@@ -232,16 +232,12 @@ open coverage/index.html     # macOS
 start coverage/index.html    # Windows
 ```
 
-Enforce a minimum coverage threshold in CI:
+Enforce a minimum coverage threshold in CI. Thresholds are a `coverlet.msbuild` feature — `coverlet.collector` (the `--collect` driver above) ignores them, so the test project needs that package:
 
-```xml
-<!-- .csproj — dotnet test fails if line coverage < 80% -->
-<PropertyGroup>
-  <CollectCoverage>true</CollectCoverage>
-  <CoverletOutputFormat>cobertura</CoverletOutputFormat>
-  <Threshold>80</Threshold>
-  <ThresholdType>line</ThresholdType>
-</PropertyGroup>
+```bash
+dotnet add package coverlet.msbuild
+# fails the run if line coverage < 80%
+dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:Threshold=80 /p:ThresholdType=line
 ```
 
 **Target ≥ 80% line coverage on business logic** (services, domain objects, validators). Exclude framework glue code (Program.cs, Startup, configuration classes, migrations) using `[ExcludeFromCodeCoverage]` or coverlet filters.
@@ -310,4 +306,4 @@ public class UserRepositoryTests : IClassFixture<DatabaseFixture>
 }
 ```
 
-For ASP.NET Core HTTP integration tests using `WebApplicationFactory<TProgram>`, see `aspnet-core-plugin:aspnet-conventions`.
+For ASP.NET Core HTTP integration tests using `WebApplicationFactory<TProgram>`, see the qa-phase prompt in `aspnet-core-plugin/stack.md` (injected automatically on ASP.NET Core projects).

@@ -9,7 +9,7 @@ effort: medium
 memory: project
 maxTurns: 120
 color: blue
-tools: [Read, Glob, Grep, Edit, Write, Bash, mcp__laravel-boost__artisan, mcp__laravel-boost__schema, mcp__laravel-boost__route_list, mcp__laravel-boost__tinker, Skill]
+tools: [Read, Glob, Grep, Edit, Write, Bash, mcp__laravel-boost__database-schema, mcp__laravel-boost__database-query, mcp__laravel-boost__search-docs, mcp__laravel-boost__tinker, Skill]
 skills: [sdlc:architect-conventions]
 ---
 
@@ -28,7 +28,7 @@ The orchestrator's injection prompt (from `laravel-plugin/stack.md`) supplies st
 | Routing | `routes/web.php` (Inertia) and `routes/api.php` (JSON). Use `Route::resource()` or explicit `Route::get/post/...` with controller `__invoke` for non-CRUD. |
 | Controllers / Actions | Prefer single-action invokable classes (`__invoke`) for non-trivial business logic. Plain controllers OK for simple CRUD. |
 | Validation | Form Request classes, never `$request->validate()` inline. |
-| Authorization | Policies + `Gate::authorize()` or `$this->authorize()`. Never inline `if ($user->role === ...)`. |
+| Authorization | Policies + `Gate::authorize()` (`$this->authorize()` only where the controller uses the `AuthorizesRequests` trait — the base controller has not included it since Laravel 11). Never inline `if ($user->role === ...)`. |
 | Models | `protected $fillable` set explicitly. Eloquent relations defined as methods. Casts for typed columns. |
 | Database | Eloquent over raw SQL. Migrations: one concern per migration. |
 | Inertia contract | `Inertia::render('PageName', [...props])` — document every key you pass. Frontend architect reads this contract. |
@@ -48,12 +48,12 @@ If the Laravel Boost MCP server is available (`mcp__laravel-boost__*` tools resp
 
 | Task | MCP tool | Bash fallback |
 | --- | --- | --- |
-| Run artisan commands (make:*, list, etc.) | `mcp__laravel-boost__artisan` | `php artisan …` (or `docker compose exec -T app php artisan …`) |
-| Inspect database schema | `mcp__laravel-boost__schema` | `php artisan db:show --json` |
-| List routes | `mcp__laravel-boost__route_list` | `php artisan route:list` |
-| Run tinker snippets | `mcp__laravel-boost__tinker` | `php artisan tinker --execute="…"` |
+| Look up version-specific Laravel docs | `mcp__laravel-boost__search-docs` | read the installed framework source |
+| Inspect database schema | `mcp__laravel-boost__database-schema` | `php artisan db:show --json` |
+| Read-only SQL | `mcp__laravel-boost__database-query` | `php artisan tinker --execute="…"` |
+| Run tinker snippets (only when `boost.tinker_tool_enabled`) | `mcp__laravel-boost__tinker` | `php artisan tinker --execute="…"` |
 
-Always attempt MCP first; if the tool is unavailable or errors, fall back to Bash silently.
+Always attempt MCP first; if the tool is unavailable or errors, fall back to Bash silently. Boost has no tool that runs Artisan — `make:*`, `migrate` and `route:list` always go through Bash (`php artisan …`, or `docker compose exec -T app php artisan …`).
 
 ## Project shape detection
 
@@ -71,7 +71,7 @@ Implement layer by layer:
 6. **Route** registration.
 7. **Inertia props contract** — in the controller method that calls `Inertia::render`, implement exactly the props array your plan's "Contract for frontend" section fixed. Any departure from it is a `BLOCKER` — the frontend plan was built against that shape.
 
-If `mcp__laravel-boost__artisan` is available, prefer it for `make:*` commands.
+Run `make:*` commands through Bash.
 
 ## Verification commands
 

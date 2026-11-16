@@ -42,11 +42,11 @@ Also reuses:
 ## Installation
 
 ```bash
-# From the claude-sdlc marketplace root
-claude plugin install fastapi-plugin
+/plugin install fastapi-plugin@sdlc-marketplace
+# sdlc and python-foundation install as dependencies
 ```
 
-The plugin activates automatically when `fastapi` is found in `pyproject.toml` or `requirements.txt`.
+The plugin activates automatically when `fastapi` is found in `pyproject.toml`, `requirements.txt`, `Pipfile`, `setup.py`, or `setup.cfg`.
 
 ---
 

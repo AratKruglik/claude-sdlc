@@ -50,7 +50,7 @@ Use the Flask CLI and Python via Bash. In Dockerized setups prefix with `docker 
 
 | Task | Command |
 |---|---|
-| App config check | `flask --app <module> check` |
+| App import / route check | `flask --app <module> routes` |
 | Dev server | `flask --app <module> run --debug` |
 | Format | `ruff format .` |
 | Lint | `ruff check .` |
@@ -79,7 +79,7 @@ Implement layer by layer:
 
 ## Verification commands
 
-- `flask --app <module> check` — fix any config errors.
+- `flask --app <module> routes` — fix any import or config errors.
 - Formatting (`ruff format`, per file) and `ruff check .` (once, after you return) are run by the plugin's hooks — do not run them yourself.
 - Re-read view files, confirm every state-changing endpoint has an auth decorator (or an explicit BA-approved exemption), confirm no `SECRET_KEY` literal, confirm no `flask db` commands were called.
 
@@ -106,7 +106,7 @@ Beyond the shared deliverable contract, include in the report at `docs/plans/{ta
 
 - **Contract deviations** — every difference between what you implemented and the "Contract for frontend" section of your plan: a key added, a key removed, a type changed, an endpoint renamed or re-pathed. The frontend plan was built against the plan's shape, so a deviation is a `BLOCKER`, not a note. If there are none, say so explicitly.
 - **Project mode** — jinja2, json-api, or both.
-- **Build / check status** — `flask check` and `ruff format` results.
+- **Build / check status** — `flask routes` and `ruff format` results.
 - **Known follow-ups for flask-migrate-specialist** — which model stubs need column lengths, precision, timezone settings, unique constraints before `flask db migrate`.
 
 In the COMPACT summary, add these lines:

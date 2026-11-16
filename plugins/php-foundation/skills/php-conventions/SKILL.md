@@ -192,7 +192,7 @@ Use named arguments to clarify boolean/optional parameters at the call site. Do 
 
 ```php
 $names = array_map(strtoupper(...), $words);
-$ids = array_map($user->id(...), $users);
+$labels = array_map($formatter->format(...), $users);
 ```
 
 Prefer `$callable(...)` over string callable names or array `[$obj, 'method']` forms.
@@ -203,7 +203,7 @@ Prefer `$callable(...)` over string callable names or array `[$obj, 'method']` f
 - `final` by default; open for extension only when designed for it.
 - Single quotes for strings without interpolation.
 - One blank line between methods; trailing comma in multi-line arrays/arguments.
-- Run a formatter (the active framework plugin provides a Stop hook — Laravel Pint or PHP-CS-Fixer with the `@PSR12` / `@Symfony` ruleset). Do not hand-tune whitespace the formatter owns.
+- Run a formatter (the active framework plugin provides a per-edit formatter hook — Laravel Pint or PHP-CS-Fixer with the `@PSR12` / `@Symfony` ruleset). Do not hand-tune whitespace the formatter owns.
 
 ## Class design rules
 

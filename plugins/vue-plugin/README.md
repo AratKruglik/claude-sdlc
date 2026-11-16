@@ -11,10 +11,10 @@ Adds a Vue-specific implementation agent (`vue-architect`) and 5 skills covering
 | Component | Purpose |
 |---|---|
 | `stack.md` | Stack profile, priority=150, aspects=[frontend]. |
-| `agents/vue-architect.md` | Opus-tier developer for Vue 3 SPAs. Replaces vanilla `developer` for Vue projects without Nuxt-specific framework plugin. |
+| `agents/vue-architect.md` | Developer for Vue 3 SPAs (Sonnet implement pass, Opus plan pass). Replaces vanilla `developer` for Vue projects without Nuxt-specific framework plugin. |
 | `skills/vue-conventions/` | SFC structure, `<script setup>`, Composition API, props/emits/slots typing, `defineModel`, composables, lifecycle, UI library detection (Vuetify/Quasar/PrimeVue/Naive UI/Element Plus/shadcn-vue). Vue 2 fallback section. |
 | `skills/vue-state-management/` | Pinia (Setup syntax preferred), `provide`/`inject` with `InjectionKey<T>`, TanStack Query Vue, VueUse `useStorage`, URL state via vue-router. Vuex pointer for legacy. |
-| `skills/vue-routing/` | Vue Router v4, dynamic/nested routes, navigation guards, lazy loading, typed routes, `unplugin-vue-router` (file-based), v3 pointer. |
+| `skills/vue-routing/` | Vue Router v4/v5, dynamic/nested routes, navigation guards, lazy loading, typed routes, file-based routing (built into v5; `unplugin-vue-router` on v4), v3 pointer. |
 | `skills/vue-forms/` | Native v-model + HTML5, vee-validate + zod (recommended), `defineModel` for custom inputs, field arrays, multi-step wizards, async validation. |
 | `skills/vue-testing/` | Vitest + `@vue/test-utils`, mount vs shallowMount, Pinia testing via `createTestingPinia`, msw for network mocks, Cypress component testing, Playwright e2e. |
 | `hooks/hooks.json` | Auto-format `.vue` / TS / JS via Prettier + ESLint after Edit/Write (silent if not installed). |
@@ -31,7 +31,7 @@ Adds a Vue-specific implementation agent (`vue-architect`) and 5 skills covering
 
 ## Cross-plugin skill reuse
 
-`vue-plugin` declares `dependencies: ["sdlc", "nodejs-plugin"]` in `plugin.json` — Claude Code auto-installs `nodejs-plugin` when you install this. The stack profile references skills from both plugins:
+`vue-plugin` declares `dependencies: ["sdlc", "js-foundation"]` in `plugin.json` — Claude Code auto-installs `js-foundation` when you install this. The stack profile references skills from both plugins:
 
 - `js-foundation:typescript-patterns` — strict TypeScript discipline.
 - `js-foundation:npm-patterns` — package manager detection, semver, lockfile hygiene.
@@ -44,11 +44,11 @@ Adds a Vue-specific implementation agent (`vue-architect`) and 5 skills covering
 ## Installation
 
 ```
-/plugin marketplace add ROLIQUE/claude-plugins
-/plugin install vue-plugin@claude-plugins
+/plugin marketplace add AratKruglik/claude-sdlc
+/plugin install vue-plugin@sdlc-marketplace
 ```
 
-`sdlc` core and `nodejs-plugin` install automatically as dependencies.
+`sdlc` core and `js-foundation` install automatically as dependencies.
 
 ## Usage
 
@@ -128,7 +128,7 @@ This plugin covers the **full Vue 3 SPA surface** — SFC structure, all reactiv
 
 **Vue 2** is fallback-noted — when detected, agent applies Options API + Vuex 3 patterns. Not deep coverage; just enough to maintain legacy code without forcing migration.
 
-**UI libraries** are detection-only — agent identifies Vuetify/Quasar/PrimeVue/Naive UI/Element Plus/shadcn-vue (radix-vue) and mirrors existing patterns. No opinionated UI choice.
+**UI libraries** are detection-only — agent identifies Vuetify/Quasar/PrimeVue/Naive UI/Element Plus/shadcn-vue (`reka-ui`, or legacy `radix-vue`) and mirrors existing patterns. No opinionated UI choice.
 
 **Nuxt** is out of scope — separate `nuxt-plugin` planned for Phase 11+ roadmap. Until then, Nuxt projects work via vue-plugin as fallback (sub-optimal for Nuxt-specific features like server routes, layouts, server components).
 

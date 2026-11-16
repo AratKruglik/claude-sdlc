@@ -339,7 +339,7 @@ Simpler API than TanStack Query, slightly less feature-rich. Match the project.
 For state that should be shareable / bookmarkable / browser-back-compatible:
 
 ```tsx
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 
 function FilteredList() {
   const [params, setParams] = useSearchParams();

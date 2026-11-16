@@ -1,0 +1,27 @@
+{
+  "name": "flutter-plugin",
+  "version": "2.3.0",
+  "description": "Flutter stack provider for the SDLC marketplace (priority=300). Detects pubspec.yaml depending on sdk: flutter and claims both backend and frontend aspects, so it wins over dart-plugin on every Flutter project. Covers mobile, web and desktop targets: widget composition, theming, state management (Riverpod / Bloc / Provider — matches what is installed), go_router / Navigator navigation with deep links, platform channels and secure storage, widget / golden / integration_test testing. Adds flutter-architect agent (Sonnet/medium). Reuses Dart skills from dart-foundation.",
+  "author": {
+    "name": "Oleksii Kruhlyk",
+    "url": "https://github.com/AratKruglik"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/AratKruglik/claude-sdlc",
+  "keywords": [
+    "flutter",
+    "dart",
+    "mobile",
+    "ios",
+    "android",
+    "riverpod",
+    "bloc",
+    "go-router",
+    "sdlc",
+    "stack-provider"
+  ],
+  "dependencies": [
+    "sdlc",
+    "dart-foundation"
+  ]
+}

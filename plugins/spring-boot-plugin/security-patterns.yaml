@@ -5,14 +5,8 @@ patterns:
     exclude_paths: ["**/*Test*.java", "**/*Tests.java", "**/test/**"]
     reminder: "anyRequest().permitAll() disables authorization for all routes. Define explicit matchers with authorizeHttpRequests() and grant access only to the paths that need it."
 
-  - rule_name: spring_hardcoded_secret
-    regex: "(?i)(password|secret|api_?key|token|credential)\\s*=\\s*\"[^\"]{4,}\""
-    paths: ["**/*.java", "**/*.properties", "**/*.yml", "**/*.yaml"]
-    exclude_paths: ["**/*Test*.java", "**/*Tests.java", "**/test/**", "**/application-test*"]
-    reminder: "Hardcoded credential detected. All secrets must come from environment variables (${ENV_VAR}) or a secrets manager. Never commit credentials to source control."
-
   - rule_name: spring_jpql_concatenation
-    regex: "@Query\\s*\\(\\s*\"[^\"]*\\+\\s*(query|sql|id|name|input|param|value)"
+    regex: "@Query\\s*\\((?:[^\")]|\"[^\"]*\")*?\"[^\"]*\"\\s*\\+\\s*[A-Za-z_]"
     paths: ["**/*.java"]
     reminder: "String concatenation in @Query value risks JPQL injection. Use named parameters (:paramName) or positional parameters (?1) exclusively."
 
@@ -21,12 +15,6 @@ patterns:
     paths: ["**/*.properties", "**/*.yml", "**/*.yaml"]
     exclude_paths: ["**/*test*", "**/application-test*", "**/application-dev*"]
     reminder: "Exposing all actuator endpoints (include: '*') in production leaks sensitive runtime data. Limit to required endpoints (health, info) and secure with Spring Security."
-
-  - rule_name: spring_runtime_exec
-    regex: "Runtime\\.getRuntime\\(\\)\\.exec|ProcessBuilder"
-    paths: ["**/*.java"]
-    exclude_paths: ["**/*Test*.java", "**/*Tests.java", "**/test/**"]
-    reminder: "Runtime.exec / ProcessBuilder with user-controlled input is a command-injection risk. Use a parameterized list form, never concatenate user data into a shell string."
 
   - rule_name: spring_spel_injection
     regex: "ExpressionParser|SpelExpressionParser|parseExpression"

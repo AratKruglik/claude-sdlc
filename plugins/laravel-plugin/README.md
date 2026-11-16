@@ -14,7 +14,7 @@ Laravel backend + database stack provider. Auto-detects Laravel projects (`compo
 | `skills/laravel-conventions/SKILL.md` | Routing, Action pattern, Form Requests, Policies, Eloquent basics. |
 | `skills/eloquent-patterns/SKILL.md` | N+1 prevention, scopes, relations, batch operations, raw query safety. |
 | `mcp.json` | Laravel Boost MCP fragment — copy/merge into your project's root `.mcp.json`. |
-| `hooks/hooks.json` | Stop hook that runs Pint formatting after each session. |
+| `hooks/hooks.json` | PostToolUse hook that formats each edited PHP file with Pint; SubagentStop hook that runs PHPStan once after the architect. |
 
 ## Pipeline shape on a Laravel project
 
@@ -39,7 +39,7 @@ Post-pipeline:
 - Laravel 10+ project with `composer.json` containing `"laravel/framework"`.
 - For Laravel Boost MCP to work: docker-compose service named `app` with `laravel/boost` installed (`composer require laravel/boost --dev`). Copy `plugins/laravel-plugin/mcp.json`'s `mcpServers` block into your project's root `.mcp.json`. If you don't use Docker, replace `docker compose exec -T app php /var/www/artisan boost:mcp` with `php artisan boost:mcp`.
 - For Inertia frontend: install `inertia-vue-plugin` or `inertia-react-plugin`.
-- For Pint Stop hook: `laravel/pint` in dev deps. Already in default Laravel since v9.
+- For the Pint format hook: `laravel/pint` in dev deps. Already in default Laravel since v9.
 
 ## Installation
 

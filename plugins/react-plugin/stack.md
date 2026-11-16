@@ -47,7 +47,7 @@ If `vue-plugin` AND `react-plugin` both match (gradual migration project) — bo
 
 For development phase, inject:
   "React SPA. Detect bundler from devDependencies + config files: Vite (vite.config.{ts,js}), Webpack (webpack.config.js), Parcel (no config or package.json scripts), CRA (react-scripts in deps — legacy, mostly unmaintained as of 2024).
-   Detect routing library: react-router-dom → React Router v6/v7 (most common); @tanstack/react-router → TanStack Router (typed, modern).
+   Detect routing library: react-router (v7+; the only package from v8) or react-router-dom (v6) → React Router (most common) — read the installed major from package.json and import from the package the project already uses; @tanstack/react-router → TanStack Router (typed, modern).
    Detect state management: Zustand (zustand), Jotai (jotai), Redux Toolkit (@reduxjs/toolkit), TanStack Query (@tanstack/react-query) for server state, Context API patterns. Match what's installed; never introduce a new state lib without BA approval.
    Detect form library: react-hook-form (most common), Formik (legacy but stable), TanStack Form (newer). Pair with zod or yup resolver for validation.
    File naming: PascalCase.tsx for components; useFooBar.ts for custom hooks; kebab-case.ts for non-component utilities. Mirror existing patterns.

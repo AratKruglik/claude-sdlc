@@ -117,7 +117,9 @@ async def update_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    return await service.update_user(db, current_user.id, body)
+    user = await service.update_user(db, current_user.id, body)
+    await db.commit()
+    return user
 
 
 @router.get("/{user_id}", response_model=schemas.UserRead)
@@ -134,7 +136,7 @@ async def get_user(
 Include routers in the app factory:
 ```python
 app.include_router(users_router)
-app.include_router(auth_router, prefix="/auth")
+app.include_router(auth_router)  # its routes already start with /auth
 ```
 
 ---
@@ -209,19 +211,17 @@ AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
+        yield session
 ```
+
+Commit explicitly (`await db.commit()`) at the end of the endpoint/service that owns the unit of work — code after the `yield` runs after the response is sent by default. See `fastapi-plugin:sqlalchemy-patterns` for the FastAPI ≥ 0.121 `scope="function"` alternative.
 
 ```python
 # app/auth/dependencies.py
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from jwt.exceptions import InvalidTokenError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -246,7 +246,7 @@ async def get_current_user(
         user_id: int | None = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-    except JWTError:
+    except InvalidTokenError:
         raise credentials_exception
 
     user = await service.get_user_by_id(db, int(user_id))
@@ -278,19 +278,19 @@ Use `OAuth2PasswordBearer` for token extraction from the `Authorization: Bearer`
 ```python
 # app/auth/service.py
 from datetime import datetime, timedelta, timezone
-from jose import jwt
-from passlib.context import CryptContext
+import jwt
+from pwdlib import PasswordHash
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+password_hash = PasswordHash.recommended()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return password_hash.verify(plain, hashed)
 
 
 def hash_password(plain: str) -> str:
-    return pwd_context.hash(plain)
+    return password_hash.hash(plain)
 
 
 def create_access_token(subject: str | int, expires_delta: timedelta | None = None) -> str:
@@ -328,6 +328,8 @@ async def login(
     token = auth_service.create_access_token(subject=user.id)
     return Token(access_token=token, token_type="bearer")
 ```
+
+The examples use PyJWT (`pyjwt`) and `pwdlib[argon2]`, as the FastAPI docs do. In an existing project on `python-jose` / `passlib`, keep what is installed rather than mixing libraries.
 
 **Never** store `JWT_SECRET` in source code. Read from `pydantic-settings` `Settings(BaseSettings)` via environment variable.
 
@@ -405,6 +407,6 @@ Never set `DATABASE_URL` or `JWT_SECRET` as literals in `config.py`. Always requ
 - [ ] Every endpoint has `response_model=` to filter the output schema
 - [ ] Every state-changing endpoint (`POST`, `PUT`, `PATCH`, `DELETE`) requires `Depends(get_current_user)` or an explicit BA-approved exemption
 - [ ] `Settings(BaseSettings)` reads all secrets from env — no literals
-- [ ] `pydantic-settings` and `python-jose` (or `authlib`) are listed in `pyproject.toml` dependencies
+- [ ] `pydantic-settings`, `pyjwt` and `pwdlib[argon2]` (or the project's existing JWT/hash libraries) are listed in `pyproject.toml` dependencies
 - [ ] `python -c "from app.main import app"` passes without import errors
 - [ ] No `alembic revision` or migration files created — that is alembic-specialist's job

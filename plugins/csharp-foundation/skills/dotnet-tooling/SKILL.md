@@ -14,7 +14,7 @@ description: |
   - Testing patterns — see csharp-foundation:dotnet-testing.
   - C# language idioms — see csharp-foundation:csharp-conventions.
 user-invocable: false
-paths: ["**/*.csproj", "**/*.sln", "Directory.Build.props", ".editorconfig"]
+paths: ["**/*.csproj", "**/*.sln", "**/*.slnx", "Directory.Build.props", ".editorconfig"]
 ---
 
 # .NET Tooling (stack-agnostic)
@@ -25,7 +25,7 @@ Determine the project structure at the start of every task:
 
 | Signal | Meaning |
 |---|---|
-| `*.sln` exists | Solution file — multiple projects; use `dotnet build <solution>.sln` |
+| `*.sln` / `*.slnx` exists | Solution file — multiple projects; use `dotnet build <solution file>` (`.slnx` is what `dotnet new sln` creates from SDK 10) |
 | Single `*.csproj` in root | Single-project layout |
 | `global.json` exists | SDK version is pinned — **read it first** |
 | `Directory.Build.props` exists | Solution-wide MSBuild properties apply |
@@ -71,13 +71,13 @@ dotnet format --verify-no-changes
 ```json
 {
   "sdk": {
-    "version": "8.0.404",
+    "version": "10.0.100",
     "rollForward": "latestPatch"
   }
 }
 ```
 
-**Always read `global.json` first** to learn which SDK version is in use. Do not recommend commands or features that require a higher SDK version than what is pinned.
+**Always read `global.json` first** to learn which SDK version is in use. Do not recommend commands or features that require a higher SDK version than what is pinned. The examples here show .NET 10 (current LTS); a project pinned to 8.0.x / `net8.0` stays there unless the task is an upgrade.
 
 `rollForward: "latestPatch"` allows minor patch upgrades automatically — safe for CI. Use `"disable"` for strict reproducibility.
 
@@ -87,7 +87,7 @@ dotnet format --verify-no-changes
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>   <!-- or net9.0, net10.0 -->
+    <TargetFramework>net10.0</TargetFramework>  <!-- new projects; keep net8.0 / net9.0 where the project already targets it -->
     <Nullable>enable</Nullable>                  <!-- always enable -->
     <ImplicitUsings>enable</ImplicitUsings>      <!-- reduces boilerplate using directives -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>  <!-- recommended for new projects -->

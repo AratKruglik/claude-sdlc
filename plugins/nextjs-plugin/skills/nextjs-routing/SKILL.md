@@ -1,13 +1,13 @@
 ---
 name: nextjs-routing
 description: |
-  Next.js App Router routing primitives: file-based routes, dynamic and catch-all segments, route groups, parallel routes, intercepting routes, middleware, programmatic navigation, link patterns.
+  Next.js App Router routing primitives: file-based routes, dynamic and catch-all segments, route groups, parallel routes, intercepting routes, proxy (middleware), programmatic navigation, link patterns.
 
   Use this skill to:
   - Pick the correct dynamic segment syntax for the route shape.
   - Use route groups to organize without affecting URLs.
   - Implement parallel/intercepting routes for modal-style navigation.
-  - Build effective middleware for auth, redirects, A/B tests.
+  - Build an effective proxy (middleware) for auth, redirects, A/B tests.
   - Use Link and useRouter correctly.
 
   Do NOT use this skill for:
@@ -25,13 +25,13 @@ App Router is file-based: folders are routes, `page.tsx` is the page UI. This sk
 ## Dynamic segments
 
 ```
-app/users/[id]/page.tsx                → /users/:id          → params.id: string
-app/posts/[slug]/page.tsx              → /posts/:slug        → params.slug: string
-app/docs/[...path]/page.tsx            → /docs/a/b/c          → params.path: string[]
-app/optional/[[...path]]/page.tsx      → /optional AND /optional/a/b → params.path: string[] | undefined
+app/users/[id]/page.tsx                → /users/:id          → id: string
+app/posts/[slug]/page.tsx              → /posts/:slug        → slug: string
+app/docs/[...path]/page.tsx            → /docs/a/b/c          → path: string[]
+app/optional/[[...path]]/page.tsx      → /optional AND /optional/a/b → path: string[] | undefined
 ```
 
-In Next.js 15+, `params` is a Promise:
+`params` is a Promise — async since 15, sync access removed in 16:
 
 ```tsx
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
@@ -40,7 +40,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 }
 ```
 
-In Next.js 14 and earlier, `params` is a plain object — no `await` needed.
+On Next ≤14 `params` is a plain object — read the installed `next` version from package.json.
 
 ## Route groups (organizational)
 
@@ -103,9 +103,8 @@ Render a different component for the SAME URL based on the navigation source. Co
 ```
 app/photos/page.tsx                          → /photos (gallery)
 app/photos/[id]/page.tsx                     → /photos/:id (full view, direct visits)
-app/photos/(.)photos/[id]/page.tsx           → intercepts /photos/:id from /photos
+app/photos/(.)[id]/page.tsx                  → intercepts /photos/:id from /photos
 app/photos/(..)settings/page.tsx             → intercepts from one level up
-app/photos/(..)(..)about/page.tsx            → intercepts from two levels up
 app/photos/(...)about/page.tsx               → intercepts from app root
 ```
 
@@ -178,14 +177,14 @@ import Link from 'next/link';
 
 For external URLs: plain `<a href="https://...">` is fine.
 
-## Middleware
+## Proxy (formerly Middleware)
 
-`middleware.ts` at the project root. Runs BEFORE every matched request — keep it lean.
+`proxy.ts` at the project root, Node.js runtime only. Runs BEFORE every matched request — keep it lean. Next ≤15 uses `middleware.ts` / `export function middleware` — read the installed `next` version from package.json.
 
 ```ts
 import { NextResponse, type NextRequest } from 'next/server';
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   // Auth check
   const token = req.cookies.get('session')?.value;
   if (!token && req.nextUrl.pathname.startsWith('/admin')) {
@@ -206,16 +205,16 @@ export const config = {
 };
 ```
 
-### Middleware capabilities
+### Proxy capabilities
 
-- **Read**: cookies, headers, geolocation (`req.geo`), URL.
+- **Read**: cookies, headers, URL.
 - **Write**: rewrite URL (`NextResponse.rewrite`), redirect, modify response headers, set cookies.
-- **Cannot**: read request body (it's not consumed yet), import server-only Node APIs (it runs on edge).
+- **Cannot**: read request body (it's not consumed yet). `proxy.ts` runs on the Node.js runtime; `middleware.ts` on ≤15 defaults to edge (no Node-only APIs).
 
 ### Common patterns
 
 - **Auth gate**: redirect to /login if no session cookie.
-- **A/B testing**: rewrite to a variant based on cookie/geo/random.
+- **A/B testing**: rewrite to a variant based on cookie/header/random.
 - **Internationalization**: rewrite to /en, /uk, /es based on Accept-Language.
 - **Bot detection**: redirect known bots to a static cached page.
 
@@ -264,10 +263,10 @@ NextResponse.redirect(url, 301);
 
 - ❌ Using `<a href="/internal">` for internal links — no client-side routing, full reload.
 - ❌ `useRouter` from `next/router` (Pages Router) in App Router — use `next/navigation` instead.
-- ❌ Heavy logic in `middleware.ts` (it runs on every request and on edge).
+- ❌ Heavy logic in `proxy.ts` (it runs on every matched request).
 - ❌ `redirect()` inside try/catch — catches the internal NEXT_REDIRECT and breaks navigation.
-- ❌ Long-running computation in middleware — request stalls.
-- ❌ Reading request body in middleware — it's not consumed yet; use Route Handler instead.
+- ❌ Long-running computation in the proxy — request stalls.
+- ❌ Reading request body in the proxy — it's not consumed yet; use Route Handler instead.
 - ❌ `<Link>` to external URLs — Next.js will treat it as internal and may handle weirdly.
 - ❌ `prefetch={true}` on dozens of Links visible at once — wastes bandwidth.
 - ❌ Hard-coding URLs throughout the app — define route helpers in `lib/routes.ts` for type safety.

@@ -400,7 +400,7 @@ The agent should detect what's installed and mirror its patterns. Common Vue UI 
 | PrimeVue | `primevue` | Comprehensive, themeable |
 | Naive UI | `naive-ui` | Modern TS-first, no heavy theme system |
 | Element Plus | `element-plus` | Popular in Asia, mature |
-| shadcn-vue (radix-vue) | `radix-vue` | Headless primitives, copy-paste components |
+| shadcn-vue | `reka-ui` (legacy: `radix-vue`) | Headless primitives, copy-paste components |
 | HeadlessUI Vue | `@headlessui/vue` | Headless from Tailwind Labs |
 
 **Rule**: never introduce a new UI lib without BA approval. Detect what's installed; mirror its patterns. If multiple UI libs present (gradual migration), match the area you're touching.
@@ -460,9 +460,9 @@ export default {
 ```
 
 Differences from Vue 3:
-- No `<script setup>`, no `defineProps`/`defineEmits` macros.
+- Vue ≤2.6: no `<script setup>`, no `defineProps`/`defineEmits` macros. Vue 2.7 has `<script setup>` built in — check the installed minor, then mirror the project's existing style.
 - `data()` returns reactive state; access via `this.x`.
-- No Composition API by default (Vue 2.7 has it as opt-in via `@vue/composition-api` plugin).
+- Composition API: built into Vue 2.7 (import from `vue`); ≤2.6 needs the `@vue/composition-api` plugin.
 - State management: Vuex 3.x (`store.commit`, `store.dispatch`, `mapState`/`mapActions` helpers).
 - Router: `vue-router` v3.x.
 - Reactivity: `Vue.set()` / `this.$set()` for adding new keys to reactive objects (Vue 3 fixed this).

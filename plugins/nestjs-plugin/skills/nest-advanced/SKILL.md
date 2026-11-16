@@ -34,7 +34,7 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
       driver: ApolloDriver,
       autoSchemaFile: 'schema.gql',         // or `true` for in-memory
       sortSchema: true,
-      playground: process.env.NODE_ENV !== 'production',
+      graphiql: process.env.NODE_ENV !== 'production',   // @nestjs/graphql ≥14 (Nest 12); on ≤13 the option is `playground`
       context: ({ req }) => ({ req }),
     }),
   ],

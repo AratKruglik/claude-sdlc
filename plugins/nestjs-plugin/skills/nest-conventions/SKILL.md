@@ -213,7 +213,8 @@ import * as Joi from 'joi';
         PORT: Joi.number().port().default(3000),
         DATABASE_URL: Joi.string().uri().required(),
       }),
-      validationOptions: { abortEarly: false },
+      // @nestjs/config v12+ (needs Joi ≥18). On Nest ≤11: validationOptions: { abortEarly: false }
+      validationOptions: { libraryOptions: { abortEarly: false } },
     }),
   ],
 })
@@ -227,12 +228,12 @@ If `validationSchema` fails on boot, the app crashes loud — exactly what you w
 @Injectable()
 export class DatabaseService {
   constructor(private readonly config: ConfigService) {
-    const url = this.config.get<string>('DATABASE_URL', { infer: true });
+    const url = this.config.getOrThrow<string>('DATABASE_URL');
   }
 }
 ```
 
-- `infer: true` — TypeScript infers return type from schema if you typed it.
+- `{ infer: true }` — only with a typed `ConfigService<Env>` and no explicit generic: `config.get('PORT', { infer: true })` infers `number` from `Env`.
 - Provide default as 2nd arg only when truly optional: `config.get('CACHE_TTL', 60)`.
 - Never `process.env.X` outside `config/` setup files.
 
@@ -331,7 +332,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 }
 ```
 
-Add LAST in `useGlobalFilters` order (innermost catch-all).
+Declare it FIRST in `useGlobalFilters(new AllExceptionsFilter(), new MyDomainExceptionFilter())` — a catch-all listed after a type-specific filter prevents the specific one from handling its type.
 
 ## Lifecycle hooks
 

@@ -20,13 +20,13 @@ This plugin extracts those two stack-agnostic skills into their own home. `nodej
 You won't typically install `js-foundation` directly. It's a transitive dependency declared by every JS/TS framework plugin:
 
 ```
-/plugin install nodejs-plugin@claude-plugins      # backend Node
-/plugin install nestjs-plugin@claude-plugins      # opinionated backend
-/plugin install nextjs-plugin@claude-plugins      # full-stack React framework
-/plugin install react-plugin@claude-plugins       # React SPA
-/plugin install react-native-plugin@claude-plugins  # mobile
-/plugin install vue-plugin@claude-plugins         # Vue 3 SPA
-/plugin install angular-plugin@claude-plugins     # Angular SPA
+/plugin install nodejs-plugin@sdlc-marketplace      # backend Node
+/plugin install nestjs-plugin@sdlc-marketplace      # opinionated backend
+/plugin install nextjs-plugin@sdlc-marketplace      # full-stack React framework
+/plugin install react-plugin@sdlc-marketplace       # React SPA
+/plugin install react-native-plugin@sdlc-marketplace  # mobile
+/plugin install vue-plugin@sdlc-marketplace         # Vue 3 SPA
+/plugin install angular-plugin@sdlc-marketplace     # Angular SPA
 ```
 
 Any of these auto-installs `sdlc` core + `js-foundation`.
