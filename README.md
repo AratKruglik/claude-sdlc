@@ -1,4 +1,30 @@
-# SDLC Marketplace for Claude Code
+<p align="center">
+  <img src="assets/banner.svg" width="100%" alt="claude-sdlc: one SDLC pipeline for every stack, from a feature request to a reviewed pull request">
+</p>
+
+<p align="center">
+  <b>A feature request in, a reviewed pull request out.</b><br>
+  One orchestrator runs BA → Dev → QA ∥ Security → Docs on Claude Code,<br>
+  with an approval gate before any code is written and the right model for each phase.
+</p>
+
+<p align="center">
+  <a href="https://github.com/AratKruglik/claude-sdlc/releases/latest"><img src="https://img.shields.io/github/v/release/AratKruglik/claude-sdlc?label=release&color=D97757" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/Claude%20Code-plugin%20marketplace-D97757" alt="Claude Code plugin marketplace">
+  <img src="https://img.shields.io/badge/stacks-21-4A8BF5" alt="21 stack plugins">
+  <img src="https://img.shields.io/badge/agents-32-2BB3A6" alt="32 agents">
+  <img src="https://img.shields.io/badge/models-Opus%20%C2%B7%20Sonnet%20%C2%B7%20Haiku-9B7BF0" alt="Opus, Sonnet and Haiku">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3DBE6B" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <a href="#quickstart"><b>Quickstart</b></a> ·
+  <a href="#how-it-works-stack-provider-pattern"><b>How it works</b></a> ·
+  <a href="#pipeline-phases"><b>Pipeline</b></a> ·
+  <a href="#available-plugins">Plugins</a> ·
+  <a href="#cost-optimization-model--effort">Costs</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
