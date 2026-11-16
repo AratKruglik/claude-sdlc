@@ -349,5 +349,5 @@ Run via `npx eas-cli build --profile production --platform all`. Cloud builds �
 - ❌ Forgetting `<SafeAreaView>` — content clipped by notch/home indicator.
 - ❌ Hardcoding bundle IDs / API URLs — use `app.config.js` env-driven values.
 - ❌ Using web HTML primitives (`<div>`, `<span>`, `<a>`) — RN uses `<View>`, `<Text>`, `<Pressable>`/`<Link>`.
-- ❌ `process.env.X` for runtime config in managed Expo — use `Constants.expoConfig.extra` or build-time replacement via babel.
+- ❌ Non-`EXPO_PUBLIC_` `process.env.X` in Expo app code — only `process.env.EXPO_PUBLIC_*` (the official mechanism, written as a static property access) is inlined at build; other vars are undefined at runtime. `EXPO_PUBLIC_*` values ship in the bundle — never secrets.
 - ❌ Snapshot tests of large component trees — high churn on RN especially.

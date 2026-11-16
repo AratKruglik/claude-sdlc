@@ -17,7 +17,7 @@ This skill encodes the conventions used across modern Laravel + Inertia + Vue pr
 ### Web vs API
 
 - **`routes/web.php`** — Inertia / browser-driven flows. Has session, CSRF, web middleware.
-- **`routes/api.php`** — JSON-only flows. Stateless. Token-authenticated.
+- **`routes/api.php`** — JSON-only flows. Stateless. Token-authenticated. Not present by default since Laravel 11 — create it with `php artisan install:api`.
 
 Don't put Inertia render calls in `api.php`. Don't put JSON-API endpoints in `web.php` (use a separate `/api/internal/...` namespace if absolutely needed).
 
@@ -52,7 +52,7 @@ class CreateSubscriptionAction
 {
     public function __invoke(StoreSubscriptionRequest $request): Response
     {
-        $this->authorize('create', Subscription::class);
+        Gate::authorize('create', Subscription::class);
 
         $subscription = DB::transaction(function () use ($request) {
             $stripeCustomer = app(StripeClient::class)->customers->create([
@@ -152,7 +152,7 @@ class SubscriptionPolicy
 }
 ```
 
-Register in `AuthServiceProvider::$policies`. Use via `$this->authorize('update', $subscription)` in actions/controllers, or `Gate::authorize('update', $subscription)`.
+Policies are auto-discovered (`App\Policies\{Model}Policy`); for a non-standard location register with `Gate::policy(Subscription::class, SubscriptionPolicy::class)` in `AppServiceProvider::boot()`. Use via `Gate::authorize('update', $subscription)`; `$this->authorize()` works only in controllers that use the `AuthorizesRequests` trait (not included by default since Laravel 11).
 
 **Never** inline role checks: `if ($user->role === 'admin') { ... }` — that bypasses Laravel's auth pipeline and makes testing harder.
 
@@ -213,7 +213,7 @@ return Inertia::render('Subscription/Show', [
 ]);
 ```
 
-Use closures for lazy props — Inertia only evaluates them on full reload, not partial.
+Wrap expensive props in closures — on a partial reload Inertia evaluates only the requested ones. A closure is still included on a standard visit; use `Inertia::optional()` (`Inertia::lazy()` before Inertia 2) for a prop that should load only when requested.
 
 API Resources prevent leaking model internals to the frontend:
 
@@ -237,7 +237,7 @@ class SubscriptionResource extends JsonResource
 
 General PHP style (PSR-12, `declare(strict_types=1)`, enums, readonly, single quotes, `fn` arrow functions) lives in `php-foundation:php-conventions` — follow it. Laravel-specific additions on top:
 
-- Pint runs auto-fix on the Stop hook (laravel-plugin provides one) — do not hand-tune whitespace Pint owns.
+- Pint formats each edited PHP file via the plugin's PostToolUse hook — do not hand-tune whitespace Pint owns.
 - PHPStan / Larastan level 6+ where the project supports it.
 
 ## 8. Anti-patterns to avoid
@@ -255,9 +255,8 @@ General PHP style (PSR-12, `declare(strict_types=1)`, enums, readonly, single qu
 
 - [ ] All new routes have explicit middleware (`auth`, `verified`, etc.)
 - [ ] All Form Requests have `authorize()` returning a real check
-- [ ] All Policies registered in `AuthServiceProvider`
+- [ ] All Policies auto-discovered or registered with `Gate::policy()`
 - [ ] All models have `$fillable` (never `$guarded = []`)
 - [ ] All datetime/decimal columns have `$casts`
 - [ ] All Inertia pages get typed data through Resources, not raw models
-- [ ] `./vendor/bin/pint` clean
 - [ ] `php -l <changed-file>` passes for each changed PHP file

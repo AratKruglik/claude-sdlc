@@ -106,6 +106,16 @@ assert_field "case4 xunit" '.test_framework' "xunit" "$OUT"
 assert_field "case4 dotnet test" '.test_command' "dotnet test" "$OUT"
 assert_field "case4 coverlet" '.coverage_available' "true" "$OUT"
 
+REPO="$TMP_ROOT/kotlin"; mkdir -p "$REPO"
+printf 'plugins {\n  kotlin("jvm") version "2.1.0"\n  id("io.gitlab.arturbosch.detekt")\n  id("org.jlleitschuh.gradle.ktlint")\n  id("org.jetbrains.kotlinx.kover")\n}\ndependencies { testImplementation("io.kotest:kotest-runner-junit5:5.9.1") }\n' > "$REPO/build.gradle.kts"
+touch "$REPO/gradlew"
+OUT=$(shape "$REPO")
+assert_field "case4 kotlin gradle" '.package_manager' "gradle" "$OUT"
+assert_field "case4 kotest" '.test_framework' "kotest" "$OUT"
+assert_field "case4 detekt lint" '.lint_command' "./gradlew detekt" "$OUT"
+assert_field "case4 ktlint format" '.format_command' "./gradlew ktlintFormat" "$OUT"
+assert_field "case4 kover coverage" '.coverage_available' "true" "$OUT"
+
 REPO="$TMP_ROOT/flutter"; mkdir -p "$REPO"
 printf 'name: app\ndependencies:\n  flutter:\n    sdk: flutter\nworkspace:\n  - packages/core\n' > "$REPO/pubspec.yaml"
 OUT=$(shape "$REPO")

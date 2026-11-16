@@ -94,7 +94,7 @@ shape_package_manager() {
     elif has_file pyproject.toml || has_file requirements.txt || has_file setup.py; then echo pip
     elif has_file pom.xml; then echo maven
     elif has_file build.gradle || has_file build.gradle.kts; then echo gradle
-    elif glob_exists '*.sln' || glob_exists '*.csproj'; then echo dotnet
+    elif glob_exists '*.sln' || glob_exists '*.slnx' || glob_exists '*.csproj'; then echo dotnet
     elif has_file pubspec.yaml; then
         if grep -Eq 'sdk:[[:space:]]*flutter' "${repo}/pubspec.yaml" 2>/dev/null; then echo flutter; else echo dart; fi
     fi
@@ -151,7 +151,10 @@ shape_test_framework() {
             if has_file pytest.ini || json_toml_has pytest || toml_dep pytest || grep -qs pytest "${repo}/requirements-dev.txt" "${repo}/requirements.txt" 2>/dev/null; then echo pytest
             elif glob_exists 'manage.py'; then echo unittest
             fi ;;
-        maven|gradle) echo junit ;;
+        maven|gradle)
+            if grep -qs 'kotest' "${repo}/build.gradle.kts" "${repo}/build.gradle" "${repo}/pom.xml" "${repo}/gradle/libs.versions.toml" 2>/dev/null; then echo kotest
+            else echo junit
+            fi ;;
         dotnet)
             if grep -rqs --include='*.csproj' 'xunit' "${repo}" 2>/dev/null; then echo xunit
             elif grep -rqs --include='*.csproj' 'NUnit' "${repo}" 2>/dev/null; then echo nunit
@@ -204,7 +207,12 @@ shape_lint_command() {
             elif has_file .flake8 || has_file setup.cfg && grep -q '^\[flake8\]' "${repo}/setup.cfg" 2>/dev/null; then echo "flake8"
             fi ;;
         maven)  grep -q spotless "${repo}/pom.xml" 2>/dev/null && { if has_file mvnw; then echo "./mvnw -q spotless:check"; else echo "mvn -q spotless:check"; fi; } ;;
-        gradle) grep -qs spotless "${repo}/build.gradle" "${repo}/build.gradle.kts" 2>/dev/null && { if has_file gradlew; then echo "./gradlew spotlessCheck"; else echo "gradle spotlessCheck"; fi; } ;;
+        gradle)
+            local gw=gradle; has_file gradlew && gw=./gradlew
+            if grep -qs spotless "${repo}/build.gradle" "${repo}/build.gradle.kts" 2>/dev/null; then echo "$gw spotlessCheck"
+            elif grep -qs detekt "${repo}/build.gradle" "${repo}/build.gradle.kts" 2>/dev/null; then echo "$gw detekt"
+            elif grep -qs ktlint "${repo}/build.gradle" "${repo}/build.gradle.kts" 2>/dev/null; then echo "$gw ktlintCheck"
+            fi ;;
         dotnet) echo "dotnet format --verify-no-changes" ;;
         flutter|dart) echo "$pm analyze" ;;
     esac
@@ -227,7 +235,11 @@ shape_format_command() {
             elif json_toml_has black || toml_dep black; then echo "black ."
             fi ;;
         maven)  grep -q spotless "${repo}/pom.xml" 2>/dev/null && { if has_file mvnw; then echo "./mvnw -q spotless:apply"; else echo "mvn -q spotless:apply"; fi; } ;;
-        gradle) grep -qs spotless "${repo}/build.gradle" "${repo}/build.gradle.kts" 2>/dev/null && { if has_file gradlew; then echo "./gradlew spotlessApply"; else echo "gradle spotlessApply"; fi; } ;;
+        gradle)
+            local gw=gradle; has_file gradlew && gw=./gradlew
+            if grep -qs spotless "${repo}/build.gradle" "${repo}/build.gradle.kts" 2>/dev/null; then echo "$gw spotlessApply"
+            elif grep -qs ktlint "${repo}/build.gradle" "${repo}/build.gradle.kts" 2>/dev/null; then echo "$gw ktlintFormat"
+            fi ;;
         dotnet) echo "dotnet format" ;;
         flutter|dart) echo "dart format ." ;;
     esac
@@ -257,7 +269,7 @@ shape_coverage_available() {
         jest) return 0 ;;
         pest|phpunit) return 0 ;;
         pytest) toml_dep pytest-cov || grep -qs pytest-cov "${repo}/requirements-dev.txt" "${repo}/requirements.txt" 2>/dev/null ;;
-        junit) grep -qs jacoco "${repo}/pom.xml" "${repo}/build.gradle" "${repo}/build.gradle.kts" 2>/dev/null ;;
+        junit|kotest) grep -qs -e jacoco -e kover "${repo}/pom.xml" "${repo}/build.gradle" "${repo}/build.gradle.kts" 2>/dev/null ;;
         xunit|nunit|mstest) grep -rqs --include='*.csproj' coverlet "${repo}" 2>/dev/null ;;
         flutter_test) return 0 ;;
         dart_test) grep -Eq '^[[:space:]]+coverage:' "${repo}/pubspec.yaml" 2>/dev/null ;;
@@ -391,6 +403,7 @@ parse_detect() {
         first=$(printf '%s\n' "$item" | head -1)
         if printf '%s' "$first" | grep -Eq '^file_exists:[[:space:]]*[^[:space:]]+[[:space:]]*$'; then
             path=$(trim "${first#file_exists:}")
+            path=${path#[\"\']}; path=${path%[\"\']}
             rule=$(jq -cn --arg p "$path" '{file_exists: $p}')
         else
             path=$(printf '%s\n' "$item" | sed -nE 's/^[[:space:]]*path:[[:space:]]*([^[:space:]]+)[[:space:]]*$/\1/p' | head -1)
@@ -438,6 +451,14 @@ evaluate_rule() {
             local path
             path=$(jq -r '.file_exists' <<<"$rule")
             RULE_DESC="$path"
+            case "$path" in
+                *'*'*)
+                    # Glob rule (`**/name`, `*.ext`): match by basename up to 4 levels deep,
+                    # skipping dependency and build output directories.
+                    find "$repo" -maxdepth 4 \( -name node_modules -o -name .git -o -name vendor -o -name bin -o -name obj -o -name build -o -name target \) -prune \
+                        -o -type f -name "${path##*/}" -print -quit 2>/dev/null | grep -q . && return 0
+                    RULE_FAIL="no file matches ${path}"; return 1 ;;
+            esac
             [ -f "${repo}/${path}" ] && return 0
             RULE_FAIL="${path} not present"; return 1 ;;
         file_contains)

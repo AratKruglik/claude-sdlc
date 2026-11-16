@@ -13,7 +13,7 @@ description: |
   Do NOT use this skill for:
   - Service or controller patterns — see spring-boot-plugin:spring-conventions.
   - Build tool setup — see java-foundation:build-tooling.
-  - Test slices (@DataJpaTest) — see java-foundation:jvm-testing.
+  - Test slices (@DataJpaTest) — see the qa-phase prompt in spring-boot-plugin/stack.md.
 user-invocable: false
 paths: ["src/main/java/**", "src/main/resources/db/**"]
 ---
@@ -120,7 +120,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findRecentByRole(@Param("since") Instant since, @Param("role") Role role);
 
     // Fetch join to avoid N+1 (load items with orders in one query)
-    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE o.user.id = :userId")
+    @Query("SELECT o FROM Order o LEFT JOIN FETCH o.items WHERE o.user.id = :userId")
     List<Order> findOrdersWithItemsByUserId(@Param("userId") Long userId);
 
     // DTO projection (Spring Data interface projection)
@@ -162,11 +162,11 @@ orders.forEach(o -> o.getItems().size()); // triggers N lazy loads
 List<Order> findAll();
 
 // Solution 2 — JOIN FETCH in JPQL (more explicit)
-@Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE o.status = :status")
+@Query("SELECT o FROM Order o LEFT JOIN FETCH o.items WHERE o.status = :status")
 List<Order> findWithItemsByStatus(@Param("status") OrderStatus status);
 ```
 
-**Use `DISTINCT` with `LEFT JOIN FETCH` on `@OneToMany`** — without it, the same order row is duplicated for each item in the result set.
+**No `DISTINCT` for `JOIN FETCH` on Hibernate 6+** (Spring Boot 3+) — duplicate roots are removed in memory automatically, and `DISTINCT` only adds cost to the SQL. On Hibernate 5 (Spring Boot 2.x) it is still required: without `SELECT DISTINCT o` the same order comes back once per item.
 
 **Do not use `@EntityGraph` or `JOIN FETCH` by default on all queries.** Apply only when the caller actually needs the association. Over-fetching is also a performance problem.
 
@@ -192,7 +192,7 @@ ALTER TABLE orders
 CREATE INDEX idx_orders_status ON orders (status);
 ```
 
-**Flyway runs on startup** when `spring.flyway.enabled=true` (default when `flyway-core` is on the classpath). Migrations are applied in version order and checksummed — never edit a migration that has already been applied.
+**Flyway runs on startup** (`spring.flyway.enabled=true` is the default) once its auto-configuration is on the classpath: Spring Boot 4+ needs `spring-boot-starter-flyway`; on Boot ≤ 3 `flyway-core` alone is enough. Flyway 10+ also needs the database module (e.g. `org.flywaydb:flyway-database-postgresql`). Check the build file for which applies. Migrations are applied in version order and checksummed — never edit a migration that has already been applied.
 
 **Test migrations** with Testcontainers (`@DataJpaTest` or `@SpringBootTest` with a PostgreSQL container) — H2 may accept SQL that PostgreSQL rejects.
 

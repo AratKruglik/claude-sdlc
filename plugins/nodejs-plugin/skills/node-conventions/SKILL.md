@@ -12,7 +12,7 @@ description: |
 
   Do NOT use this skill for:
   - Frontend code (React/Vue/RN have their own conventions).
-  - NestJS-specific patterns (decorators, DI, modules) — nest-plugin owns those.
+  - NestJS-specific patterns (decorators, DI, modules) — nestjs-plugin owns those.
   - Database schema design (call out as a sub-task; npm-patterns covers package management, not DB).
 user-invocable: false
 paths: ["**/*.js", "**/*.mjs", "**/*.ts", "package.json"]

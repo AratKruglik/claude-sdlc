@@ -123,7 +123,7 @@ Use `Glob ~/.claude/plugins/cache/**/security-guidance/.claude-plugin/plugin.jso
 
 ```text
 ℹ️  security-guidance plugin not detected. Install it to activate these rules:
-   /plugin install security-guidance@claude-plugins
+   /plugin install security-guidance@claude-plugins-official
    /reload-plugins
 ```
 

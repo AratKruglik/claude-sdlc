@@ -6,15 +6,24 @@ detect:
   any:
     - file_contains:
         path: pyproject.toml
-        pattern: "fastapi"
+        pattern: "[Ff]ast[Aa][Pp][Ii]"
     - file_contains:
         path: requirements.txt
-        pattern: "fastapi"
+        pattern: "[Ff]ast[Aa][Pp][Ii]"
+    - file_contains:
+        path: Pipfile
+        pattern: "[Ff]ast[Aa][Pp][Ii]"
+    - file_contains:
+        path: setup.py
+        pattern: "[Ff]ast[Aa][Pp][Ii]"
+    - file_contains:
+        path: setup.cfg
+        pattern: "[Ff]ast[Aa][Pp][Ii]"
 ---
 
 # FastAPI Stack Profile (backend + database)
 
-Registers FastAPI projects with the SDLC pipeline. Auto-detected by `fastapi` listed in `pyproject.toml` or `requirements.txt`.
+Registers FastAPI projects with the SDLC pipeline. Auto-detected by `fastapi` (any casing) listed in `pyproject.toml`, `requirements.txt`, `Pipfile`, `setup.py`, or `setup.cfg`.
 
 This plugin owns the **backend** and **database** aspects. FastAPI is an API-only framework — there are no server-rendered templates. `fastapi-architect` designs and documents the endpoint/schema contract for SPA frontend plugins (vue/react):
 
@@ -41,6 +50,7 @@ Note: this plugin does NOT declare `development.frontend`. That slot is filled b
 - python-foundation:python-conventions
 - python-foundation:python-tooling
 - python-foundation:pytest-testing
+- python-foundation:sqlalchemy-patterns
 - fastapi-plugin:fastapi-conventions
 - fastapi-plugin:sqlalchemy-patterns
 
@@ -70,7 +80,7 @@ For development phase (backend aspect), inject:
 > Apply `fastapi-plugin:fastapi-conventions`:
 > - **APIRouter:** one router per feature module with `prefix` and `tags`. Include routers in the app factory via `app.include_router(...)`.
 > - **Pydantic v2 schemas:** `BaseModel` with `model_config = ConfigDict(from_attributes=True)` for ORM mode. Use `@field_validator` and `@model_validator` for cross-field validation. Separate `Create`, `Update`, and `Read` schemas when field sets differ.
-> - **Dependency injection:** `Depends()` for DB session, auth, and pagination. Yield `AsyncSession` from `get_db()`. Use `app.dependency_overrides` in tests.
+> - **Dependency injection:** `Depends()` for DB session, auth, and pagination. Yield `AsyncSession` from `get_db()`; commit explicitly in the endpoint/service, not after the `yield`. Use `app.dependency_overrides` in tests.
 > - **Response model:** always set `response_model=` on each endpoint to filter output. Use `JSONResponse` only for custom status codes.
 > - **Auth:** `OAuth2PasswordBearer(tokenUrl="/auth/token")` + JWT. Implement `get_current_user` dependency that decodes and validates the token. Never store the JWT secret in source code.
 > - **Lifespan:** use `@asynccontextmanager async def lifespan(app)` for startup/shutdown (DB pool init/close). Pass to `FastAPI(lifespan=lifespan)`.
@@ -118,7 +128,7 @@ For qa phase, inject:
 For security phase, inject:
 > Check FastAPI-specific issues in addition to OWASP Top 10:
 > - **Hardcoded secrets:** any `SECRET_KEY = "..."`, `JWT_SECRET = "..."`, or `DATABASE_URL = "postgresql://..."` literal in settings or router files is a critical risk. Read all credentials from `pydantic-settings` `BaseSettings` via environment variables. Never hardcode.
-> - **Debug mode:** `debug=True` in `uvicorn.run()` or `FastAPI(debug=True)` exposes Python stack traces to end users. Must be `False` in production and read from env.
+> - **Debug mode:** `FastAPI(debug=True)` exposes Python stack traces to end users; `uvicorn.run(..., reload=True)` is development-only (uvicorn has had no `debug` option since 0.19). Both must be off in production and read from env.
 > - **CORS misconfiguration:** `allow_origins=["*"]` combined with `allow_credentials=True` is forbidden by the CORS spec and blocked by browsers. Use an explicit allowed-origins list when credentials are required.
 > - **SQL injection via `text()`:** `text(f"... WHERE id = {user_id}")` or `text("... WHERE id = %s" % id)` are injection risks. Use `text("... WHERE id = :id")` with bound parameters: `session.execute(stmt, {"id": user_id})`.
 > - **Missing auth dependency:** every state-changing endpoint (`POST`, `PUT`, `PATCH`, `DELETE`) must include `Depends(get_current_user)` or `Security(get_current_user, scopes=[...])` unless the BA spec explicitly calls for anonymous access. Verify each router group and endpoint individually.

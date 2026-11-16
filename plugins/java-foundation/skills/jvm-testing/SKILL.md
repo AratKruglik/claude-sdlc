@@ -10,7 +10,7 @@ description: |
   - Spin up real infrastructure (DBs, message brokers) with Testcontainers for integration tests.
 
   Do NOT use this skill for:
-  - Spring-specific test slices (@SpringBootTest, @WebMvcTest, @DataJpaTest — those are in spring-boot-plugin skills).
+  - Spring-specific test slices (@SpringBootTest, @WebMvcTest, @DataJpaTest — those are in the qa-phase prompt of spring-boot-plugin/stack.md).
   - Framework-specific mocking utilities (MockMvc, WebTestClient).
 user-invocable: false
 paths: ["src/test/**", "**/*Test.java", "**/*Tests.java"]

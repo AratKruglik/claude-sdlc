@@ -139,12 +139,12 @@ await AsyncStorage.multiSet([['@a', '1'], ['@b', '2']]);
 Synchronous, fast (~30x faster than AsyncStorage), encrypted optional. Modern preferred for non-secrets.
 
 ```ts
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from 'react-native-mmkv';
 
-const storage = new MMKV();
+const storage = createMMKV();
 storage.set('theme', 'dark');                   // sync, no await needed
 const theme = storage.getString('theme');        // 'dark' or undefined
-storage.delete('theme');
+storage.remove('theme');
 storage.contains('theme');                       // boolean
 storage.getAllKeys();                            // string[]
 ```
@@ -152,11 +152,13 @@ storage.getAllKeys();                            // string[]
 Optional encryption:
 
 ```ts
-const storage = new MMKV({
+const storage = createMMKV({
   id: 'user-storage',
   encryptionKey: 'a-secret-key-from-secure-store',
 });
 ```
+
+react-native-mmkv v2–3 use `new MMKV()` / `storage.delete()` — read the installed major from `package.json`.
 
 **Use for**:
 - User preferences (faster than AsyncStorage).
@@ -264,8 +266,7 @@ export default function RootLayout() {
 Zustand `persist` middleware exposes `hasHydrated`:
 
 ```tsx
-const { isHydrated } = useUserStore.persist;
-if (!isHydrated()) return <SplashScreen />;
+if (!useUserStore.persist.hasHydrated()) return <SplashScreen />;
 ```
 
 Or subscribe via `useStore` selector:

@@ -18,6 +18,8 @@ Claims BOTH `backend` AND `frontend` aspects. A Flutter project is one Dart code
 
 Targets: iOS, Android, web, macOS, Windows, Linux — detected from the platform folders present. A pure Dart package in a Flutter monorepo (no `sdk: flutter`) is handled by `dart-plugin` when the pipeline runs in that package's directory.
 
+**Monorepo caveat.** Detection reads the `pubspec.yaml` in the directory the pipeline runs in. A melos / pub-workspace root usually has no `sdk: flutter` line, so the root resolves to `dart`. Run the pipeline inside the app package, or pass `--stack=flutter`.
+
 ## Agents per phase
 
 - business_analysis: business-analyst        # core agent

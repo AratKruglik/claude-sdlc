@@ -12,12 +12,18 @@ patterns:
 
   - rule_name: java_hardcoded_secret
     regex: "(?i)(password|secret|api_?key|token|credential)\\s*=\\s*\"[^\"]{4,}\""
-    paths: ["**/*.java", "**/*.properties", "**/*.yml", "**/*.yaml"]
+    paths: ["**/*.java"]
     exclude_paths: ["**/*Test*.java", "**/*Tests.java", "**/test/**"]
     reminder: "Hardcoded secret detected. Credentials must come from environment variables or a secrets manager — never from source code."
 
+  - rule_name: java_hardcoded_secret_config
+    regex: "(?i)(password|secret|api[-_]?key|token|credential)s?[\"']?\\s*[=:]\\s*[\"']?(?!(true|false|null|none)\\b)[^\\s\"'#${]{4,}"
+    paths: ["**/*.properties", "**/*.yml", "**/*.yaml"]
+    exclude_paths: ["**/test/**", "**/application-test*"]
+    reminder: "Literal secret in a config file. Use a placeholder (${ENV_VAR}) resolved from the environment or a secrets manager — never commit the value."
+
   - rule_name: java_sql_concatenation
-    regex: "\"\\s*\\+\\s*(query|sql|where|id|name|input|param|value)"
+    regex: "(?i)\"\\s*(select\\b[^\"]*\\bfrom|insert\\s+into|update\\b[^\"]*\\bset|delete\\s+from)\\b[^\"]*\"\\s*\\+\\s*[A-Za-z_(]"
     paths: ["**/*.java"]
     reminder: "String concatenation in SQL queries risks SQL injection. Use parameterized queries (PreparedStatement / JPA named parameters / Criteria API)."
 

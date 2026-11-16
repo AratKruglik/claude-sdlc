@@ -163,12 +163,7 @@ Add a `py.typed` marker file to signal that your package ships inline type infor
 touch src/myapp/py.typed
 ```
 
-Then declare it in `pyproject.toml`:
-
-```toml
-[tool.hatch.build.targets.wheel]
-include = ["src/myapp/py.typed"]
-```
+Hatchling ships every file inside the package, `py.typed` included — do not add a wheel `include` list for it (`include` restricts the wheel to exactly the listed files).
 
 Run mypy:
 
@@ -190,7 +185,7 @@ pip install -e ".[dev]"
 
 # Poetry — automatic venv
 poetry install                 # creates .venv in project root (or in cache)
-poetry shell                   # activate
+eval $(poetry env activate)    # activate (Poetry 2.x; on Poetry 1.x: poetry shell)
 poetry run pytest              # run without activating
 
 # uv — automatic venv

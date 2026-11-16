@@ -9,11 +9,11 @@ Adds a Next.js-specific implementation agent (`nextjs-architect`) and 5 skills c
 | Component | Purpose |
 |---|---|
 | `stack.md` | Stack profile, priority=250, aspects=[backend, frontend]. |
-| `agents/nextjs-architect.md` | Opus-tier developer for Next.js. Replaces `developer` / `node-architect` / `nest-architect` / `react-architect` for Next.js projects. |
+| `agents/nextjs-architect.md` | Sonnet-tier developer for Next.js with an Opus planning pass. Replaces `developer` / `node-architect` / `nest-architect` / `react-architect` for Next.js projects. |
 | `skills/nextjs-conventions/` | App Router file conventions (page/layout/loading/error/route), metadata, image/font optimization, next.config.js patterns. |
 | `skills/server-component-patterns/` | RSC vs Client boundary, "use client" / "use server" directives, Server Actions (auth + validation + revalidation), data passing across the boundary. |
-| `skills/nextjs-data-fetching/` | Native fetch caching, ISR/SSG/SSR per-route, `unstable_cache`, `generateStaticParams`, `revalidatePath` / `revalidateTag`, Route Handlers, edge vs node runtime. |
-| `skills/nextjs-routing/` | Dynamic segments, route groups, parallel routes, intercepting routes, middleware, Link/useRouter, redirects/rewrites. |
+| `skills/nextjs-data-fetching/` | Native fetch caching, ISR/SSG/SSR per-route, `unstable_cache`, `generateStaticParams`, `revalidatePath` / `updateTag` / `revalidateTag`, Route Handlers, edge vs node runtime. |
+| `skills/nextjs-routing/` | Dynamic segments, route groups, parallel routes, intercepting routes, proxy (`middleware.ts` on Next ≤15), Link/useRouter, redirects/rewrites. |
 | `skills/nextjs-testing/` | Vitest + RTL for Client Components, Playwright for RSC integration and e2e, Server Action and Route Handler unit tests, msw for network mocks. |
 | `hooks/hooks.json` | Auto-format TS/JS/MDX via Prettier + ESLint after Edit/Write (silent if not installed). |
 
@@ -28,7 +28,7 @@ Adds a Next.js-specific implementation agent (`nextjs-architect`) and 5 skills c
 
 ## Cross-plugin skill reuse
 
-`nextjs-plugin` declares `dependencies: ["sdlc", "nodejs-plugin"]` in `plugin.json` — Claude Code auto-installs `nodejs-plugin` when you install this. The stack profile references skills from both plugins in `convention_skills`:
+`nextjs-plugin` declares `dependencies: ["sdlc", "js-foundation"]` in `plugin.json` — Claude Code auto-installs `js-foundation` when you install this. The stack profile references skills from both plugins in `convention_skills`:
 
 - `js-foundation:typescript-patterns` — strict TypeScript discipline.
 - `js-foundation:npm-patterns` — package manager detection, semver, lockfile hygiene.
@@ -41,11 +41,11 @@ Adds a Next.js-specific implementation agent (`nextjs-architect`) and 5 skills c
 ## Installation
 
 ```
-/plugin marketplace add ROLIQUE/claude-plugins
-/plugin install nextjs-plugin@claude-plugins
+/plugin marketplace add AratKruglik/claude-sdlc
+/plugin install nextjs-plugin@sdlc-marketplace
 ```
 
-`sdlc` core and `nodejs-plugin` install automatically as dependencies.
+`sdlc` core and `js-foundation` install automatically as dependencies.
 
 ## Usage
 
@@ -69,7 +69,7 @@ Should show `nextjs priority=250` with active match (backend + frontend) on a Ne
 /sdlc:doctor
 ```
 
-Confirms 4 plugins installed (sdlc + nodejs-plugin + nestjs-plugin + nextjs-plugin), no degraded mode warnings.
+Confirms 3 plugins installed (sdlc + js-foundation + nextjs-plugin), no degraded mode warnings.
 
 ## Composition with other plugins
 
@@ -92,7 +92,7 @@ For SINGLE-`package.json` mixed projects (rare): nextjs-plugin wins both aspects
 | `yarn.lock` | `yarn test`, `yarn run lint`, `yarn build` |
 | (default) | `npm test`, `npm run lint --if-present`, `npm run build` |
 
-`npm run build` is the most valuable single check — Next.js's build runs the type checker, ESLint (if configured), and prerendering. It catches RSC violations, missing exports, type errors, and most runtime issues at compile time. Plus `npx --no-install tsc --noEmit` runs as a safety net.
+`npm run build` is the most valuable single check — Next.js's build runs compile + type-check (linting was removed from `next build` in 16; run the project's lint script separately) and prerendering. It catches RSC violations, missing exports, type errors, and most runtime issues at compile time. Plus `npx --no-install tsc --noEmit` runs as a safety net.
 
 The `nextjs-architect` agent applies the same detection for any install/script invocations during development.
 
@@ -102,7 +102,7 @@ To customize per-project (e.g., monorepo runners like Nx/Turborepo, custom test 
 
 ## Coverage scope (v0.0.1)
 
-This plugin covers the **full Next.js surface** for App Router projects — file conventions, RSC/Client boundary, data fetching with all caching modes, routing primitives including parallel/intercepting routes, middleware, and testing across all layers. The agent handles BOTH backend (Route Handlers, Server Actions, middleware) AND frontend (RSC pages, Client Components) within one feature implementation.
+This plugin covers the **full Next.js surface** for App Router projects — file conventions, RSC/Client boundary, data fetching with all caching modes, routing primitives including parallel/intercepting routes, proxy, and testing across all layers. The agent handles BOTH backend (Route Handlers, Server Actions, proxy) AND frontend (RSC pages, Client Components) within one feature implementation.
 
 Pages Router is acknowledged but not deeply documented — App Router is the modern default and Pages is mostly legacy. New code should be App Router.
 

@@ -41,22 +41,24 @@ Read the props contract from the backend **plan** — the "Contract for frontend
 Read `package.json`:
 
 - **Package manager**: lockfile-based (`pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, else npm).
-- **Inertia version**: `@inertiajs/vue3` (modern) or `@inertiajs/inertia-vue3` (legacy).
+- **Inertia version**: `@inertiajs/vue3` (modern) or `@inertiajs/inertia-vue3` (legacy). On a legacy adapter project import from the legacy package and do not migrate adapters as part of a feature.
 - **Vue version**: `"vue": "^3"` (modern) vs `"vue": "^2"` (legacy, use Options API).
 - **TypeScript**: `tsconfig.json` + `typescript` in devDeps + `vue-tsc`.
-- **UI library**: scan for `vuetify`, `quasar`, `primevue`, `naive-ui`, `element-plus`, `radix-vue` / `shadcn-vue`, `@headlessui/vue`. Mirror what's installed; do not introduce a new one.
+- **UI library**: scan for `vuetify`, `quasar`, `primevue`, `naive-ui`, `element-plus`, `reka-ui` / legacy `radix-vue` (shadcn-vue), `@headlessui/vue`. Mirror what's installed; do not introduce a new one.
 - **Styling**: scoped styles, Tailwind, UnoCSS, CSS Modules.
 
-Explore existing frontend code — `Glob` for `resources/js/Pages/**/*.vue`, `resources/js/Layouts/**/*.vue`, `resources/js/Components/**/*.vue`. `Grep` for the most similar existing page. `Read` to mirror patterns (layout usage, import style, form handling).
+Detect directory casing from the `createInertiaApp` `resolve` / `pages` option and the existing tree (current Laravel starter kits: lowercase `pages/`, `layouts/`, `components/`; older projects: `Pages/`, `Layouts/`, `Components/`). Use Ziggy `route()` only if `ziggy-js` is installed, otherwise Wayfinder imports (typed `@/routes` / `@/actions` functions, no `route()` global).
+
+Explore existing frontend code — `Glob` for `resources/js/{pages,Pages}/**/*.vue`, `resources/js/{layouts,Layouts}/**/*.vue`, `resources/js/{components,Components}/**/*.vue`. `Grep` for the most similar existing page. `Read` to mirror patterns (layout usage, import style, form handling).
 
 ## Inertia + Vue 3 conventions
 
 | Pattern | How to do it |
 |---|---|
-| Page component location | `resources/js/Pages/{Feature}/{PageName}.vue` |
-| Layout location | `resources/js/Layouts/{LayoutName}.vue` |
+| Page component location | `resources/js/pages/{feature}/{PageName}.vue` (or `Pages/{Feature}/` — match the existing tree) |
+| Layout location | `resources/js/layouts/{LayoutName}.vue` (or `Layouts/` — match the existing tree) |
 | Persistent layout (Vue 3) | `defineOptions({ layout: AppLayout })` inside `<script setup>` |
-| Form with submission | `const form = useForm({ field: '' })` → `form.post(route('...'))` |
+| Form with submission | `const form = useForm({ field: '' })` → `form.post(route('...'))` (Ziggy) or `form.submit(store())` (Wayfinder, `store` imported from `@/actions/...`) |
 | Form errors | `form.errors.field` (server-side validation errors from Laravel) |
 | Form loading state | `form.processing` (disables submit button while in-flight) |
 | Shared props (auth, flash) | `const page = usePage()` → `page.props.auth.user`, `page.props.flash` |
@@ -86,11 +88,13 @@ For each Inertia page:
 ## Verification commands
 
 - Re-read changed files: Inertia imports from `@inertiajs/vue3`, no `vue-router` imports, props typed correctly.
-- Type-checking runs once via the plugin's SubagentStop hook (`tsc --noEmit`) after you return; failures come back to the orchestrator as a retry hint. Run it yourself only when you need feedback mid-implementation. Formatting (Prettier / ESLint --fix, per file) is hook-driven too — never run a formatter repo-wide.
+- Type-checking runs once via the plugin's SubagentStop hook (`vue-tsc --noEmit`) after you return; failures come back to the orchestrator as a retry hint. Run it yourself only when you need feedback mid-implementation. Formatting (Prettier / ESLint --fix, per file) is hook-driven too — never run a formatter repo-wide. On a solution-style `tsconfig.json` (`"files": []` + `references`, the create-vue default) the hook's `vue-tsc --noEmit` checks nothing — run the project's `vue-tsc` typecheck script (e.g. `vue-tsc -b --noEmit`) yourself.
 - `npm run lint --if-present` (or pnpm/yarn equivalent).
 - Run `npm run build` (or `pnpm build` / `yarn build` per lockfile) to catch Vite bundling errors early.
 
 ## Inertia + Vue 3 code patterns
+
+Examples use Ziggy `route()` and PascalCase directories — adapt both to what the project uses (see Project shape detection).
 
 ### Page component
 

@@ -9,7 +9,7 @@ Adds a React-specific implementation agent (`react-architect`) and 5 skills cove
 | Component | Purpose |
 |---|---|
 | `stack.md` | Stack profile, priority=150, aspects=[frontend]. |
-| `agents/react-architect.md` | Opus-tier developer for React SPAs. Replaces vanilla `developer` for React projects without Next.js / RN. |
+| `agents/react-architect.md` | Developer for React SPAs (Sonnet implement pass, Opus plan pass). Replaces vanilla `developer` for React projects without Next.js / RN. |
 | `skills/react-conventions/` | Component structure, hooks rules, file naming, composition, performance, effects discipline. |
 | `skills/react-state-management/` | useState/useReducer, Context, Zustand, Jotai, Redux Toolkit, TanStack Query, SWR — decision tree. |
 | `skills/react-routing/` | React Router v6/v7, TanStack Router, wouter, lazy loading, protected routes, typed params. |
@@ -28,7 +28,7 @@ Adds a React-specific implementation agent (`react-architect`) and 5 skills cove
 
 ## Cross-plugin skill reuse
 
-`react-plugin` declares `dependencies: ["sdlc", "nodejs-plugin"]` in `plugin.json` — Claude Code auto-installs `nodejs-plugin` when you install this. The stack profile references skills from both plugins in `convention_skills`:
+`react-plugin` declares `dependencies: ["sdlc", "js-foundation"]` in `plugin.json` — Claude Code auto-installs `js-foundation` when you install this. The stack profile references skills from both plugins in `convention_skills`:
 
 - `js-foundation:typescript-patterns` — strict TypeScript discipline.
 - `js-foundation:npm-patterns` — package manager detection, semver, lockfile hygiene.
@@ -41,11 +41,11 @@ Adds a React-specific implementation agent (`react-architect`) and 5 skills cove
 ## Installation
 
 ```
-/plugin marketplace add ROLIQUE/claude-plugins
-/plugin install react-plugin@claude-plugins
+/plugin marketplace add AratKruglik/claude-sdlc
+/plugin install react-plugin@sdlc-marketplace
 ```
 
-`sdlc` core and `nodejs-plugin` install automatically as dependencies.
+`sdlc` core and `js-foundation` install automatically as dependencies.
 
 ## Usage
 

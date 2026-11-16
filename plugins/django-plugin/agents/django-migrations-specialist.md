@@ -84,7 +84,7 @@ These are the decisions django-architect left to you. Apply them before running 
           ),
       ]
   ```
-  Note: `condition=` is the parameter name in Django 5.1+. Use `check=` for Django 4.x. Verify the project's Django version in `requirements.txt` / `pyproject.toml`.
+  Note: `condition=` is the parameter name in Django 5.1+. Use `check=` for Django ≤ 5.0 (deprecated in 5.1, removed in 6.0). Verify the project's Django version in `requirements.txt` / `pyproject.toml`.
 
 ## Steps
 
@@ -118,7 +118,7 @@ Write a detailed report to `docs/plans/{task_slug}/02b-database.md`:
 ## Migration generated
 - `apps/orders/migrations/0002_order.py` (via makemigrations)
   - Reviewed with sqlmigrate: column types correct, index present, CHECK constraint correct for Django version
-  - down() reverses up() cleanly
+  - Reverse migration verified (see rollback test below)
 
 ## Migration run results
 - migrate: success (1 migration applied)

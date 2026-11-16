@@ -51,11 +51,11 @@ Read `package.json` first, then config files:
 - **Vue version**: `"vue": "^3"` → Vue 3 (modern); `"vue": "^2"` → Vue 2 (legacy fallback — flag in DECISIONS, apply Options API guidance).
 - **Bundler**: Vite (`vite.config.{ts,js}`) — modern default; Vue CLI (`vue.config.js`) — legacy; Webpack — uncommon for Vue.
 - **TypeScript**: `tsconfig.json` + `typescript` in devDeps; `vue-tsc` in devDeps for SFC type-check.
-- **Routing**: `vue-router` v4 (Vue 3) or v3 (Vue 2). `unplugin-vue-router` for file-based.
+- **Routing**: `vue-router` v4/v5 (Vue 3) or v3 (Vue 2). File-based routing: built into v5 (`vue-router/vite`); `unplugin-vue-router` on v4.
 - **State**: `pinia` (Vue 3 default), `vuex` (Vue 2 legacy), `@tanstack/vue-query` (server state), `@vueuse/core` (composables).
 - **Forms**: `vee-validate`, `@vueuse/core` (useForm), or native v-model. Validation via `zod`, `yup`, `valibot`.
 - **Styling**: `<style scoped>` (default), CSS Modules, Tailwind, UnoCSS.
-- **UI library**: scan deps for `vuetify`, `quasar`, `primevue`, `naive-ui`, `element-plus`, `radix-vue` (shadcn-vue), `@headlessui/vue`. Mirror project's choice; do not introduce new.
+- **UI library**: scan deps for `vuetify`, `quasar`, `primevue`, `naive-ui`, `element-plus`, `reka-ui` / legacy `radix-vue` (shadcn-vue), `@headlessui/vue`. Mirror project's choice; do not introduce new.
 - **Test framework**: Vitest (Vue 3 default), Jest (Vue 2 legacy), Cypress component testing, Playwright e2e.
 
 ## Verification commands
@@ -63,6 +63,7 @@ Read `package.json` first, then config files:
 - Re-read changed files: imports, props/emits typing, ref usage, slot defaults.
 - Type-checking runs once via the plugin's SubagentStop hook (`vue-tsc --noEmit`) after you return; failures come back to the orchestrator as a retry hint. Run it yourself only when you need feedback mid-implementation. Formatting (Prettier / ESLint --fix, per file) is hook-driven too — never run a formatter repo-wide.
 - Run `npm run build` (or pnpm/yarn). Vite catches many real issues at build.
+- If `tsconfig.json` is solution-style (`"files": []` + `"references"`, the create-vue default), the hook's plain `vue-tsc --noEmit` checks nothing — run the project's own `type-check` / `build` script yourself.
 - Run `npm run lint --if-present`.
 
 ## Vue 3 conventions you must follow
@@ -273,14 +274,16 @@ export default {
 </script>
 
 <template>
-  <div>{{ title }}: {{ count }} (double: {{ double }})</div>
-  <button @click="increment">+1</button>
+  <div>
+    <span>{{ title }}: {{ count }} (double: {{ double }})</span>
+    <button @click="increment">+1</button>
+  </div>
 </template>
 ```
 
 For state: Vuex 3 (`store.commit`, `store.dispatch`). Migrate to Pinia recommended ONLY if BA spec asks; otherwise mirror Vuex patterns.
 
-Most Vue 3 patterns (defineProps, defineEmits, `<script setup>`) are NOT available in Vue 2. Don't try to use them.
+Vue 3 macros (defineProps, defineEmits, `<script setup>`) are NOT available in Vue ≤2.6. Vue 2.7 has Composition API and `<script setup>` built in (the `@vue/composition-api` plugin is only for ≤2.6) — read the installed minor from `package.json`, then mirror the project's existing style.
 
 ## TypeScript discipline
 

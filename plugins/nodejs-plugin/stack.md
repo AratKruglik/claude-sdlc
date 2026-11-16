@@ -7,12 +7,12 @@ detect:
     - file_exists: package.json
     - file_contains:
         path: package.json
-        pattern: '"(express|fastify|koa|hapi|@types/node|@nestjs/core)"|"engines"\s*:\s*\{[^}]*"node"'
+        pattern: '"(express|fastify|koa|hapi|@hapi/hapi|hono|@nestjs/core)"\s*:'
 ---
 
 # Node.js Stack Profile
 
-Catch-all stack provider for Node.js backend projects. Triggers when `package.json` exists and contains a backend marker (Express, Fastify, Koa, Hapi, `@types/node`, or a `"node"` engines field).
+Stack provider for Node.js backend projects. Triggers when `package.json` declares a backend framework (Express, Fastify, Koa, Hapi / `@hapi/hapi`, Hono, or `@nestjs/core`). `@types/node` and `engines.node` are deliberately not markers — frontend SPAs carry them too. A framework-less Node service does not auto-detect: run it with `--stack=nodejs`.
 
 Specialized backend frameworks (NestJS) and full-stack frameworks (Next.js) declare higher priority and override this profile via aspect resolution.
 

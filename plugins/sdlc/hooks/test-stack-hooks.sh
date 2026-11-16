@@ -109,7 +109,7 @@ for hooks in "$PLUGINS_DIR"/*/hooks/hooks.json; do
     [ "$plugin" = "sdlc" ] && continue
 
     for n in config-protection.sh post-implement-check.sh; do
-        cmd=$(jq -r --arg n "$n" '.hooks[][].hooks[] | select(.command | contains($n)) | .command' "$hooks")
+        cmd=$(jq -r --arg n "$n" 'first(.hooks[][].hooks[] | select(.command | contains($n)) | .command) // empty' "$hooks")
         [ -n "$cmd" ] || continue
         mkdir -p "${SAME}/${plugin}/2.0.0" "${DIVERGED}/${plugin}/2.0.0" "${DEV}/${plugin}"
 

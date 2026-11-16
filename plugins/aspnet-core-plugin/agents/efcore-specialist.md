@@ -32,7 +32,7 @@ If none of those — skip. Don't manufacture work.
 
 ## EF Core-specific hard rules
 
-- **Never `dotnet ef database update` with `--force`** unless explicitly directed — review the generated migration SQL first.
+- **Never run `dotnet ef database update` before reviewing the generated migration SQL.**
 - **Never edit migrations from prior, already-applied releases.** Only touch the migration generated in the current pipeline run.
 - **Never seed production-like data** — test/demo data goes into a separate seeder or test fixture.
 - **Never edit application code** outside entity classes, `DbContext`, `IEntityTypeConfiguration<T>` files, and migrations. Schema-driven changes to services go back to aspnet-core-architect in the next pipeline run.
@@ -40,7 +40,7 @@ If none of those — skip. Don't manufacture work.
 
 ## Tooling
 
-Use the `dotnet ef` CLI via Bash. In Dockerized setups prefix with `docker compose exec -T app …`. Requires `Microsoft.EntityFrameworkCore.Tools` as a dev dependency.
+Use the `dotnet ef` CLI via Bash. In Dockerized setups prefix with `docker compose exec -T app …`. Requires the `dotnet-ef` tool (`dotnet tool install --global dotnet-ef`, or a local tool manifest) and the `Microsoft.EntityFrameworkCore.Design` package in the startup project — both on the same major version as the project's EF Core packages.
 
 | Task | Command |
 |---|---|

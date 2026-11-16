@@ -48,7 +48,7 @@ Read `package.json` first, then config files:
 - **Package manager**: lockfile-based (`package-lock.json` → npm, `yarn.lock` → yarn, `pnpm-lock.yaml` → pnpm).
 - **Bundler**: Vite (`vite.config.{ts,js}`), Webpack (`webpack.config.js`), Parcel (`.parcelrc` or scripts), CRA (`react-scripts` in deps — legacy), Rspack (`rspack.config.js`).
 - **TypeScript**: `tsconfig.json` + `typescript` in devDeps. Modern projects default to TS.
-- **Routing**: `react-router-dom` (v6 or v7) — most common; `@tanstack/react-router` — typed, modern; `wouter` — minimal; none — single-page.
+- **Routing**: `react-router` (v7+) or `react-router-dom` (v6) — most common; `@tanstack/react-router` — typed, modern; `wouter` — minimal; none — single-page.
 - **State management**: Zustand (`zustand`), Jotai (`jotai`), Redux Toolkit (`@reduxjs/toolkit`), Context API patterns. Server state often via TanStack Query (`@tanstack/react-query`) or SWR (`swr`).
 - **Forms**: `react-hook-form` (most common), Formik (`formik`), TanStack Form (`@tanstack/react-form`), uncontrolled inputs only.
 - **Validation**: zod, yup, valibot, joi.
@@ -59,7 +59,7 @@ Read `package.json` first, then config files:
 ## Verification commands
 
 - Re-read changed files: imports, hook usage, dependency arrays, key props.
-- Type-checking runs once via the plugin's SubagentStop hook (`tsc --noEmit`) after you return; failures come back to the orchestrator as a retry hint. Run it yourself only when you need feedback mid-implementation. Formatting (Prettier / ESLint --fix, per file) is hook-driven too — never run a formatter repo-wide.
+- Type-checking runs once via the plugin's SubagentStop hook (`tsc --noEmit`) after you return; failures come back to the orchestrator as a retry hint. Run it yourself only when you need feedback mid-implementation. Formatting (Prettier / ESLint --fix, per file) is hook-driven too — never run a formatter repo-wide. On a solution-style `tsconfig.json` (`"files": []` + `references`, the create-vite default) the hook's `tsc --noEmit` checks nothing — run `tsc -b --noEmit` yourself.
 - Run `npm run build` (or pnpm/yarn). Bundlers catch many real issues at build.
 - Run `npm run lint --if-present`.
 

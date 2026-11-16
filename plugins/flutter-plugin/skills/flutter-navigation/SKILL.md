@@ -73,6 +73,7 @@ final router = GoRouter(
 - Pass IDs in the path/query, not objects via `extra` — `extra` is lost on web refresh and deep links. Load the object from the state layer by ID.
 - Return a result: `final picked = await context.push<Address>('/addresses/pick');` and `context.pop(address)` in the picked screen.
 - `StatefulShellRoute.indexedStack` keeps each tab's stack alive; switch tabs with `shell.goBranch(index, initialLocation: index == shell.currentIndex)`.
+- Newer go_router versions add a top-level `onEnter` guard (returns `Allow` / `Block`). If the project already uses it, put auth checks there; do not mix it with a `redirect` doing the same job.
 - 404: provide `errorBuilder` (or `onException`) showing a not-found screen with a way home.
 
 ## auto_route

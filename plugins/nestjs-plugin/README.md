@@ -25,7 +25,7 @@ Adds a NestJS-specific implementation agent (`nest-architect`) and 5 conventions
 
 ## Cross-plugin skill reuse
 
-`nestjs-plugin` declares `dependencies: ["sdlc", "nodejs-plugin"]` in `plugin.json` — Claude Code auto-installs `nodejs-plugin` when you install this. The stack profile references skills from both plugins in `convention_skills`:
+`nestjs-plugin` declares `dependencies: ["sdlc", "js-foundation"]` in `plugin.json` — Claude Code auto-installs `js-foundation` when you install this. The stack profile references skills from both plugins in `convention_skills`:
 
 - `js-foundation:typescript-patterns` — strict TypeScript discipline (no-`any`, validation at boundary, etc.).
 - `js-foundation:npm-patterns` — package manager detection, semver, lockfile hygiene.
@@ -40,11 +40,11 @@ This is the first cross-plugin skill reuse in the marketplace — DRY without du
 ## Installation
 
 ```
-/plugin marketplace add ROLIQUE/claude-plugins
-/plugin install nestjs-plugin@claude-plugins
+/plugin marketplace add AratKruglik/claude-sdlc
+/plugin install nestjs-plugin@sdlc-marketplace
 ```
 
-`sdlc` core and `nodejs-plugin` install automatically as dependencies.
+`sdlc` core and `js-foundation` install automatically as dependencies.
 
 ## Usage
 
@@ -68,7 +68,7 @@ Should show `nestjs priority=200` with active match (backend + database) on a Ne
 /sdlc:doctor
 ```
 
-Confirms 3 plugins installed (sdlc + nodejs-plugin + nestjs-plugin), no degraded mode warnings.
+Confirms 3 plugins installed (sdlc + js-foundation + nestjs-plugin), no degraded mode warnings.
 
 ## Composition with frontend plugins
 

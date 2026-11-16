@@ -46,7 +46,7 @@
     {
       "name": "nodejs-plugin",
       "source": "./plugins/nodejs-plugin",
-      "description": "Node.js backend stack provider for Express/Fastify/Koa/plain Node.js projects. Adds node-architect agent (Sonnet/medium) and node-conventions skill. Reuses TypeScript and npm skills from js-foundation. Composes with frontend plugins via aspect resolution."
+      "description": "Node.js backend stack provider for Express/Fastify/Koa/Hapi/Hono projects (a framework-less Node service runs with --stack=nodejs). Adds node-architect agent (Sonnet/medium) and node-conventions skill. Reuses TypeScript and npm skills from js-foundation. Composes with frontend plugins via aspect resolution."
     },
     {
       "name": "nestjs-plugin",
@@ -71,7 +71,7 @@
     {
       "name": "angular-plugin",
       "source": "./plugins/angular-plugin",
-      "description": "Angular 18-21 SPA frontend stack provider (priority=200). Standalone + NgModule equally, signals + NgRx, typed Reactive Forms, Angular Router. Adds angular-architect agent (Sonnet/medium). Reuses TypeScript and npm skills from js-foundation."
+      "description": "Angular 18-22 SPA frontend stack provider (priority=200). Standalone + NgModule equally, signals + NgRx, typed Reactive Forms, Angular Router. Adds angular-architect agent (Sonnet/medium). Reuses TypeScript and npm skills from js-foundation."
     },
     {
       "name": "react-native-plugin",
@@ -152,6 +152,11 @@
       "name": "flask-plugin",
       "source": "./plugins/flask-plugin",
       "description": "Flask backend + database stack provider (priority=150). Detects Flask in pyproject.toml/requirements.txt. Provides flask-architect (Sonnet/medium — app factory, Blueprints, views, Flask-Login/JWT auth, Jinja2 templates or JSON API, Marshmallow/WTForms, SQLAlchemy model definitions) and flask-migrate-specialist (Sonnet/low — Flask-Migrate: flask db migrate, SQL review, flask db upgrade, flask db check) agents plus flask-conventions and sqlalchemy-patterns skills. Reuses python-foundation skills. Extra database phase after development."
+    },
+    {
+      "name": "kotlin-plugin",
+      "source": "./plugins/kotlin-plugin",
+      "description": "Kotlin/JVM backend stack provider (priority=120). Detects the Kotlin JVM plugin in build.gradle(.kts), gradle/libs.versions.toml or pom.xml. Adds kotlin-architect agent (Sonnet/medium) for Ktor services, CLIs and libraries, plus kotlin-conventions, kotlin-coroutines and kotlin-testing (JUnit 5/Kotest, MockK, runTest) skills. Beats java-plugin (100); spring-boot-plugin (150) wins on Spring projects. Reuses java-foundation build tooling."
     },
     {
       "name": "dart-foundation",

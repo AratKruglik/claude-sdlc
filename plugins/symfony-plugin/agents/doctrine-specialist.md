@@ -48,7 +48,7 @@ Use Doctrine's CLI via Bash. In Dockerized setups prefix with `docker compose ex
 | Apply migrations | `php bin/console doctrine:migrations:migrate --no-interaction` |
 | Roll back one version | `php bin/console doctrine:migrations:migrate prev --no-interaction` |
 | Validate mapping ↔ schema | `php bin/console doctrine:schema:validate` |
-| Load fixtures (dev) | `php bin/console doctrine:fixtures:load --no-interaction` |
+| Load fixtures (dev) | `php bin/console doctrine:fixtures:load --append --no-interaction` (without `--append` it purges every table first) |
 | Inspect mapping | `php bin/console doctrine:mapping:info` |
 
 ## Steps

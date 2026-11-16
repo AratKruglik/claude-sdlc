@@ -113,7 +113,8 @@ function onInput(e: Event) {
 ## vee-validate (recommended for non-trivial forms)
 
 ```bash
-pnpm add vee-validate @vee-validate/zod zod
+# @vee-validate/zod 4.x peers zod ^3.24 — do not pair it with zod 4
+pnpm add vee-validate @vee-validate/zod zod@^3.24
 ```
 
 ### Basic form
@@ -203,16 +204,17 @@ useForm({
 
 ```vue
 <script setup lang="ts">
-import { useForm, useFieldArray } from 'vee-validate';
+import { Field, ErrorMessage, useForm, useFieldArray } from 'vee-validate';
 
 const { handleSubmit } = useForm({
   initialValues: { contacts: [{ email: '' }] },
 });
 const { fields, push, remove } = useFieldArray<{ email: string }>('contacts');
+const onSubmit = handleSubmit((values) => save(values));
 </script>
 
 <template>
-  <form @submit="handleSubmit(onSubmit)">
+  <form @submit="onSubmit">
     <div v-for="(field, index) in fields" :key="field.key">
       <Field :name="`contacts[${index}].email`" type="email" />
       <ErrorMessage :name="`contacts[${index}].email`" />
@@ -304,7 +306,7 @@ const onSubmit = handleSubmit((vals) => save(vals));
 
 VueUse useful form-related composables:
 
-- `useDebouncedRef` — debounce input value.
+- `refDebounced` — debounce input value.
 - `useStorage` — persist form state to localStorage (NEVER for sensitive data).
 - `onClickOutside` — close dropdowns / pickers.
 - `useFocus` — focus management for accessibility.

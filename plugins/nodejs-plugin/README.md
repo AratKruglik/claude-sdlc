@@ -2,7 +2,7 @@
 
 Node.js backend stack provider for the [SDLC marketplace](../../README.md).
 
-Adds a Node.js-specific implementation agent (`node-architect`) and conventions skills to the SDLC pipeline. Activates automatically on projects with `package.json` plus a backend marker (Express, Fastify, Koa, Hapi, `@types/node`, or `engines.node`).
+Adds a Node.js-specific implementation agent (`node-architect`) and conventions skills to the SDLC pipeline. Activates automatically on projects whose `package.json` declares a backend framework (Express, Fastify, Koa, Hapi / `@hapi/hapi`, Hono). A framework-less Node service does not auto-detect — run it with `/sdlc:start --stack=nodejs`.
 
 ## What this plugin adds
 
@@ -11,25 +11,24 @@ Adds a Node.js-specific implementation agent (`node-architect`) and conventions 
 | `stack.md` | Stack profile, priority=100, aspects=[backend]. |
 | `agents/node-architect.md` | Sonnet-tier developer for Node.js backend. Replaces vanilla `developer` for the development phase. |
 | `skills/node-conventions/` | Project layout, config, logging, routing, error-handling patterns. |
-| `skills/npm-patterns/` | Package manager detection, semver, scripts, lockfile hygiene. |
-| `skills/typescript-patterns/` | Strict TS for backend: no-any, discriminated unions, branded IDs, validation-at-boundary, tsconfig hygiene. Activates when project has `tsconfig.json` + `typescript`. |
+| `js-foundation:npm-patterns`, `js-foundation:typescript-patterns` | Not shipped here — referenced from the `js-foundation` dependency (package management; strict TS when the project has `tsconfig.json` + `typescript`). |
 | `hooks/hooks.json` | Auto-format JS/TS files via Prettier + ESLint after Edit/Write (silent if not installed). |
 
 ## What it does NOT cover
 
 - **Frontend** (React/Vue/RN) — separate plugins, frontend aspect.
-- **NestJS** — `nest-plugin` (higher priority, opinionated).
+- **NestJS** — `nestjs-plugin` (higher priority, opinionated).
 - **Next.js** — `nextjs-plugin` (full-stack, multi-aspect).
 - **Database design** — handled in core's BA / dev / security agents per the BA spec.
 
 ## Installation
 
 ```
-/plugin marketplace add ROLIQUE/claude-plugins
-/plugin install nodejs-plugin@claude-plugins
+/plugin marketplace add AratKruglik/claude-sdlc
+/plugin install nodejs-plugin@sdlc-marketplace
 ```
 
-The core `sdlc` plugin is installed automatically as a dependency.
+The core `sdlc` plugin and `js-foundation` are installed automatically as dependencies.
 
 ## Usage
 

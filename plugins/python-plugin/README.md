@@ -14,7 +14,7 @@ When `django-plugin`, `fastapi-plugin`, or `flask-plugin` are also installed and
 | `agents/python-architect.md` | Replaces vanilla `developer` for the **backend aspect**. Application/library structure, module design, CLI entry points, core business logic, data processing, external API clients, configuration management, and packaging. (Sonnet/medium) |
 | `skills/python-app-conventions/SKILL.md` | `src/` package layout, CLI tooling (argparse/click/typer), configuration management (pydantic-settings), structured logging, entry points, and packaging conventions. |
 | `security-patterns.yaml` | Python application-level security regex rules (tempfile race, insecure random, path traversal, debug print). Language-level rules (eval/exec, subprocess shell=True, pickle, yaml.load) live in `python-foundation`. |
-| `hooks/hooks.json` | Stop hook that runs `ruff format .` after each session (Docker-aware, swallows errors). |
+| `hooks/hooks.json` | PostToolUse hook that runs `ruff format` on each edited `.py` file, SubagentStop hook that runs `ruff check .` once after `python-architect` returns, and PreToolUse protection of the ruff/pyproject config during a run (Docker-aware, silent when ruff is absent). |
 
 Language idioms (type hints, dataclasses, enums, match/case, pathlib), tooling (ruff, mypy, pip/poetry/uv), and testing (pytest) come from `python-foundation`.
 
@@ -58,8 +58,8 @@ No extra database phase. No frontend aspect.
 
 ## Prerequisites
 
-- Python 3.11 or later.
-- For the `ruff format` Stop hook: `ruff` installed locally or a Docker service named `app`.
+- Python 3.10 or later.
+- For the `ruff format` / `ruff check` hooks: `ruff` installed locally or in a running Docker Compose service.
 - There is no Python MCP server — agents use the Python CLI via Bash (Docker-aware).
 
 ## Installation

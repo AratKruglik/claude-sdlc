@@ -52,7 +52,7 @@ runner_applicable() {
         java)   [ -f "$root/pom.xml" ] || [ -f "$root/build.gradle" ] || [ -f "$root/build.gradle.kts" ] ;;
         dart)   [ -f "$root/pubspec.yaml" ] ;;
         dotnet)
-            find "$root" -maxdepth 2 \( -name '*.sln' -o -name '*.csproj' \) -print -quit 2>/dev/null | grep -q .
+            find "$root" -maxdepth 3 \( -name '*.sln' -o -name '*.slnx' -o -name '*.csproj' \) -print -quit 2>/dev/null | grep -q .
             ;;
         *)      return 1 ;;
     esac

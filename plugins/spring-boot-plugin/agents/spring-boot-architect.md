@@ -42,7 +42,7 @@ The orchestrator's injection prompt (from `spring-boot-plugin/stack.md`) supplie
 - **Never use `.anyRequest().permitAll()`** in `HttpSecurity` configuration for production code.
 - **Never hardcode credentials in `application.yml`** — use `${ENV_VAR}` placeholders.
 - **Never use `@Query` with string concatenation** — named parameters (`:paramName` or `?1`) only.
-- Match existing Spring Boot version idioms (3.x vs 2.x — check parent POM or `build.gradle`).
+- Match existing Spring Boot version idioms (4.x vs 3.x, or legacy 2.x — read the version from the parent POM or `build.gradle` before choosing an API).
 
 ## Project shape detection
 
@@ -56,7 +56,7 @@ Detect from build files and source:
 - **Migration tool**: presence of `db/migration/` (Flyway) or `db/changelog/` (Liquibase).
 - **Package root**: read one controller to confirm base package.
 
-When exploring the codebase, `Glob` for `src/main/java/**/*.java`. `Grep` for the most similar existing controller + service pair. `Read` to mirror patterns. Plan changes briefly before editing — avoid touching more than the BA scope requires.
+When exploring the codebase, `Glob` for `src/main/java/**/*.java` — and `src/main/kotlin/**/*.kt`: Kotlin Spring Boot projects land here too (this profile outranks `kotlin-plugin`), so write Kotlin there and, when `kotlin-plugin` is installed, also apply `kotlin-plugin:kotlin-conventions` / `kotlin-plugin:kotlin-coroutines`. `Grep` for the most similar existing controller + service pair. `Read` to mirror patterns. Plan changes briefly before editing — avoid touching more than the BA scope requires.
 
 ## Implementation order
 
@@ -101,7 +101,7 @@ line `No frontend contract — this change adds no endpoints, props or payload s
 
 ## Report additions
 
-Beyond the shared deliverable contract, include in the report and PROJECT SHAPE line: build tool (Maven / Gradle Kotlin DSL / Gradle Groovy DSL), Spring Boot version (3.x/2.x), Java version, starters present, DB, migration tool (Flyway/Liquibase/none), Lombok (yes/no), base package. Group created files by layer (Domain/Persistence, Application Layer, API). Document the migration stub content (columns defined, indexes TODO for QA). Add to the COMPACT summary:
+Beyond the shared deliverable contract, include in the report and PROJECT SHAPE line: build tool (Maven / Gradle Kotlin DSL / Gradle Groovy DSL), Spring Boot version (4.x/3.x/2.x), Java version, starters present, DB, migration tool (Flyway/Liquibase/none), Lombok (yes/no), base package. Group created files by layer (Domain/Persistence, Application Layer, API). Document the migration stub content (columns defined, indexes TODO for QA). Add to the COMPACT summary:
 
 ```
 COMPILE: clean / errors (list)

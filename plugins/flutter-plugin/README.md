@@ -37,6 +37,9 @@ Matches when `pubspec.yaml` exists and contains `sdk: flutter`.
 - **SubagentStop** — `flutter analyze` once after `flutter-architect` finishes; failures go back to the orchestrator as a retry hint.
 
 The pipeline never runs `flutter build` or `flutter run`: they need Xcode / Android SDK toolchains, devices and signing.
+**Formatter width.** The hook runs plain `dart format`, which reads `formatter: page_width:` from `analysis_options.yaml` only when the package's language version is 3.7 or newer. A project on an older language version that formats with a custom `--line-length` will see edited files rewrapped to 80 columns — move to 3.7+ with `page_width`, or disable this plugin's PostToolUse hook for that project.
+
+**FVM.** The hooks call `dart` / `flutter` from `PATH`. With an FVM-pinned SDK and no global install they skip silently; the architect still runs `fvm flutter analyze` itself.
 
 ## Dependencies
 

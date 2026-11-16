@@ -25,8 +25,8 @@ This skill encodes idioms that reduce bugs and improve readability in any Java c
 ## Detection
 
 Project is Java 17+ when:
-- `pom.xml` has `<java.version>17</java.version>` or `<maven.compiler.source>17</maven.compiler.source>` (or higher).
-- `build.gradle` / `build.gradle.kts` has `sourceCompatibility = JavaVersion.VERSION_17` (or higher).
+- `pom.xml` has `<java.version>17</java.version>`, `<maven.compiler.release>17</maven.compiler.release>` or `<maven.compiler.source>17</maven.compiler.source>` (or higher).
+- `build.gradle` / `build.gradle.kts` has `java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }` or `sourceCompatibility = JavaVersion.VERSION_17` (or higher).
 
 Read the build file first to learn the target Java version.
 
@@ -81,7 +81,7 @@ double area(Shape shape) {
 }
 ```
 
-The compiler verifies exhaustiveness — no default branch needed. Add `default` only when genuinely required (e.g., a catch-all for unexpected extensions via `--enable-preview`).
+Pattern-matching `switch` needs **Java 21+** (preview-only on 17–20) — on an older target keep the sealed hierarchy and dispatch with `instanceof` patterns or an abstract method. On 21+ the compiler verifies exhaustiveness — no default branch needed. Add `default` only when genuinely required (e.g., a catch-all for unexpected extensions via `--enable-preview`).
 
 ## Pattern matching — eliminate casting
 

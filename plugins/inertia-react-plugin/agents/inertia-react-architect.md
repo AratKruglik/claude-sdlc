@@ -39,21 +39,23 @@ Read the props contract from the backend **plan** — the "Contract for frontend
 Read `package.json`:
 
 - **Package manager**: lockfile-based (`pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, else npm).
-- **Inertia version**: `@inertiajs/react` (modern) or `@inertiajs/inertia-react` (legacy).
+- **Inertia version**: `@inertiajs/react` (modern) or `@inertiajs/inertia-react` (legacy). On a legacy adapter project import from the legacy package and do not migrate adapters as part of a feature.
 - **TypeScript**: `tsconfig.json` + `typescript` in devDeps.
 - **UI library**: scan for `@mui/material`, `antd`, `@chakra-ui/react`, `@radix-ui`, `shadcn` patterns, `@headlessui/react`. Mirror what's installed; do not introduce a new one.
 - **Styling**: Tailwind, CSS Modules, styled-components, Emotion.
 
-Explore existing frontend code — `Glob` for `resources/js/Pages/**/*.tsx`, `resources/js/Layouts/**/*.tsx`, `resources/js/Components/**/*.tsx`. `Grep` for the most similar existing page. `Read` to mirror patterns (layout usage, import style, form handling).
+Detect directory casing from the `createInertiaApp` `resolve` / `pages` option and the existing tree (current Laravel starter kits: lowercase `pages/`, `layouts/`, `components/`; older projects: `Pages/`, `Layouts/`, `Components/`). Use Ziggy `route()` only if `ziggy-js` is installed, otherwise Wayfinder imports (typed `@/routes` / `@/actions` functions, no `route()` global).
+
+Explore existing frontend code — `Glob` for `resources/js/{pages,Pages}/**/*.tsx`, `resources/js/{layouts,Layouts}/**/*.tsx`, `resources/js/{components,Components}/**/*.tsx`. `Grep` for the most similar existing page. `Read` to mirror patterns (layout usage, import style, form handling).
 
 ## Inertia + React conventions
 
 | Pattern | How to do it |
 |---|---|
-| Page component location | `resources/js/Pages/{Feature}/{PageName}.tsx` |
-| Layout location | `resources/js/Layouts/{LayoutName}.tsx` |
+| Page component location | `resources/js/pages/{feature}/{PageName}.tsx` (or `Pages/{Feature}/` — match the existing tree) |
+| Layout location | `resources/js/layouts/{LayoutName}.tsx` (or `Layouts/` — match the existing tree) |
 | Persistent layout (React) | Assign `PageComponent.layout = (page: React.ReactNode) => <AppLayout>{page}</AppLayout>` or wrap via `InertiaApp` `resolve` |
-| Form with submission | `const form = useForm({ field: '' })` → `form.post(route('...'))` |
+| Form with submission | `const form = useForm({ field: '' })` → `form.post(route('...'))` (Ziggy) or `form.submit(store())` (Wayfinder, `store` imported from `@/actions/...`) |
 | Form errors | `form.errors.field` (server-side validation errors from Laravel) |
 | Form loading state | `form.processing` (disables submit button while in-flight) |
 | Form data | `form.data.field` (current field value) |
@@ -85,11 +87,13 @@ For each Inertia page:
 ## Verification commands
 
 - Re-read changed files: Inertia imports from `@inertiajs/react`, no `react-router-dom` imports, props typed correctly.
-- Type-checking runs once via the plugin's SubagentStop hook (`tsc --noEmit`) after you return; failures come back to the orchestrator as a retry hint. Run it yourself only when you need feedback mid-implementation. Formatting (Prettier / ESLint --fix, per file) is hook-driven too — never run a formatter repo-wide.
+- Type-checking runs once via the plugin's SubagentStop hook (`tsc --noEmit`) after you return; failures come back to the orchestrator as a retry hint. Run it yourself only when you need feedback mid-implementation. Formatting (Prettier / ESLint --fix, per file) is hook-driven too — never run a formatter repo-wide. On a solution-style `tsconfig.json` (`"files": []` + `references`, the create-vite default) the hook's `tsc --noEmit` checks nothing — run `tsc -b --noEmit` yourself.
 - `npm run lint --if-present` (or pnpm/yarn equivalent).
 - Run `npm run build` (or `pnpm build` / `yarn build` per lockfile) to catch Vite bundling errors early.
 
 ## Inertia + React code patterns
+
+Examples use Ziggy `route()` and PascalCase directories — adapt both to what the project uses (see Project shape detection).
 
 ### Page component
 

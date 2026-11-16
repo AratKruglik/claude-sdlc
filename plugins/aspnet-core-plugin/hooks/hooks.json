@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=$(jq -j '.tool_input.file_path // empty' 2>/dev/null || python3 -c 'import json,sys; sys.stdout.write(json.load(sys.stdin)[\"tool_input\"][\"file_path\"])' 2>/dev/null); case \"$f\" in *.cs) s=$(bash -c 'n=run-tool.sh; r=\"${CLAUDE_PLUGIN_ROOT}\"; bs=\\\\; r=\"${r//\"$bs\"//}\"; s=\"\"; if [ -n \"$r\" ]; then for c in \"$r/../sdlc/hooks/$n\" \"$r/../../sdlc/${r##*/}/hooks/$n\" \"$r\"/../../sdlc/*/hooks/\"$n\"; do if [ -f \"$c\" ] && [ ! -e \"${c%/hooks/*}/.orphaned_at\" ]; then s=\"$c\"; break; fi; done; fi; if [ -z \"$s\" ] && [ -f \"${PWD}/plugins/sdlc/hooks/$n\" ]; then s=\"${PWD}/plugins/sdlc/hooks/$n\"; fi; printf %s \"$s\"'); [ -n \"$s\" ] || exit 0; bash \"$s\" --lang dotnet --quiet -- dotnet format --include \"$f\"; exit 0;; esac",
+            "command": "f=$(jq -j '.tool_input.file_path // empty' 2>/dev/null || python3 -c 'import json,sys; sys.stdout.write(json.load(sys.stdin)[\"tool_input\"][\"file_path\"])' 2>/dev/null); case \"$f\" in *.cs) s=$(bash -c 'n=run-tool.sh; r=\"${CLAUDE_PLUGIN_ROOT}\"; bs=\\\\; r=\"${r//\"$bs\"//}\"; s=\"\"; if [ -n \"$r\" ]; then for c in \"$r/../sdlc/hooks/$n\" \"$r/../../sdlc/${r##*/}/hooks/$n\" \"$r\"/../../sdlc/*/hooks/\"$n\"; do if [ -f \"$c\" ] && [ ! -e \"${c%/hooks/*}/.orphaned_at\" ]; then s=\"$c\"; break; fi; done; fi; if [ -z \"$s\" ] && [ -f \"${PWD}/plugins/sdlc/hooks/$n\" ]; then s=\"${PWD}/plugins/sdlc/hooks/$n\"; fi; printf %s \"$s\"'); [ -n \"$s\" ] || exit 0; r=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; bash \"$s\" --lang dotnet --quiet -- dotnet format --include \"${f#\"$r\"/}\"; exit 0;; esac",
             "timeout": 60
           }
         ]

@@ -146,13 +146,7 @@ var orders = await _db.Orders
 
 **Use `AsSplitQuery()`** when loading multiple collection navigations to avoid a Cartesian explosion (rows = A × B × C).
 
-**Never use lazy loading** in web applications — it is a hidden N+1 footgun. Disable it explicitly:
-
-```csharp
-// DbContextOptions — disable lazy loading proxies
-options.UseSqlServer(connectionString)
-       .UseLazyLoadingProxies(false);  // false is the default; explicit for clarity
-```
+**Never use lazy loading** in web applications — it is a hidden N+1 footgun. It is off by default and only turns on when the `Microsoft.EntityFrameworkCore.Proxies` package is referenced and `UseLazyLoadingProxies()` is called — do not add either. There is nothing to disable: `UseLazyLoadingProxies(false)` does not even compile without that package.
 
 ## Repositories — thin wrapper pattern
 

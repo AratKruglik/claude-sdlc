@@ -50,19 +50,14 @@ AsyncSessionLocal = async_sessionmaker(
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
+        yield session
 ```
 
 Use `expire_on_commit=False` so that model attributes remain accessible after a commit without triggering lazy loads — important in async contexts where implicit IO is not allowed.
 
 Use `pool_pre_ping=True` to detect stale connections before use.
 
-The `get_db()` dependency owns the transaction boundary: it commits on successful `yield` exit and rolls back on exception. Never call `session.commit()` in a router handler.
+`get_db()` only opens and closes the session; closing discards anything uncommitted, so an exception rolls the request back. Commit explicitly — `await db.commit()` — once per request, at the end of the endpoint or service function that owns the unit of work. Do not commit after the `yield`: with the default `scope="request"` that code runs after the response has been sent, so a failed commit still returns 2xx. On FastAPI ≥ 0.121, `Depends(get_db, scope="function")` runs the exit code before the response and makes commit-on-exit safe.
 
 ---
 
@@ -95,7 +90,7 @@ async def get_user_with_orders(db: AsyncSession, user_id: int) -> User | None:
 async def create_user(db: AsyncSession, email: str, hashed_password: str, display_name: str) -> User:
     user = User(email=email, hashed_password=hashed_password, display_name=display_name)
     db.add(user)
-    await db.flush()  # assigns id without committing; session.commit() happens in get_db()
+    await db.flush()  # assigns id without committing; the endpoint commits
     return user
 ```
 
@@ -106,7 +101,7 @@ async def create_user(db: AsyncSession, email: str, hashed_password: str, displa
 The foundation skill defines the lazy-strategy catalog; in async contexts only a subset is safe:
 
 - `lazy="selectin"` — safe; loads collections with a separate `SELECT IN` query.
-- `lazy="raise"` — safe; raises `MissingGreenlet` if accessed without explicit eager loading, forcing `selectinload()` at query time. Best for large or rarely-needed collections.
+- `lazy="raise"` — safe; raises `InvalidRequestError` if accessed without explicit eager loading, forcing `selectinload()` at query time. Best for large or rarely-needed collections.
 - `lazy="select"` (the SQLAlchemy default) — **forbidden**: sync lazy load raises in async context. Never leave a `relationship()` without an explicit `lazy=`.
 - `lazy="subquery"` — **forbidden**: not supported by async drivers.
 
@@ -195,6 +190,6 @@ from app.orders.models import Order, OrderLine  # noqa: F401
 | Anti-pattern | Problem | Correct approach |
 |---|---|---|
 | `session.execute(select(...))` without `await` on `AsyncSession` | Implicit IO in async — raises `MissingGreenlet` | Always `await session.execute(...)` |
-| `session.commit()` in a router handler | Couples transport layer to transaction lifecycle | Let the `get_db()` dependency commit on `yield` exit |
+| `await session.commit()` after the `yield` in `get_db()` | With the default `scope="request"` it runs after the response is sent — a failed commit still returns 2xx | Commit once at the end of the endpoint/service; or `Depends(get_db, scope="function")` on FastAPI ≥ 0.121 |
 | Bare `relationship()` with no `lazy=` | Defaults to `lazy="select"` (sync lazy load) — raises in async context | Always set `lazy="selectin"` or `lazy="raise"` |
 | `lazy="subquery"` on any relationship | Not supported by async drivers | `lazy="selectin"` or query-time `selectinload()` |

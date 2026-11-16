@@ -54,7 +54,7 @@ For development phase, inject:
 
 For qa phase, inject:
   "NestJS testing uses Test.createTestingModule({ imports, providers, controllers }).compile() to build an isolated test container.
-   Mock providers via .overrideProvider(Token).useValue({...}) or .useFactory(() => ...). For TypeORM repositories, use getRepositoryToken(Entity) as the override token. For Prisma, deepMockProxy<PrismaClient>() from jest-mock-extended.
+   Mock providers via .overrideProvider(Token).useValue({...}) or .useFactory(() => ...). For TypeORM repositories, use getRepositoryToken(Entity) as the override token. For Prisma, mockDeep<PrismaClient>() from jest-mock-extended.
    E2E tests: build INestApplication via testing module, app.init(), then supertest(app.getHttpServer()). Place under test/*.e2e-spec.ts (Nest convention). Run with `npm run test:e2e` if defined in scripts.
    Coverage target ≥80% for services and controllers. Modules and decorator definitions are configuration — exclude from coverage requirements.
    Apply skill: nestjs-plugin:nest-testing."

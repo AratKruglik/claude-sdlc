@@ -233,7 +233,7 @@ import { GET } from './[id]/route';
 const res = await GET(new NextRequest('...'), { params: Promise.resolve({ id: '123' }) });
 ```
 
-(In Next.js 15+ params is Promise; otherwise plain object.)
+(`params` is a Promise since 15; plain object on ≤14.)
 
 ## Network mocking with msw
 
@@ -296,7 +296,7 @@ Target ≥80% on services, route handlers, server actions, and Client Components
 
 - Pure presentational components (snapshot churn outweighs value).
 - Layouts (mostly composition).
-- `next.config.js`, `middleware.ts` config bodies (test the behavior end-to-end).
+- `next.config.js`, `proxy.ts` (`middleware.ts` on ≤15) config bodies (test the behavior end-to-end).
 
 Configure exclusions:
 
@@ -310,6 +310,7 @@ test: {
       'app/**/error.tsx',
       'app/**/not-found.tsx',
       '**/*.config.{js,ts,mjs}',
+      'proxy.ts',
       'middleware.ts',
     ],
   },

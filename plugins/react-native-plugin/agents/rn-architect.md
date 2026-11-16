@@ -52,7 +52,7 @@ Read `package.json` first, then config files:
   - Expo managed → `expo` in deps + `app.json` / `app.config.{js,ts}` + NO `ios/` `android/` folders.
   - Expo dev-client → `expo` in deps + `expo-dev-client`.
   - Expo + EAS → `eas.json` present.
-  - Expo ejected (bare via `expo eject`) → both `ios/`/`android/` AND `expo` in deps; treat as BARE for native code purposes.
+  - Expo ejected (bare via `npx expo prebuild`; `expo eject` was removed) → both `ios/`/`android/` AND `expo` in deps; treat as BARE for native code purposes.
   - Bare RN — `ios/` + `android/` folders, no `expo`.
 - **RN version**: from `package.json` `"react-native": "^0.74"` etc. Modern is 0.73+.
 - **Expo SDK**: from `"expo": "~51.0"` etc. (Expo SDK = year+10 roughly: 50 = late 2023, 51 = early 2024, 52 = late 2024).
@@ -196,7 +196,7 @@ navigation.navigate('Profile', { userId: '123' });
 
 ### Navigation typing (Expo Router)
 
-Expo Router has its own typed routes via `@types/expo-router` generated from the `app/` tree:
+Expo Router has its own typed routes (`experiments.typedRoutes` in app config), generated into `expo-env.d.ts` from the `app/` tree:
 
 ```tsx
 import { Link, useRouter, useLocalSearchParams } from 'expo-router';

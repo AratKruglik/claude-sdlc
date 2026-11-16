@@ -11,11 +11,11 @@ patterns:
     reminder: "images.domains: ['*'] disables the remote image allowlist. Specify exact hostnames in remotePatterns instead."
 
   - rule_name: nextjs_public_secret_prefix
-    regex: "NEXT_PUBLIC_.*(?:SECRET|KEY|TOKEN|PASSWORD|PRIVATE)"
+    regex: "NEXT_PUBLIC_\\w*(?:SECRET|PASSWORD|PRIVATE|SERVICE_ROLE)\\w*"
     paths: ["**/.env*", "**/next.config.*"]
     reminder: "NEXT_PUBLIC_ variables are bundled into the client bundle. Never prefix server-only secrets with NEXT_PUBLIC_."
 
   - rule_name: nextjs_server_action_no_auth
-    regex: "\"use server\""
+    regex: "['\"]use server['\"]"
     paths: ["**/*.ts", "**/*.tsx"]
     reminder: "Server Actions are public HTTP endpoints. Verify the caller is authenticated at the top of every Server Action before any data access."

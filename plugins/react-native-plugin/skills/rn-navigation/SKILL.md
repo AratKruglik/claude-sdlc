@@ -360,7 +360,7 @@ Enable in `app.json`:
 { "expo": { "experiments": { "typedRoutes": true } } }
 ```
 
-Generates `expo-router/types.ts` — `Link href`, `router.push` paths are type-checked. Wrong path = compile error.
+Generates route types referenced from `expo-env.d.ts` — `Link href`, `router.push` paths are type-checked. Wrong path = compile error.
 
 ## Deep linking comparison
 

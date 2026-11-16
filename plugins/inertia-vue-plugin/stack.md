@@ -53,7 +53,8 @@ For development phase, inject:
    - `usePage()` — access shared props (auth.user, flash, etc.) from `HandleInertiaRequests`.
    - `<Link href='...' method='...' as='button'>` — Inertia link, prevents full-page reload.
    - `router.visit()`, `router.post()` for programmatic navigation.
-   Pages in `resources/js/Pages/`, layouts in `resources/js/Layouts/`.
+   Pages in `resources/js/pages/` or `Pages/`, layouts in `layouts/` or `Layouts/` — detect directory casing from the `createInertiaApp` `resolve` / `pages` option and the existing tree. Use Ziggy `route()` only if `ziggy-js` is installed, otherwise Wayfinder imports.
+   Legacy adapter projects (`@inertiajs/inertia-vue3`) import from the legacy package — do not migrate adapters as part of a feature.
    Props are typed from the Laravel controller: read the "Contract for frontend" section of `docs/plans/{task_slug}/02-development-plan-backend.md` (left by laravel-architect at plan time).
    Detect Vue version from package.json: prefer `<script setup lang=\"ts\">` for Vue 3.
    Detect UI library (use what's installed; do not introduce new): Vuetify, Quasar, PrimeVue, Naive UI, Element Plus, shadcn-vue.

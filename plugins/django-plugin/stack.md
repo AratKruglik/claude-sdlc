@@ -4,18 +4,29 @@ priority: 150
 aspects: [backend, database]
 detect:
   any:
-    - file_exists: manage.py
+    - file_contains:
+        path: manage.py
+        pattern: "DJANGO_SETTINGS_MODULE|django"
     - file_contains:
         path: pyproject.toml
         pattern: "[Dd]jango"
     - file_contains:
         path: requirements.txt
         pattern: "[Dd]jango"
+    - file_contains:
+        path: Pipfile
+        pattern: "[Dd]jango"
+    - file_contains:
+        path: setup.py
+        pattern: "[Dd]jango"
+    - file_contains:
+        path: setup.cfg
+        pattern: "[Dd]jango"
 ---
 
 # Django Stack Profile (backend + database)
 
-Registers Django projects with the SDLC pipeline. Auto-detected by presence of `manage.py`, or Django listed in `pyproject.toml` or `requirements.txt`.
+Registers Django projects with the SDLC pipeline. Auto-detected by a Django `manage.py` (one that references `DJANGO_SETTINGS_MODULE` / `django` — a Flask-Script `manage.py` does not match), or Django listed in `pyproject.toml`, `requirements.txt`, `Pipfile`, `setup.py`, or `setup.cfg`.
 
 This plugin owns the **backend** and **database** aspects. The `django-architect` renders Django templates (server-side views) as part of the backend aspect AND designs the DRF serializer / API contract when a SPA frontend plugin is active:
 
@@ -63,7 +74,7 @@ For development phase (backend aspect), inject:
 > - Views (CBV and FBV), DRF ViewSets and serializers, forms, URLconf, middleware, signals, model *definitions* only (django-migrations-specialist finalizes field types, indexes, and runs migrations in the next phase), Django template rendering, and DRF API contract design.
 > - For SPA frontends (Vue/React) the frontend-aspect agent runs separately and handles UI — you design and document the DRF API contract (serializer fields + endpoint shape) it consumes. For traditional Django template projects, you render the views yourself.
 >
-> Read `settings.py` or the `settings/` split (`base.py`, `local.py`, `production.py`) to learn the Django version, installed apps, and auth configuration before writing code.
+> Read `settings.py` or the `settings/` split (`base.py`, `local.py`, `production.py`) to learn the installed apps and auth configuration before writing code. Take the Django version from `requirements.txt` / `pyproject.toml` or `python -m django --version` — settings do not carry it.
 >
 > Available Django management commands via `python manage.py`:
 > - `startapp <name>` — scaffold a new application
@@ -97,9 +108,14 @@ For qa phase, inject:
 >
 > ```python
 > # Django TestCase + Client example
+> from django.contrib.auth import get_user_model
 > from django.test import TestCase
 >
 > class OrderViewTest(TestCase):
+>     @classmethod
+>     def setUpTestData(cls):
+>         cls.user = get_user_model().objects.create_user('alice', password='pw')
+>
 >     def test_list_returns_200(self):
 >         self.client.force_login(self.user)
 >         response = self.client.get('/orders/')
@@ -109,6 +125,10 @@ For qa phase, inject:
 > from rest_framework.test import APITestCase
 >
 > class OrderAPITest(APITestCase):
+>     @classmethod
+>     def setUpTestData(cls):
+>         cls.user = get_user_model().objects.create_user('alice', password='pw')
+>
 >     def test_create_order(self):
 >         self.client.force_authenticate(user=self.user)
 >         response = self.client.post('/api/orders/', {'product': 'widget', 'qty': 2}, format='json')

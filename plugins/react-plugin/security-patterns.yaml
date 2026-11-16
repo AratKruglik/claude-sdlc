@@ -4,8 +4,3 @@ patterns:
     paths: ["**/*.tsx", "**/*.jsx", "**/*.ts", "**/*.js"]
     exclude_paths: ["**/*.test.*", "**/*.spec.*"]
     reminder: "dangerouslySetInnerHTML bypasses React's XSS protection. Sanitize with DOMPurify before use, or restructure to use React elements."
-
-  - rule_name: react_innerhtml_ref
-    regex: "\\.innerHTML\\s*="
-    paths: ["**/*.tsx", "**/*.jsx"]
-    reminder: "Direct innerHTML mutation in React bypasses the virtual DOM and enables XSS. Use React state and JSX rendering instead."

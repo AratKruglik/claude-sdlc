@@ -17,7 +17,7 @@ patterns:
     reminder: "pickle.load/loads() on untrusted data enables arbitrary code execution during deserialization. Use JSON, MessagePack, or another safe format for untrusted input. If pickle is unavoidable, validate the source cryptographically before deserializing."
 
   - rule_name: python_yaml_unsafe_load
-    regex: "\\byaml\\.load\\s*\\([^)]*(?!Loader\\s*=\\s*yaml\\.SafeLoader)[^)]*\\)"
+    regex: "\\byaml\\.load\\s*\\((?![^)]*Loader\\s*=\\s*(yaml\\.)?C?SafeLoader)"
     paths: ["**/*.py"]
     exclude_paths: ["**/test_*.py", "**/*_test.py", "**/tests/**", "**/test/**"]
     reminder: "yaml.load() without SafeLoader executes arbitrary Python. Always use yaml.safe_load() or yaml.load(data, Loader=yaml.SafeLoader)."
@@ -29,7 +29,7 @@ patterns:
     reminder: "Hardcoded secret detected. Read credentials from environment variables (os.environ, python-decouple, pydantic-settings) or a secrets manager — never from source code."
 
   - rule_name: python_sql_string_interpolation
-    regex: "(execute|executemany|raw|text)\\s*\\(\\s*[fF]['\"]|\\.(execute|executemany)\\s*\\([^)]*%\\s*[({]|\\.(execute|executemany)\\s*\\([^)]*\\.format\\s*\\("
+    regex: "\\b(execute|executemany|raw|text)\\s*\\(\\s*[fF]['\"]|\\.(execute|executemany)\\s*\\([^)]*%\\s*[({]|\\.(execute|executemany)\\s*\\([^)]*\\.format\\s*\\("
     paths: ["**/*.py"]
     exclude_paths: ["**/test_*.py", "**/*_test.py", "**/tests/**", "**/test/**"]
     reminder: "SQL string interpolation (f-strings, % formatting, .format()) risks injection. Use parameterized queries with placeholders: cursor.execute('SELECT ... WHERE id = %s', (id,)) or ORM query methods with bound parameters."

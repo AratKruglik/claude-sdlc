@@ -18,7 +18,7 @@ patterns:
     reminder: "A badCertificateCallback that returns true disables TLS verification for every connection on that client. Remove it from release code; use a proper CA bundle or certificate pinning instead."
 
   - rule_name: dart_sql_interpolation
-    regex: "(query|execute|rawQuery|rawInsert|rawUpdate|rawDelete)\\(\\s*['\"][^'\"]*\\$\\{?\\w"
+    regex: "(query|execute|rawQuery|rawInsert|rawUpdate|rawDelete)\\(\\s*('[^']*|\"[^\"]*)\\$\\{?\\w"
     paths: ["**/*.dart"]
     exclude_paths: ["**/test/**", "**/*_test.dart"]
     reminder: "String interpolation inside a SQL statement is SQL injection. Use the driver's parameter binding (? placeholders with an arguments list, or named substitution values)."

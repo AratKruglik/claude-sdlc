@@ -147,6 +147,7 @@ dependencies {
     implementation 'io.quarkus:quarkus-resteasy-reactive'
 
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 test {
@@ -164,7 +165,7 @@ test {
 ./gradlew dependencyUpdates  # with ben-manes/versions plugin
 ```
 
-### Java toolchain (Gradle 7.6+)
+### Java toolchain (Gradle 6.7+)
 
 Prefer `java { toolchain { ... } }` over `sourceCompatibility` / `targetCompatibility`. The toolchain block pins the JDK version independently of the JDK running Gradle itself, ensuring reproducibility across machines.
 

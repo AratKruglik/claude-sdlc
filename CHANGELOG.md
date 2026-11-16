@@ -21,10 +21,50 @@ Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [S
     `dart-plugin` from activating alongside it on a Flutter project.
   - Hooks for both: `dart format` per edited file, config protection for
     `analysis_options.yaml`, `dart analyze` / `flutter analyze` after the architect.
+- **Kotlin stack provider.** `kotlin-plugin` (priority 120, `backend`) detects the Kotlin JVM
+  plugin in `build.gradle(.kts)`, `gradle/libs.versions.toml` or `pom.xml` — above
+  `java-plugin` (100), below `spring-boot-plugin` (150). `kotlin-architect` plus
+  `kotlin-conventions`, `kotlin-coroutines` and `kotlin-testing`; Gradle tooling reused from
+  `java-foundation:build-tooling`. Hooks: Spotless / ktlintFormat on `.kt` edits, config
+  protection for `detekt*.yml`, `compileKotlin compileTestKotlin` after the architect.
+- **`project_shape` knows Kotlin tooling** — Kotest as the test framework, detekt / ktlint as
+  lint and ktlint as format when Spotless is absent, Kover as coverage.
 - **`run-tool.sh --lang dart`** — applies when `pubspec.yaml` exists in the project root.
 - **`project_shape` knows Dart and Flutter** — `detect-stack.sh` reports `dart` / `flutter` as
   the package manager, `dart test` / `flutter test`, `dart analyze` / `flutter analyze`,
   `dart format .`, coverage availability, and pub workspaces / melos as a monorepo.
+
+### Fixed
+
+Marketplace-wide audit of every stack plugin against current framework documentation.
+
+- **Detection.** `file_exists` rules now accept globs (`**/appsettings.json`), so
+  `aspnet-core-plugin` detects at all — the rule was read as a literal path and every .NET
+  project resolved to `vanilla`. `.slnx` solutions count as .NET. `nodejs-plugin` no longer
+  matches on `@types/node` / `engines`, which sent Vite SPAs to the backend architect and
+  halted Laravel and Symfony projects on a priority tie — a framework-less Node service now
+  needs `--stack=nodejs`. Django's `manage.py` rule checks the file content (Flask-Script
+  projects tied with Django); Django, FastAPI and Flask also read `Pipfile` / `setup.py` /
+  `setup.cfg`; `FastAPI==` matches case-insensitively; Spring Boot is found through a Gradle
+  version catalog.
+- **Hooks.** `dotnet format` received an absolute path and formatted nothing. Gradle projects
+  on `java-plugin` and `spring-boot-plugin` had no compile check (a second SubagentStop entry
+  runs `./gradlew -q compileJava`); `kotlin-plugin` gained the Maven counterpart.
+- **Security patterns.** `core_cloud_access_key` did not compile in Python `re`. Rules that
+  could not match their target or fired on safe code were rewritten and tested against
+  samples (PHP, Laravel, Symfony, Java, Spring, C#, ASP.NET, Python, Flask, FastAPI, JS,
+  Next.js, React Native); exact duplicates of foundation rules were removed.
+- **Guidance brought to current majors, with the older form kept as a one-line version
+  boundary:** Next.js 16 (async `params`/`cookies`, `proxy.ts`, uncached `fetch`,
+  `useActionState`, `updateTag`), NestJS 12 + Prisma 7, React Router 7/8, vue-router 5,
+  Angular 22 (Vitest default), RNTL 14, MMKV 4, Inertia 3 (lowercase `pages/`, Wayfinder),
+  Laravel 11–13 (Boost MCP tool names, policies, CSRF middleware, `db:table`), Symfony 7.4/8
+  (Voter signature, `EnumType`, non-destructive fixtures), Spring Boot 4 / Hibernate 6,
+  .NET 10 (EF tooling, config precedence, record example), FastAPI (PyJWT + pwdlib, explicit
+  commit), Flask (`flask check` does not exist), Django 5.1+/6.
+- **Docs.** Install commands in eight plugin READMEs pointed at the old `ROLIQUE/claude-plugins`
+  marketplace; "Stop hook" descriptions now match the PostToolUse / SubagentStop hooks that
+  ship.
 
 ## [2.2.0] — 2026-10-26 — marketplace v2.2.0 / sdlc v2.2.0
 

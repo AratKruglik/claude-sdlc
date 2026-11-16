@@ -101,7 +101,7 @@ Use `@dataclass` instead of plain dicts or ad-hoc objects for structured data. U
 
 ```python
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass(frozen=True)
@@ -115,7 +115,7 @@ class Money:
         if len(self.currency) != 3:
             raise ValueError(f"currency must be a 3-letter ISO code, got {self.currency!r}")
 
-    def add(self, other: Money) -> Money:
+    def __add__(self, other: Money) -> Money:
         if self.currency != other.currency:
             raise ValueError(f"currency mismatch: {self.currency} vs {other.currency}")
         return Money(self.amount + other.amount, self.currency)
@@ -125,7 +125,7 @@ class Money:
 class Order:
     order_id: str
     lines: list[OrderLine] = field(default_factory=list)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def total(self) -> Money:
         if not self.lines:

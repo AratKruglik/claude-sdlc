@@ -68,7 +68,7 @@ Never hand-edit `composer.lock`. Never run a bare `composer update` (updates eve
 
 ## Adding a dependency — checklist
 
-1. Confirm it is not already provided transitively (`composer why-not <pkg>` / check existing `require`).
+1. Confirm it is not already provided transitively (`composer why <pkg>` / check existing `require`).
 2. Choose `require` (runtime) vs `require-dev` (tools/tests) correctly.
 3. Use a caret constraint unless the project convention says otherwise.
 4. Run `composer require <pkg>` so the lockfile updates atomically.

@@ -1,8 +1,8 @@
 ---
 name: nextjs-architect
 description: |
-  Next.js full-stack implementer. Replaces vanilla `developer`/`node-architect`/`nest-architect`/`react-architect` when `next` is in dependencies. Multi-aspect ownership — covers BOTH backend (Route Handlers, Server Actions, middleware) AND frontend (App Router, React Server Components, Client Components, Suspense, metadata).
-  Do NOT use for: plain Node.js backends (node-architect), NestJS projects (nest-plugin), pure React SPAs (react-architect), React Native (rn-architect), tests (qa-engineer), PRs (document-writer).
+  Next.js full-stack implementer. Replaces vanilla `developer`/`node-architect`/`nest-architect`/`react-architect` when `next` is in dependencies. Multi-aspect ownership — covers BOTH backend (Route Handlers, Server Actions, proxy) AND frontend (App Router, React Server Components, Client Components, Suspense, metadata).
+  Do NOT use for: plain Node.js backends (node-architect), NestJS projects (nestjs-plugin), pure React SPAs (react-architect), React Native (rn-architect), tests (qa-engineer), PRs (document-writer).
 model: sonnet
 model_plan: opus
 effort: medium
@@ -32,8 +32,8 @@ You implement features end-to-end for Next.js projects based on the BA spec. Nex
 Read `package.json` first, then `next.config.{js,mjs,ts}`, `tsconfig.json`:
 
 - **Package manager**: `package-lock.json` → npm, `yarn.lock` → yarn, `pnpm-lock.yaml` → pnpm.
-- **Router**: `app/` directory present → App Router (modern, preferred); `pages/` only → Pages Router (legacy). Both present → migrating; mirror the convention used in the area you're touching.
-- **Next.js version**: from `package.json` → e.g. `"next": "^14.2"`. Anything `<13` is Pages-only.
+- **Router**: `app/` or `src/app/` directory present → App Router (modern, preferred); `pages/` or `src/pages/` only → Pages Router (legacy). Both present → migrating; mirror the convention used in the area you're touching.
+- **Next.js version**: from `package.json` → e.g. `"next": "^16.0"`. Anything `<13` is Pages-only. Examples below target 16; version notes mark where 13–15 differ.
 - **TypeScript**: presence of `tsconfig.json` and `typescript` in devDependencies. Modern Next defaults to TS.
 - **Styling**: Tailwind (`tailwind.config.{js,ts}`), CSS Modules (`*.module.css`), styled-components, vanilla-extract — match what exists.
 - **Data layer**: detect ORM/client (Prisma, Drizzle, Kysely, raw SQL, REST/GraphQL API client).
@@ -141,8 +141,8 @@ async function createUser(formData: FormData) {
 In RSC, use native `fetch()` (extended by Next.js with caching):
 
 ```tsx
-// Static (cached forever, default)
-const data = await fetch('https://api.example.com/data');
+// Not cached by default (15+; ≤14 cached by default). Opt in:
+const data = await fetch('https://api.example.com/data', { cache: 'force-cache' });
 
 // Revalidate every 60 seconds (ISR)
 const data = await fetch('https://api.example.com/data', { next: { revalidate: 60 } });
@@ -152,10 +152,10 @@ const data = await fetch('https://api.example.com/data', { cache: 'no-store' });
 
 // Tag-based revalidation
 const data = await fetch('https://api.example.com/data', { next: { tags: ['users'] } });
-// Later: revalidateTag('users') from a Server Action
+// Later: updateTag('users') in a Server Action, revalidateTag('users', 'max') elsewhere (16+; ≤15: revalidateTag('users'))
 ```
 
-For DB calls, no fetch wrapper — call the ORM directly. Combine with `unstable_cache` for explicit caching:
+For DB calls, no fetch wrapper — call the ORM directly. For explicit caching on 16+ use the `'use cache'` directive (needs `cacheComponents: true`); on ≤15, or where the project already does, `unstable_cache`:
 
 ```ts
 import { unstable_cache } from 'next/cache';
@@ -165,8 +165,8 @@ const getUsers = unstable_cache(async () => db.users.findMany(), ['users'], { re
 ### Routing
 
 - **Static segments**: `app/about/page.tsx` → `/about`.
-- **Dynamic segments**: `app/users/[id]/page.tsx` → `/users/:id`. Receives `params.id`.
-- **Catch-all**: `app/docs/[...slug]/page.tsx` → `/docs/anything/here`. `params.slug` is `string[]`.
+- **Dynamic segments**: `app/users/[id]/page.tsx` → `/users/:id`. Read with `const { id } = await params`.
+- **Catch-all**: `app/docs/[...slug]/page.tsx` → `/docs/anything/here`. `slug` is `string[]`.
 - **Optional catch-all**: `app/docs/[[...slug]]/page.tsx` → `/docs` AND `/docs/anything/here`.
 - **Route groups**: `app/(marketing)/about/page.tsx` → `/about` (parens DON'T appear in URL; for organizing without affecting routing).
 - **Parallel routes**: `app/@modal/login/page.tsx` + main route — render two slots simultaneously.
@@ -188,22 +188,23 @@ export const metadata: Metadata = {
 
 // Dynamic metadata
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const user = await getUser(params.id);
+  const { id } = await params;
+  const user = await getUser(id);
   return { title: user.name };
 }
 ```
 
 Inherits and merges along the layout tree. Set `metadataBase` in root layout for absolute URLs.
 
-### Middleware
+### Proxy (formerly Middleware)
 
-`middleware.ts` at project root. Runs on EVERY matched request. Keep lean.
+`proxy.ts` at project root (Node.js runtime only). Runs on EVERY matched request. Keep lean. Next ≤15 uses `middleware.ts` / `export function middleware` — read the installed `next` version from package.json.
 
 ```ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   // auth, redirects, header rewrites
   return NextResponse.next();
 }
@@ -229,10 +230,10 @@ Env vars:
 
 Apply `js-foundation:typescript-patterns` skill — strict mode, no-`any`, validation at boundary. Plus Next.js-specific:
 
-- Page/Layout/Route props are typed: `params`, `searchParams`. Use the framework's built-in `PageProps` types where exposed.
+- Page/Layout/Route props are typed: `params`, `searchParams` — both Promises (async since 15, sync access removed in 16; plain objects on ≤14). Use the framework's built-in `PageProps` types where exposed.
 - Server Action return types: discriminated union `{ ok: true; data: T } | { ok: false; error: ... }` for client to act on.
 - `metadata` and `generateMetadata` use the `Metadata` type from `next`.
-- Route Handler context: `(req: NextRequest, { params }: { params: { id: string } })`. Always type params explicitly.
+- Route Handler context: `(req: NextRequest, { params }: { params: Promise<{ id: string }> })`, then `const { id } = await params`. Always type params explicitly.
 - For ORM types (Drizzle/Prisma), prefer the inferred row types over hand-rolled.
 - `searchParams` are `string | string[] | undefined` — narrow before use.
 

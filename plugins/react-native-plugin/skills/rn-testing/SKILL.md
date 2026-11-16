@@ -37,14 +37,14 @@ Vitest is uncommon in RN — Jest's native module mocking and Metro integration 
 // jest.config.js
 module.exports = {
   preset: 'jest-expo',
-  setupFilesAfterEach: ['<rootDir>/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)/)',
   ],
 };
 ```
 
-Install: `pnpm add -D jest jest-expo @testing-library/react-native @testing-library/jest-native`.
+Install: `pnpm add -D jest jest-expo @testing-library/react-native`. Jest matchers (`toBeOnTheScreen` etc.) are built into RNTL since 12.4 — do not add the deprecated `@testing-library/jest-native`.
 
 ### Bare RN
 
@@ -52,20 +52,18 @@ Install: `pnpm add -D jest jest-expo @testing-library/react-native @testing-libr
 // jest.config.js
 module.exports = {
   preset: 'react-native',
-  setupFilesAfterEach: ['<rootDir>/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@react-navigation/.*|react-native-mmkv|react-native-reanimated)/)',
   ],
 };
 ```
 
-Install: `pnpm add -D jest @react-native/babel-preset @testing-library/react-native @testing-library/jest-native`.
+Install: `pnpm add -D jest @react-native/babel-preset @testing-library/react-native`.
 
 ### `jest.setup.ts`
 
 ```ts
-import '@testing-library/jest-native/extend-expect';
-
 // Common mocks for native modules
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 
@@ -86,20 +84,22 @@ import { render, screen, fireEvent } from '@testing-library/react-native';
 import { UserCard } from './UserCard';
 
 describe('UserCard', () => {
-  it('renders user name and email', () => {
-    render(<UserCard user={{ id: '1', name: 'Alice', email: 'a@b.c' }} />);
+  it('renders user name and email', async () => {
+    await render(<UserCard user={{ id: '1', name: 'Alice', email: 'a@b.c' }} />);
     expect(screen.getByText('Alice')).toBeOnTheScreen();
     expect(screen.getByText('a@b.c')).toBeOnTheScreen();
   });
 
-  it('calls onPress when card pressed', () => {
+  it('calls onPress when card pressed', async () => {
     const onPress = jest.fn();
-    render(<UserCard user={{ id: '1', name: 'Alice', email: 'a@b.c' }} onPress={onPress} />);
-    fireEvent.press(screen.getByLabelText('User card for Alice'));
+    await render(<UserCard user={{ id: '1', name: 'Alice', email: 'a@b.c' }} onPress={onPress} />);
+    await fireEvent.press(screen.getByLabelText('User card for Alice'));
     expect(onPress).toHaveBeenCalledWith('1');
   });
 });
 ```
+
+RNTL 14: `render`, `fireEvent`, `renderHook`, `rerender`, `act` are async — always `await` them. RNTL ≤13: synchronous — read the installed major from `package.json`.
 
 ### Query priority (RN-adapted)
 
@@ -113,7 +113,7 @@ describe('UserCard', () => {
 `fireEvent.press` is the RN equivalent of `userEvent.click`. For text input:
 
 ```tsx
-fireEvent.changeText(screen.getByLabelText('Email'), 'a@b.c');
+await fireEvent.changeText(screen.getByLabelText('Email'), 'a@b.c');
 ```
 
 For scroll, swipe, gesture interactions: more complex setup, often easier in e2e.
@@ -123,12 +123,12 @@ For scroll, swipe, gesture interactions: more complex setup, often easier in e2e
 ### Common patterns
 
 ```ts
-// react-native-mmkv
+// react-native-mmkv v4 (v2–3: mock the `MMKV` class and `delete` instead)
 jest.mock('react-native-mmkv', () => ({
-  MMKV: jest.fn().mockImplementation(() => ({
+  createMMKV: jest.fn(() => ({
     set: jest.fn(),
     getString: jest.fn(),
-    delete: jest.fn(),
+    remove: jest.fn(),
     contains: jest.fn(),
   })),
 }));
@@ -209,17 +209,17 @@ import { renderHook, act } from '@testing-library/react-native';
 import { useDebounce } from './useDebounce';
 
 describe('useDebounce', () => {
-  it('debounces value updates', () => {
+  it('debounces value updates', async () => {
     jest.useFakeTimers();
-    const { result, rerender } = renderHook(({ value }) => useDebounce(value, 300), {
+    const { result, rerender } = await renderHook(({ value }) => useDebounce(value, 300), {
       initialProps: { value: 'a' },
     });
     expect(result.current).toBe('a');
 
-    rerender({ value: 'b' });
+    await rerender({ value: 'b' });
     expect(result.current).toBe('a');
 
-    act(() => { jest.advanceTimersByTime(300); });
+    await act(() => { jest.advanceTimersByTime(300); });
     expect(result.current).toBe('b');
 
     jest.useRealTimers();
@@ -264,8 +264,8 @@ server.use(http.get('https://api.example.com/users', () => HttpResponse.error())
 import { render } from '@testing-library/react-native';
 import { UserCard } from './UserCard';
 
-it('matches snapshot', () => {
-  const { toJSON } = render(<UserCard user={{ id: '1', name: 'Alice', email: 'a@b.c' }} />);
+it('matches snapshot', async () => {
+  const { toJSON } = await render(<UserCard user={{ id: '1', name: 'Alice', email: 'a@b.c' }} />);
   expect(toJSON()).toMatchSnapshot();
 });
 ```

@@ -1,7 +1,7 @@
 ---
 name: angular-conventions
 description: |
-  Angular 18-21 project structure, standalone components vs NgModule, control flow (@if/@for/@switch + *ngIf/*ngFor legacy), decorators, dependency injection (inject() function), lifecycle hooks, pipes, Angular Universal SSR pointer.
+  Angular 18-22 project structure, standalone components vs NgModule, control flow (@if/@for/@switch + *ngIf/*ngFor legacy), decorators, dependency injection (inject() function), lifecycle hooks, pipes, Angular Universal SSR pointer.
 
   Use this skill to:
   - Detect project style (standalone vs NgModule) and apply matching patterns.

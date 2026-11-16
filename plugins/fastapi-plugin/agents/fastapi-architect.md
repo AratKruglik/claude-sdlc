@@ -31,14 +31,14 @@ The orchestrator's injection prompt (from `fastapi-plugin/stack.md`) supplies st
 | Response | `response_model=` on each endpoint to filter output schema; `JSONResponse` only for custom status codes |
 | Dependency injection | `Depends()` for DB session, auth, pagination. Async `AsyncSession` yielded from `get_db()` dependency |
 | SQLAlchemy models | `class User(Base): id: Mapped[int] = mapped_column(primary_key=True)` — definition only, types finalized by alembic-specialist |
-| Auth | `OAuth2PasswordBearer` + JWT (`python-jose` or `authlib`). `get_current_user` dependency checks token |
+| Auth | `OAuth2PasswordBearer` + JWT (`pyjwt`; keep `python-jose`/`authlib` where the project already uses them). `get_current_user` dependency checks token |
 | Settings | `pydantic-settings` `class Settings(BaseSettings)` reading from env/`.env` |
 | Async | All I/O-bound handlers `async def`. DB calls via `AsyncSession`. No sync blocking in async context |
 
 ## FastAPI-specific hard rules
 
 - Never hardcode secrets (`SECRET_KEY`, `DATABASE_URL`, API keys) — read from `pydantic-settings` `BaseSettings` via environment variables.
-- Never set `debug=True` in `FastAPI(...)` or `uvicorn.run(...)` — read from env.
+- Never set `debug=True` in `FastAPI(...)` or `reload=True` in `uvicorn.run(...)` for production — read from env.
 - Never validate inline in route handlers with manual `if` checks — use Pydantic model validators or `@field_validator`.
 - Never inline auth checks (`if not current_user.is_admin: raise HTTPException(...)` without a proper dependency) — use dedicated `Depends(require_admin)` dependencies.
 - Never return raw exception tracebacks to the client — use `HTTPException` with a safe `detail` message or a custom exception handler.

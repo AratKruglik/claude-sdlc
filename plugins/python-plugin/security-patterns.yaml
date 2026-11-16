@@ -12,7 +12,7 @@ patterns:
     reminder: "random module uses a Mersenne Twister PRNG that is not cryptographically secure. For security-sensitive use (tokens, session IDs, CSRF nonces, passwords) use the secrets module: secrets.token_urlsafe(), secrets.token_bytes(), secrets.randbelow()."
 
   - rule_name: python_app_path_traversal
-    regex: "open\\s*\\([^)]*(?:request|args|kwargs|params|user_input|getenv)[^)]*\\)"
+    regex: "(?<![\\w.])open\\s*\\([^)]*(?:request|args|kwargs|params|user_input|getenv)[^)]*\\)"
     paths: ["**/*.py"]
     exclude_paths: ["**/test_*.py", "**/*_test.py", "**/tests/**", "**/test/**"]
     reminder: "File open() with path derived from user input risks path traversal. Resolve the path with pathlib.Path.resolve() and verify it stays within the intended base directory: assert resolved_path.is_relative_to(base_dir)."

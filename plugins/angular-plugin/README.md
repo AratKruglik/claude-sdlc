@@ -1,6 +1,6 @@
 # angular-plugin
 
-Angular 18-21 SPA frontend stack provider for the [SDLC marketplace](../../README.md).
+Angular 18-22 SPA frontend stack provider for the [SDLC marketplace](../../README.md).
 
 Adds an Angular-specific implementation agent (`angular-architect`) and 5 skills covering modern conventions (standalone + NgModule equally, signals, new control flow), state management (signals + services + NgRx variants), Angular Router with functional guards, typed Reactive Forms, and TestBed-based testing. Activates automatically on projects with `@angular/core` in `package.json`. Priority=200 — opinionated full framework (like NestJS).
 
@@ -11,19 +11,19 @@ Adds an Angular-specific implementation agent (`angular-architect`) and 5 skills
 | Component | Purpose |
 |---|---|
 | `stack.md` | Stack profile, priority=200, aspects=[frontend]. |
-| `agents/angular-architect.md` | Opus-tier developer for Angular SPAs. Replaces vanilla `developer` for Angular projects. |
+| `agents/angular-architect.md` | Developer for Angular SPAs (Sonnet implement pass, Opus plan pass). Replaces vanilla `developer` for Angular projects. |
 | `skills/angular-conventions/` | Standalone components + NgModule fallback, project structure, control flow, decorators, DI via `inject()`, lifecycle, pipes, Angular Universal pointer. |
 | `skills/angular-state-and-rx/` | Signals (signal/computed/effect), services-as-state, NgRx Store + Effects + Selectors, NgRx Component Store, NgRx Signals, RxJS essentials, signal/observable interop. |
 | `skills/angular-routing/` | Angular Router, functional guards (canActivate as function), lazy loading, resolvers, typed params via signals/observables, route data and meta. |
 | `skills/angular-forms/` | Reactive Forms (typed FormGroup/FormControl, FormBuilder, custom + async validators, FormArray, multi-step), Template-driven fallback, server error mapping. |
-| `skills/angular-testing/` | TestBed, component harnesses (@angular/cdk/testing), Karma+Jasmine vs Jest detection, Angular Testing Library, HttpTestingController, NgRx Effects testing, Cypress/Playwright e2e. |
+| `skills/angular-testing/` | TestBed, component harnesses (@angular/cdk/testing), Vitest / Karma+Jasmine / Jest detection, Angular Testing Library, HttpTestingController, NgRx Effects testing, Cypress/Playwright e2e. |
 | `hooks/hooks.json` | Auto-format TS/HTML/SCSS/CSS via Prettier + ESLint after Edit/Write (silent if not installed). |
 
 ## What it does NOT cover
 
 - **Angular Universal (SSR/SSG)** — pointer only. SPA-focused plugin. For full SSR, separate plugin or feature-specific spec.
 - **Ionic Angular** — different ecosystem (mobile-focused).
-- **Older Angular (<17)** — patterns mentioned but plugin targets 18-21 modern era.
+- **Older Angular (<17)** — patterns mentioned but plugin targets 18-22 modern era.
 - **AngularJS (1.x)** — completely different framework, out of scope.
 - **React / Vue / etc.** — separate framework plugins.
 - **Backend code** — `nodejs-plugin` / `nestjs-plugin`.
@@ -44,8 +44,8 @@ Adds an Angular-specific implementation agent (`angular-architect`) and 5 skills
 ## Installation
 
 ```
-/plugin marketplace add ROLIQUE/claude-plugins
-/plugin install angular-plugin@claude-plugins
+/plugin marketplace add AratKruglik/claude-sdlc
+/plugin install angular-plugin@sdlc-marketplace
 ```
 
 `sdlc` core and `js-foundation` install automatically as dependencies.
@@ -114,17 +114,17 @@ For new code in mixed projects, prefer standalone unless team has a strict consi
 | `yarn.lock` | `yarn test --watch=false`, `yarn run lint`, `yarn build` |
 | (default) | `npm test -- --watch=false`, `npm run lint --if-present`, `npm run build` |
 
-NOTE: NO plain `tsc --noEmit` — Angular templates are not pure TS. `ng build` (Angular Compiler) does AOT compilation + template type-check + DI validation, the most valuable single check. `--watch=false` flag prevents `ng test` (Karma default) from hanging in watch mode.
+NOTE: the SubagentStop hook also runs `tsc --noEmit -p tsconfig.json` as a quick TS-only check, but Angular templates are not pure TS (and on the CLI's solution-style `tsconfig.json` it checks nothing). `ng build` (Angular Compiler) does AOT compilation + template type-check + DI validation, the most valuable single check. `--watch=false` flag prevents `ng test` from hanging in watch mode.
 
 The `angular-architect` agent applies the same detection for any install/script invocations during development.
 
 ## Local override
 
-To customize per-project (e.g., Nx/Turborepo monorepo runners, Jest instead of Karma, custom builders), create `.claude/sdlc.local.yaml` in the project root and set `post_pipeline_checks` explicitly. Recognized top-level keys: `post_pipeline_checks` (replaces plugin defaults), `phase_command_overrides` (passed as context to agents), `extra_phase_prompts` (appends per-phase guidance), `skip_phases`, `convention_skills_extra`.
+To customize per-project (e.g., Nx/Turborepo monorepo runners, Jest or Karma instead of Vitest, custom builders), create `.claude/sdlc.local.yaml` in the project root and set `post_pipeline_checks` explicitly. Recognized top-level keys: `post_pipeline_checks` (replaces plugin defaults), `phase_command_overrides` (passed as context to agents), `extra_phase_prompts` (appends per-phase guidance), `skip_phases`, `convention_skills_extra`.
 
 ## Coverage scope (v0.0.1)
 
-This plugin covers the **full Angular 18-21 SPA surface**:
+This plugin covers the **full Angular 18-22 SPA surface**:
 - Standalone components + NgModule equally — both styles supported.
 - Signals + services + all NgRx variants (Store, Component Store, Signals).
 - Reactive Forms (typed) + Template-driven fallback.

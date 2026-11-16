@@ -1,7 +1,7 @@
 ---
 name: angular-state-and-rx
 description: |
-  State management for Angular 18-21: signals (signal/computed/effect), services-as-state, NgRx Store + Effects + Selectors, NgRx Component Store, NgRx Signals (newer signal-based store). RxJS essentials — operators, async pipe, takeUntilDestroyed, signal/observable interop.
+  State management for Angular 18-22: signals (signal/computed/effect), services-as-state, NgRx Store + Effects + Selectors, NgRx Component Store, NgRx Signals (newer signal-based store). RxJS essentials — operators, async pipe, takeUntilDestroyed, signal/observable interop.
 
   Use this skill to:
   - Pick the right state tool (signals / services / NgRx variant / vue-query equivalent).
@@ -22,7 +22,7 @@ paths: ["src/**/*.ts"]
 
 # Angular State + RxJS Patterns
 
-Modern Angular era (17+) introduces signals as a first-class reactivity primitive alongside RxJS. Both have a place — signals для component state, RxJS для async streams. Plus optional NgRx variants for complex apps.
+Modern Angular era (17+) introduces signals as a first-class reactivity primitive alongside RxJS. Both have a place — signals for component state, RxJS for async streams. Plus optional NgRx variants for complex apps.
 
 ## Decision tree
 
@@ -31,9 +31,9 @@ Modern Angular era (17+) introduces signals as a first-class reactivity primitiv
 | Local component state (count, isOpen) | `signal()` |
 | Computed from other state | `computed()` |
 | Side effects on signal change | `effect()` (sparingly) |
-| Cross-component shared state | `@Injectable({ providedIn: 'root' })` service з signals |
-| Server data with caching | TanStack Query Angular OR custom RxJS service з shareReplay |
-| Complex domain state з time-travel debugging | NgRx Store + Effects + Selectors |
+| Cross-component shared state | `@Injectable({ providedIn: 'root' })` service with signals |
+| Server data with caching | TanStack Query Angular OR custom RxJS service with shareReplay |
+| Complex domain state with time-travel debugging | NgRx Store + Effects + Selectors |
 | Lightweight per-component reactive store | NgRx Component Store |
 | Signal-based store API | `@ngrx/signals` (Angular 17+) |
 | URL state | `ActivatedRoute` snapshot / queryParams |
@@ -235,15 +235,16 @@ For when you need `subscribe()` directly:
 ```ts
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { inject, Component, OnInit } from '@angular/core';
+import { inject, Component, DestroyRef, OnInit } from '@angular/core';
 
 @Component({ ... })
 export class UserDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private destroyRef = inject(DestroyRef);
 
   ngOnInit() {
     this.route.params
-      .pipe(takeUntilDestroyed())          // automatic cleanup tied to component
+      .pipe(takeUntilDestroyed(this.destroyRef))  // automatic cleanup tied to component
       .subscribe((params) => {
         // ...
       });

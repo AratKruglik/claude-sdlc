@@ -5,19 +5,8 @@ patterns:
     exclude_paths: ["**/*.spec.ts"]
     reminder: "SQL built by string interpolation with DTO/param data enables SQL injection. Use TypeORM parameterized queries or QueryBuilder with setParameter()."
 
-  - rule_name: nestjs_child_process_exec
-    regex: "(?:child_process|require\\(['\"]child_process['\"]\\)).*\\.exec\\s*\\("
-    paths: ["**/*.ts"]
-    reminder: "child_process.exec() passes input through a shell. Use execFile() or spawn() with an args array."
-
   - rule_name: nestjs_unsafe_eval
     substrings: ["eval("]
     paths: ["**/*.ts"]
     exclude_paths: ["**/*.spec.ts"]
     reminder: "eval() executes arbitrary code. Refactor to a static approach or a safe sandbox."
-
-  - rule_name: nestjs_class_transformer_unsafe
-    regex: "plainToInstance|plainToClass"
-    paths: ["**/*.ts"]
-    exclude_paths: ["**/*.spec.ts"]
-    reminder: "plainToInstance/plainToClass with excludeExtraneousValues:false may populate unexpected properties. Always pair with @Exclude() on the class and validate the resulting DTO."

@@ -28,7 +28,7 @@ The single most important skill for working in App Router. Get the boundary wron
 - **Client Component** — rendered on the client (after initial HTML hydration). Has access to: hooks, browser APIs, event handlers. Does NOT have: server-only modules, secrets, async/await directly in the component body (the function itself isn't async; data flows in via props or hooks).
 - **Server Actions** — async functions marked `"use server"`. Callable from Client Components but execute on the server. Form-friendly via `<form action={action}>`.
 
-**Default = RSC.** A file is RSC unless its first non-import line is `"use client"`.
+**Default = RSC.** A file is RSC unless `"use client"` is the first statement, above all imports.
 
 ## When to add `"use client"`
 
@@ -173,8 +173,9 @@ import { db } from '@/lib/db';
 import { auth } from '@/lib/auth';
 
 const CreateUserSchema = z.object({ email: z.string().email(), name: z.string().min(1) });
+type State = { ok: false; error: unknown } | null;
 
-export async function createUser(formData: FormData) {
+export async function createUser(prevState: State, formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error('unauthorized');
 
@@ -211,20 +212,22 @@ export default async function UsersPage() {
 // _components/CreateUserForm.tsx
 'use client';
 import { createUser } from '../actions';
-import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
 
 export function CreateUserForm() {
-  const [state, formAction] = useFormState(createUser, null);
+  const [state, formAction, pending] = useActionState(createUser, null);
   return (
     <form action={formAction}>
       <input name="email" />
       <input name="name" />
-      <button>Create</button>
+      <button disabled={pending}>Create</button>
       {state?.ok === false && <p>{JSON.stringify(state.error)}</p>}
     </form>
   );
 }
 ```
+
+With `useActionState` the action receives the previous state first: `createUser(prevState: State, formData: FormData)`.
 
 Or directly from event handlers:
 
@@ -242,10 +245,10 @@ export function DeleteButton({ id }: { id: string }) {
 1. **Authorize at the top of every Server Action.** They are public RPC endpoints.
 2. **Validate input.** FormData and arguments come from the network — treat as untrusted.
 3. **Don't return secrets.** Return values are sent to the client.
-4. **Use `revalidatePath` / `revalidateTag` after mutations** — otherwise the client sees stale data.
-5. **Configure `serverActions.allowedOrigins` in `next.config.js`** for production CORS-like protection.
+4. **Use `revalidatePath` / `updateTag` (16+; `revalidateTag` on ≤15) after mutations** — otherwise the client sees stale data.
+5. **Same-origin is enforced by default.** Set `experimental.serverActions.allowedOrigins` in `next.config.js` only when the app runs behind a proxy with a different origin.
 
-## `useFormStatus` and `useFormState`
+## `useFormStatus` and `useActionState`
 
 ```tsx
 'use client';
@@ -257,7 +260,7 @@ function SubmitButton() {
 }
 ```
 
-`useFormStatus` MUST be inside a `<form action={...}>`. Pairs with `useFormState` for return-value propagation.
+`useFormStatus` MUST be inside a `<form action={...}>`. Pairs with `useActionState` for return-value propagation (React 19 / Next 15+; Next ≤14 uses `useFormState` from `react-dom` — read the installed `next` version from package.json).
 
 ## Suspense and streaming
 
@@ -289,13 +292,13 @@ The shell (`<h1>`) renders immediately; users and orders stream in independently
 import { cookies, headers } from 'next/headers';
 
 export default async function Page() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get('session')?.value;
   // ...
 }
 ```
 
-In Next.js 15+, `cookies()` and `headers()` return Promises — `await` them.
+`cookies()` and `headers()` are async since 15; sync access was removed in 16 (≤14: no `await`).
 
 ## Anti-patterns
 

@@ -72,7 +72,7 @@ Key finalization rules:
 - `Numeric(precision=10, scale=2)` — never `Float` for money or precise decimals.
 - `DateTime(timezone=True)` — always set `timezone=True` for timestamps.
 - `ForeignKey("table.column", ondelete="CASCADE")` — always set `ondelete` explicitly.
-- `relationship(..., lazy="selectin", cascade="all, delete-orphan")` — always set `lazy` and `cascade` explicitly. Never `lazy="dynamic"` (deprecated in SQLAlchemy 2.0).
+- `relationship(..., lazy="selectin", cascade="all, delete-orphan")` — always set `lazy` and `cascade` explicitly. Never `lazy="dynamic"` (legacy in SQLAlchemy 2.0, not asyncio-compatible — use `lazy="write_only"` for large collections).
 - Composite indexes via `Index("ix_name", "col1", "col2")` in `__table_args__`.
 - Unique constraints via `UniqueConstraint("col1", "col2", name="uq_name")` in `__table_args__`.
 

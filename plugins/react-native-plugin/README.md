@@ -9,7 +9,7 @@ Adds a React Native-specific implementation agent (`rn-architect`) and 5 skills 
 | Component | Purpose |
 |---|---|
 | `stack.md` | Stack profile, priority=300, aspects=[frontend]. |
-| `agents/rn-architect.md` | Opus-tier developer for React Native. Replaces vanilla `developer` and `react-architect` for RN projects. |
+| `agents/rn-architect.md` | Developer for React Native (Sonnet implement pass, Opus plan pass). Replaces vanilla `developer` and `react-architect` for RN projects. |
 | `skills/rn-conventions/` | Expo vs bare workflow detection, project layouts (Expo Router + classic), `app.json`/`app.config.js`, asset/font handling, styling approaches, Fast Refresh. |
 | `skills/rn-platform-specific/` | `Platform.OS`/`Platform.select`, `.ios.tsx`/`.android.tsx` extensions, native modules (autolinking + Expo SDK), permissions, safe area, status bar. |
 | `skills/rn-navigation/` | React Navigation v7 (Native Stack / Tabs / Drawer), Expo Router (file-based), typed navigation, deep linking, modal presentation, auth flow. |
@@ -29,7 +29,7 @@ Adds a React Native-specific implementation agent (`rn-architect`) and 5 skills 
 
 ## Cross-plugin skill reuse
 
-`react-native-plugin` declares `dependencies: ["sdlc", "nodejs-plugin"]` in `plugin.json` — Claude Code auto-installs `nodejs-plugin` when you install this. The stack profile references skills from both plugins in `convention_skills`:
+`react-native-plugin` declares `dependencies: ["sdlc", "js-foundation"]` in `plugin.json` — Claude Code auto-installs `js-foundation` when you install this. The stack profile references skills from both plugins in `convention_skills`:
 
 - `js-foundation:typescript-patterns` — strict TypeScript discipline.
 - `js-foundation:npm-patterns` — package manager detection, semver, lockfile hygiene.
@@ -42,11 +42,11 @@ Adds a React Native-specific implementation agent (`rn-architect`) and 5 skills 
 ## Installation
 
 ```
-/plugin marketplace add ROLIQUE/claude-plugins
-/plugin install react-native-plugin@claude-plugins
+/plugin marketplace add AratKruglik/claude-sdlc
+/plugin install react-native-plugin@sdlc-marketplace
 ```
 
-`sdlc` core and `nodejs-plugin` install automatically as dependencies.
+`sdlc` core and `js-foundation` install automatically as dependencies.
 
 ## Usage
 

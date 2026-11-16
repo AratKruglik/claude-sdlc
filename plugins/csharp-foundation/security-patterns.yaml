@@ -18,7 +18,7 @@ patterns:
     reminder: "String concatenation in SQL commands risks SQL injection. Use parameterized queries (SqlParameter / NpgsqlParameter) or an ORM (EF Core) with parameterized LINQ instead of raw string-built SQL."
 
   - rule_name: csharp_hardcoded_secret
-    regex: "(?i)(password|secret|api_?key|token|connectionstring|apiSecret)\\s*=\\s*\"[^\"]{4,}\""
+    regex: "(?i)\"?(password|secret|api_?key|token|connectionstring|apiSecret)\"?\\s*[=:]\\s*\"[^\"]{4,}\""
     paths: ["**/*.cs", "**/*.json", "**/*.yaml", "**/*.yml", "**/*.xml"]
     exclude_paths: ["**/*Test*.cs", "**/*Tests.cs", "**/Tests/**", "**/test/**", "**/appsettings.Development.json", "**/*.example.*"]
     reminder: "Hardcoded secret detected. Read credentials from environment variables, IConfiguration (appsettings + env overrides), or a secrets manager (Azure Key Vault, AWS Secrets Manager). Never commit secrets to source control."

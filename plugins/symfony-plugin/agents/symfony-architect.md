@@ -53,8 +53,6 @@ Use Symfony's CLI via Bash (no MCP server for Symfony). In Dockerized setups pre
 | Validate DI wiring | `php bin/console lint:container` |
 | List routes | `php bin/console debug:router` |
 | Inspect a service | `php bin/console debug:container <id>` |
-| Auto-format | `vendor/bin/php-cs-fixer fix` |
-| Static analysis | `vendor/bin/phpstan analyse` (if installed) |
 
 ## Project shape detection
 

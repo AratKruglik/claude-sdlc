@@ -53,13 +53,15 @@ What is new in 2.0.0, and why each one is a breaking change:
 /plugin install nextjs-plugin@sdlc-marketplace   # Next.js (full-stack)
 /plugin install react-plugin@sdlc-marketplace    # React SPA
 /plugin install vue-plugin@sdlc-marketplace      # Vue 3 SPA
-/plugin install angular-plugin@sdlc-marketplace  # Angular 18-21
+/plugin install angular-plugin@sdlc-marketplace  # Angular 18-22
 /plugin install react-native-plugin@sdlc-marketplace  # React Native / Expo
 # or for Python projects:
 /plugin install django-plugin@sdlc-marketplace   # Django + DRF
 /plugin install fastapi-plugin@sdlc-marketplace  # FastAPI + SQLAlchemy 2.0
 /plugin install flask-plugin@sdlc-marketplace    # Flask + Flask-Migrate
 /plugin install python-plugin@sdlc-marketplace   # Plain Python (CLI/library/scripts)
+# or for Kotlin/JVM projects:
+/plugin install kotlin-plugin@sdlc-marketplace   # Kotlin (Ktor/CLI/library)
 # or for Dart / Flutter projects:
 /plugin install flutter-plugin@sdlc-marketplace  # Flutter (mobile/web/desktop)
 /plugin install dart-plugin@sdlc-marketplace     # Plain Dart (CLI/package/shelf/dart_frog)
@@ -159,19 +161,20 @@ Some technologies are supersets of others. Next.js is React + a server. NestJS i
 | Priority | Plugin | Aspects | Detect |
 |---|---|---|---|
 | 0 | `vanilla` (sdlc) | — | `*` (always matches) |
-| 100 | `nodejs-plugin` | backend | `package.json` + express/fastify/koa/... |
+| 100 | `nodejs-plugin` | backend | `package.json` + express/fastify/koa/hapi/hono (framework-less Node: `--stack=nodejs`) |
 | 100 | `laravel-plugin` | backend, database | `composer.json` + `laravel/framework` |
 | 100 | `symfony-plugin` | backend, database | `composer.json` + `symfony/framework-bundle` |
 | 100 | `java-plugin` | backend | `pom.xml` or `build.gradle` or `build.gradle.kts` |
-| 100 | `aspnet-core-plugin` | backend, database | `appsettings.json` |
+| 100 | `aspnet-core-plugin` | backend, database | `appsettings.json` in the root or up to 4 levels deep |
 | 100 | `python-plugin` | backend | `pyproject.toml` or `requirements.txt` or `setup.py` or `Pipfile` |
 | 100 | `dart-plugin` | backend | `pubspec.yaml` |
+| 120 | `kotlin-plugin` | backend | Kotlin JVM plugin in `build.gradle(.kts)` / `libs.versions.toml` / `pom.xml` |
 | 150 | `react-plugin` | frontend | `package.json` + `react` (without `next`, `react-native`) |
 | 150 | `vue-plugin` | frontend | `package.json` + `vue` |
-| 150 | `spring-boot-plugin` | backend | any build file + `spring-boot` marker |
-| 150 | `django-plugin` | backend, database | `manage.py` or Django in `pyproject.toml`/`requirements.txt` |
-| 150 | `fastapi-plugin` | backend, database | `fastapi` in `pyproject.toml`/`requirements.txt` |
-| 150 | `flask-plugin` | backend, database | `Flask` in `pyproject.toml`/`requirements.txt` |
+| 150 | `spring-boot-plugin` | backend | any build file or `gradle/libs.versions.toml` + `spring-boot` marker |
+| 150 | `django-plugin` | backend, database | Django `manage.py`, or Django in `pyproject.toml`/`requirements.txt`/`Pipfile`/`setup.py` |
+| 150 | `fastapi-plugin` | backend, database | `fastapi` in `pyproject.toml`/`requirements.txt`/`Pipfile`/`setup.py` |
+| 150 | `flask-plugin` | backend, database | `Flask` in `pyproject.toml`/`requirements.txt`/`Pipfile`/`setup.py` |
 | 175 | `inertia-vue-plugin` | frontend | `package.json` + `@inertiajs/vue3` |
 | 175 | `inertia-react-plugin` | frontend | `package.json` + `@inertiajs/react` |
 | 200 | `nestjs-plugin` | backend, database | `package.json` + `@nestjs/core` |
@@ -703,6 +706,7 @@ Development-phase agents carry a second tier in `model_plan` — resolved for th
 | `inertia-react-architect` | inertia-react | `sonnet` | `opus` | `medium` | Inertia.js + React server-driven pages, no React Router |
 | `inertia-vue-architect` | inertia-vue | `sonnet` | `opus` | `medium` | Inertia.js + Vue 3 server-driven pages, no client-side router |
 | `java-architect` | java | `sonnet` | `opus` | `medium` | Plain Java — records, domain objects, build tooling |
+| `kotlin-architect` | kotlin | `sonnet` | `opus` | `medium` | Kotlin/JVM — Ktor, coroutines, null-safe domain types |
 | `laravel-architect` | laravel | `sonnet` | `opus` | `medium` | Laravel idioms + Inertia props contract |
 | `nest-architect` | nestjs | `sonnet` | `opus` | `medium` | Convention skills carry per-domain depth |
 | `nextjs-architect` | nextjs | `sonnet` | `opus` | `medium` | RSC/Client patterns well-defined by spec and convention skills |
@@ -840,7 +844,7 @@ less margin at stake.
 | `nextjs-plugin` | Stack provider | Next.js App Router (full-stack) |
 | `react-plugin` | Stack provider | React SPA (Vite/Webpack) |
 | `vue-plugin` | Stack provider | Vue 3 SPA |
-| `angular-plugin` | Stack provider | Angular 18-21 |
+| `angular-plugin` | Stack provider | Angular 18-22 |
 | `react-native-plugin` | Stack provider | React Native / Expo |
 | `flutter-plugin` | Stack provider | Flutter (mobile / web / desktop) |
 | `dart-plugin` | Stack provider | Plain Dart (CLI / package / shelf / dart_frog) |
@@ -850,6 +854,7 @@ less margin at stake.
 | `symfony-plugin` | Stack provider | Symfony + Doctrine ORM + Twig / API Platform |
 | `java-plugin` | Stack provider | Plain Java (Maven/Gradle, no web framework) |
 | `spring-boot-plugin` | Stack provider | Spring Boot REST + Spring Data JPA + Flyway/Liquibase |
+| `kotlin-plugin` | Stack provider | Kotlin/JVM (Ktor / CLI / library) |
 | `aspnet-core-plugin` | Stack provider | ASP.NET Core Web API + EF Core (.NET 6+) |
 
 ### Optional external dependencies
@@ -877,6 +882,7 @@ less margin at stake.
 | Vanilla Node.js | nodejs (100) | node-architect |
 | Plain Java (no framework) | java (100) | java-architect |
 | Spring Boot REST API | spring-boot (150) | spring-boot-architect |
+| Ktor service (Kotlin) | kotlin (120) | kotlin-architect (java-plugin stays inactive) |
 | ASP.NET Core Web API + EF Core | aspnet-core (100) | aspnet-core-architect (backend) + efcore-specialist (db) |
 | ASP.NET Core + React SPA | aspnet-core (100) + react (150) | aspnet-core-architect (backend) + efcore-specialist (db) + react-architect (frontend) |
 | Unknown stack | vanilla (0) | developer (fallback) |

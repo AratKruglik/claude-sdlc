@@ -107,7 +107,8 @@ test('cart adds items', () {
 });
 ```
 
-- Recent Riverpod versions ship `ProviderContainer.test()` which disposes automatically — use it when available.
+- Riverpod 3 ships `ProviderContainer.test()`, which disposes automatically — use it when available.
+- Riverpod 3 retries failing providers by default, so an error-state test can hang or see `AsyncLoading` instead of `AsyncError`. Disable it in tests: `ProviderContainer.test(retry: (_, __) => null)` / `ProviderScope(retry: (_, __) => null, …)` in the `pumpApp` helper.
 - For async providers: `await container.read(ordersProvider.future)`.
 - Listen to transitions with `container.listen(provider, listener.call, fireImmediately: true)` and a mocktail `Listener` to assert loading → data.
 

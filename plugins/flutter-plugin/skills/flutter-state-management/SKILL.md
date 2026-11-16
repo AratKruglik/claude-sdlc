@@ -96,6 +96,9 @@ class Cart extends _$Cart {
 - Family/parameterized providers for per-id data: `ref.watch(orderProvider(orderId))`.
 - Mutations in an `AsyncNotifier`: set `state = const AsyncLoading()` then `state = await AsyncValue.guard(() => repo.save(...))`.
 - Dependencies are providers too — override them in tests and flavors (`ProviderScope(overrides: [...])`).
+- Check the major version in `pubspec.lock` before writing provider code:
+  - **Riverpod 3**: one `Ref` type (no `FooRef`, no generic); `StateProvider` / `StateNotifierProvider` / `ChangeNotifierProvider` live in `package:flutter_riverpod/legacy.dart`; `Override` and similar helper types in `misc.dart`. A failing provider is **retried automatically** — pass `retry: (count, error) => null` on the provider (or on `ProviderScope`) where a failure must surface immediately, e.g. a 401 or a validation error.
+  - **Riverpod 2**: code-gen functions take a generated `FooRef`; there is no automatic retry.
 
 ## Bloc / Cubit
 

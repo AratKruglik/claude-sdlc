@@ -25,7 +25,7 @@ paths: ["**/*.cs", "**/*.csproj", "appsettings*.json"]
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Configuration (auto-loaded: appsettings.json → appsettings.{Env}.json → env vars → User Secrets in dev)
+// 1. Configuration (auto-loaded: appsettings.json → appsettings.{Env}.json → User Secrets in dev → env vars → command line)
 // Override or extend:
 builder.Configuration.AddEnvironmentVariables(prefix: "MYAPP_");
 
@@ -308,8 +308,8 @@ ASP.NET Core reads configuration in this order (later sources override earlier o
 
 1. `appsettings.json`
 2. `appsettings.{Environment}.json` (e.g., `appsettings.Production.json`)
-3. Environment variables (use `__` for nesting: `Jwt__Secret`)
-4. User Secrets (development only — `dotnet user-secrets set "Jwt:Secret" "..."`)
+3. User Secrets (development only — `dotnet user-secrets set "Jwt:Secret" "..."`)
+4. Environment variables (use `__` for nesting: `Jwt__Secret`)
 5. Command-line arguments
 
 **Never commit secrets** — `appsettings.Development.json` is for non-sensitive dev overrides only. Use User Secrets locally, environment variables in CI, and Key Vault / Secrets Manager in production.
