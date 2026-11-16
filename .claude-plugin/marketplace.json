@@ -152,6 +152,21 @@
       "name": "flask-plugin",
       "source": "./plugins/flask-plugin",
       "description": "Flask backend + database stack provider (priority=150). Detects Flask in pyproject.toml/requirements.txt. Provides flask-architect (Sonnet/medium — app factory, Blueprints, views, Flask-Login/JWT auth, Jinja2 templates or JSON API, Marshmallow/WTForms, SQLAlchemy model definitions) and flask-migrate-specialist (Sonnet/low — Flask-Migrate: flask db migrate, SQL review, flask db upgrade, flask db check) agents plus flask-conventions and sqlalchemy-patterns skills. Reuses python-foundation skills. Extra database phase after development."
+    },
+    {
+      "name": "dart-foundation",
+      "source": "./plugins/dart-foundation",
+      "description": "Shared Dart foundation skills for the SDLC marketplace. Contains stack-agnostic Dart conventions (dart-conventions — Dart 3 null safety, records, patterns, sealed and class modifiers, async discipline, Effective Dart), dart-tooling (pubspec constraints, pub workspaces/melos, analysis_options + lints, dart format/analyze/fix, build_runner) and dart-testing (package:test, mocktail, async/stream matchers, coverage). No agent, no stack profile — pure shared library. Referenced by dart-plugin and flutter-plugin."
+    },
+    {
+      "name": "dart-plugin",
+      "source": "./plugins/dart-plugin",
+      "description": "Plain Dart backend stack provider (priority=100). Detects any pubspec.yaml project. Adds dart-architect agent (Sonnet/medium) for pub packages, CLI tools and HTTP servers (shelf, dart_frog, dart:io). Stays inactive on Flutter projects, where flutter-plugin (300) claims both aspects. Reuses dart-foundation skills."
+    },
+    {
+      "name": "flutter-plugin",
+      "source": "./plugins/flutter-plugin",
+      "description": "Flutter stack provider (priority=300, backend + frontend). Detects sdk: flutter in pubspec.yaml. Mobile, web and desktop targets; widgets, theming, accessibility, gen-l10n; Riverpod / Bloc / Provider (follows what is installed); go_router / auto_route / Navigator with deep links; widget, golden and integration tests. Adds flutter-architect agent (Sonnet/medium). Reuses dart-foundation skills."
     }
   ]
 }

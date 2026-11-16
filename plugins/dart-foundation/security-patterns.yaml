@@ -1,0 +1,30 @@
+patterns:
+  - rule_name: dart_process_run_shell
+    regex: "Process\\.(run|start|runSync)\\([^)]*runInShell:\\s*true"
+    paths: ["**/*.dart"]
+    exclude_paths: ["**/test/**", "**/*_test.dart"]
+    reminder: "Process.run/start with runInShell: true passes arguments through a shell — user-controlled input becomes command injection. Pass the executable and an argument list without a shell, and validate every argument."
+
+  - rule_name: dart_hardcoded_secret
+    regex: "(?i)(password|secret|api_?key|token|credential)\\s*=\\s*['\"][A-Za-z0-9_\\-]{12,}['\"]"
+    paths: ["**/*.dart"]
+    exclude_paths: ["**/test/**", "**/*_test.dart", "**/*.g.dart"]
+    reminder: "Hardcoded secret detected. Server code reads secrets from Platform.environment or a secrets manager; app code never holds real secrets — --dart-define values are compiled into the binary and extractable."
+
+  - rule_name: dart_bad_certificate_callback
+    substrings: ["badCertificateCallback"]
+    paths: ["**/*.dart"]
+    exclude_paths: ["**/test/**", "**/*_test.dart"]
+    reminder: "A badCertificateCallback that returns true disables TLS verification for every connection on that client. Remove it from release code; use a proper CA bundle or certificate pinning instead."
+
+  - rule_name: dart_sql_interpolation
+    regex: "(query|execute|rawQuery|rawInsert|rawUpdate|rawDelete)\\(\\s*['\"][^'\"]*\\$\\{?\\w"
+    paths: ["**/*.dart"]
+    exclude_paths: ["**/test/**", "**/*_test.dart"]
+    reminder: "String interpolation inside a SQL statement is SQL injection. Use the driver's parameter binding (? placeholders with an arguments list, or named substitution values)."
+
+  - rule_name: dart_cleartext_http
+    regex: "['\"]http://(?!localhost|127\\.0\\.0\\.1|10\\.0\\.2\\.2)"
+    paths: ["**/*.dart"]
+    exclude_paths: ["**/test/**", "**/*_test.dart"]
+    reminder: "Cleartext HTTP leaks traffic and tokens. Use HTTPS; Android 9+ and iOS ATS block cleartext by default and should stay that way in release builds."

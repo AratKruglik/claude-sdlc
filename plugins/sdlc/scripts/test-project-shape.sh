@@ -106,6 +106,23 @@ assert_field "case4 xunit" '.test_framework' "xunit" "$OUT"
 assert_field "case4 dotnet test" '.test_command' "dotnet test" "$OUT"
 assert_field "case4 coverlet" '.coverage_available' "true" "$OUT"
 
+REPO="$TMP_ROOT/flutter"; mkdir -p "$REPO"
+printf 'name: app\ndependencies:\n  flutter:\n    sdk: flutter\nworkspace:\n  - packages/core\n' > "$REPO/pubspec.yaml"
+OUT=$(shape "$REPO")
+assert_field "case4 flutter" '.package_manager' "flutter" "$OUT"
+assert_field "case4 flutter test" '.test_command' "flutter test" "$OUT"
+assert_field "case4 flutter analyze" '.lint_command' "flutter analyze" "$OUT"
+assert_field "case4 flutter coverage" '.coverage_available' "true" "$OUT"
+assert_field "case4 pub workspace" '.monorepo' "true" "$OUT"
+
+REPO="$TMP_ROOT/dart"; mkdir -p "$REPO"
+printf 'name: srv\ndev_dependencies:\n  test: ^1.25.0\n' > "$REPO/pubspec.yaml"
+OUT=$(shape "$REPO")
+assert_field "case4 dart" '.package_manager' "dart" "$OUT"
+assert_field "case4 dart test" '.test_command' "dart test" "$OUT"
+assert_field "case4 dart format" '.format_command' "dart format ." "$OUT"
+assert_field "case4 dart without coverage pkg" '.coverage_available' "false" "$OUT"
+
 # ── Case 5: empty repo → nulls, never a crash ──
 REPO="$TMP_ROOT/empty"; mkdir -p "$REPO"
 OUT=$(shape "$REPO")

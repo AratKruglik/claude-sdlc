@@ -1,0 +1,34 @@
+patterns:
+  - rule_name: flutter_shared_prefs_secrets
+    regex: "(?i)\\.set(String|StringList)\\(\\s*['\"][^'\"]*(token|secret|password|credential|api_?key)"
+    paths: ["**/*.dart"]
+    exclude_paths: ["**/test/**", "**/*_test.dart"]
+    reminder: "SharedPreferences is plaintext on disk (NSUserDefaults / XML on Android). Store tokens and secrets in flutter_secure_storage (Keychain / EncryptedSharedPreferences) instead."
+
+  - rule_name: flutter_webview_unrestricted_js
+    substrings: ["JavaScriptMode.unrestricted"]
+    paths: ["**/*.dart"]
+    exclude_paths: ["**/test/**", "**/*_test.dart"]
+    reminder: "A WebView with unrestricted JavaScript that loads a dynamic URL runs attacker-controlled script. Allowlist origins in a NavigationDelegate, keep JavaScript disabled unless required, and never expose secrets via JavaScriptChannel."
+
+  - rule_name: flutter_deep_link_unvalidated
+    regex: "(uriLinkStream|getInitialLink|getInitialUri|GoRouterState[^;]*\\.(uri|pathParameters|uri\\.queryParameters))"
+    paths: ["**/*.dart"]
+    exclude_paths: ["**/test/**", "**/*_test.dart"]
+    reminder: "Deep-link URIs and route parameters are attacker-controlled input. Validate scheme/host and every parameter before navigating, loading a WebView, or triggering auth or payment flows."
+
+  - rule_name: flutter_debug_logging
+    regex: "(print|debugPrint)\\([^)]*(token|password|secret|authorization)"
+    paths: ["**/*.dart"]
+    exclude_paths: ["**/test/**", "**/*_test.dart"]
+    reminder: "Logging credentials leaks them into device logs (Android logcat is readable by attached tools and, on older versions, other apps). Never log tokens or passwords; use a logger that is silenced in release builds."
+
+  - rule_name: flutter_android_cleartext
+    substrings: ["android:usesCleartextTraffic=\"true\""]
+    paths: ["**/AndroidManifest.xml"]
+    reminder: "usesCleartextTraffic=\"true\" re-enables plaintext HTTP for the whole app. Use HTTPS; if a single dev host needs HTTP, scope it with a network_security_config limited to debug builds."
+
+  - rule_name: flutter_ios_ats_disabled
+    substrings: ["NSAllowsArbitraryLoads"]
+    paths: ["**/Info.plist"]
+    reminder: "NSAllowsArbitraryLoads disables App Transport Security for every connection. Remove it, or use a per-domain NSExceptionDomains entry with a justification App Review will accept."

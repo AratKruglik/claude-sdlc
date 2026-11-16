@@ -3,6 +3,29 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [Unreleased]
+
+### Added
+
+- **Dart and Flutter stack providers.** Three new plugins, following the `*-foundation` +
+  stack-provider split the Java, Python, PHP and C# stacks use:
+  - `dart-foundation` — shared skills, no agent or stack profile: `dart-conventions`
+    (Dart 3 null safety, records, patterns, sealed and class modifiers, async discipline),
+    `dart-tooling` (pubspec constraints, pub workspaces/melos, analysis_options, format/analyze/fix,
+    build_runner) and `dart-testing` (package:test, mocktail, async/stream matchers, coverage).
+  - `dart-plugin` (priority 100, `backend`) — detects `pubspec.yaml`; `dart-architect` for
+    packages, CLIs and shelf / dart_frog / `dart:io` servers.
+  - `flutter-plugin` (priority 300, `backend` + `frontend`) — detects `sdk: flutter` in
+    `pubspec.yaml`; `flutter-architect` plus `flutter-conventions`, `flutter-state-management`,
+    `flutter-navigation` and `flutter-testing`. Claiming `backend` too is what keeps
+    `dart-plugin` from activating alongside it on a Flutter project.
+  - Hooks for both: `dart format` per edited file, config protection for
+    `analysis_options.yaml`, `dart analyze` / `flutter analyze` after the architect.
+- **`run-tool.sh --lang dart`** — applies when `pubspec.yaml` exists in the project root.
+- **`project_shape` knows Dart and Flutter** — `detect-stack.sh` reports `dart` / `flutter` as
+  the package manager, `dart test` / `flutter test`, `dart analyze` / `flutter analyze`,
+  `dart format .`, coverage availability, and pub workspaces / melos as a monorepo.
+
 ## [2.2.0] — 2026-10-26 — marketplace v2.2.0 / sdlc v2.2.0
 
 A smaller orchestrator skill and explicit invocation rules. Only `sdlc` is bumped; every other

@@ -98,6 +98,12 @@ sdlc-marketplace/
 │   │   └── agents/angular-architect.md  ← sonnet + model_plan:opus
 │   ├── react-native-plugin/             ← React Native mobile (priority: 300)
 │   │   └── agents/rn-architect.md       ← sonnet + model_plan:opus
+│   ├── dart-foundation/                 ← shared Dart skills, no stack profile
+│   │   └── skills/                      ← dart-conventions, dart-tooling, dart-testing
+│   ├── dart-plugin/                     ← plain Dart backend (priority: 100)
+│   │   └── agents/dart-architect.md     ← sonnet + model_plan:opus
+│   ├── flutter-plugin/                  ← Flutter, backend + frontend (priority: 300)
+│   │   └── agents/flutter-architect.md  ← sonnet + model_plan:opus
 │   │
 │   └── laravel-plugin/
 │       ├── .claude-plugin/plugin.json   ← dependencies: sdlc

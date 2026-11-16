@@ -60,6 +60,9 @@ What is new in 2.0.0, and why each one is a breaking change:
 /plugin install fastapi-plugin@sdlc-marketplace  # FastAPI + SQLAlchemy 2.0
 /plugin install flask-plugin@sdlc-marketplace    # Flask + Flask-Migrate
 /plugin install python-plugin@sdlc-marketplace   # Plain Python (CLI/library/scripts)
+# or for Dart / Flutter projects:
+/plugin install flutter-plugin@sdlc-marketplace  # Flutter (mobile/web/desktop)
+/plugin install dart-plugin@sdlc-marketplace     # Plain Dart (CLI/package/shelf/dart_frog)
 
 # 3. Install optional plugins
 /plugin marketplace add mattpocock/skills
@@ -162,6 +165,7 @@ Some technologies are supersets of others. Next.js is React + a server. NestJS i
 | 100 | `java-plugin` | backend | `pom.xml` or `build.gradle` or `build.gradle.kts` |
 | 100 | `aspnet-core-plugin` | backend, database | `appsettings.json` |
 | 100 | `python-plugin` | backend | `pyproject.toml` or `requirements.txt` or `setup.py` or `Pipfile` |
+| 100 | `dart-plugin` | backend | `pubspec.yaml` |
 | 150 | `react-plugin` | frontend | `package.json` + `react` (without `next`, `react-native`) |
 | 150 | `vue-plugin` | frontend | `package.json` + `vue` |
 | 150 | `spring-boot-plugin` | backend | any build file + `spring-boot` marker |
@@ -174,6 +178,7 @@ Some technologies are supersets of others. Next.js is React + a server. NestJS i
 | 200 | `angular-plugin` | frontend | `package.json` + `@angular/core` |
 | 250 | `nextjs-plugin` | backend, frontend | `package.json` + `next` |
 | 300 | `react-native-plugin` | frontend | `package.json` + `react-native` |
+| 300 | `flutter-plugin` | backend, frontend | `pubspec.yaml` + `sdk: flutter` |
 
 ---
 
@@ -626,11 +631,11 @@ the hooks are the default.
 ### Stack hooks resolve the toolchain: local first, Docker second, skip otherwise
 
 Every stack plugin's formatter hook and its `post-implement-check` call go through
-`plugins/sdlc/hooks/run-tool.sh --lang <php|node|python|java|dotnet> -- <command>`:
+`plugins/sdlc/hooks/run-tool.sh --lang <php|node|python|java|dotnet|dart> -- <command>`:
 
 1. **Applicability.** The language must be present in the project (`composer.json`,
    `package.json`, `pyproject.toml`/`requirements*.txt`, `pom.xml`/`build.gradle*`,
-   `*.csproj`/`*.sln`). A PHP hook in a Node repo does nothing.
+   `*.csproj`/`*.sln`, `pubspec.yaml`). A PHP hook in a Node repo does nothing.
 2. **Explicit runner.** `phase_command_overrides.development.{lang}_runner` in
    `.claude/sdlc.local.yaml` wins — `php` forces local, `docker compose exec -T app php` forces
    that service.
@@ -689,9 +694,11 @@ Development-phase agents carry a second tier in `model_plan` — resolved for th
 | `qa-engineer` | sdlc | `sonnet` | — | `medium` | Tests against clear criteria; hard 3-attempt cap keeps cost in check |
 | `document-writer` | sdlc | `haiku` | — | `low` | Structured output from known facts; ~5x cheaper than Opus |
 | `angular-architect` | angular | `sonnet` | `opus` | `medium` | Angular standalone/NgModule, signals, NgRx |
+| `dart-architect` | dart | `sonnet` | `opus` | `medium` | Plain Dart — packages, CLIs, shelf/dart_frog servers |
 | `aspnet-core-architect` | aspnet-core | `sonnet` | `opus` | `medium` | Minimal API / MVC, DTOs, FluentValidation, DI, authorization, HTTPS/HSTS |
 | `django-architect` | django | `sonnet` | `opus` | `medium` | Django views, DRF ViewSets/serializers, URLconf, models |
 | `fastapi-architect` | fastapi | `sonnet` | `opus` | `medium` | APIRouter, Pydantic v2, Depends, async SQLAlchemy, OAuth2/JWT |
+| `flutter-architect` | flutter | `sonnet` | `opus` | `medium` | Flutter data layer + UI; follows the installed state/router packages |
 | `flask-architect` | flask | `sonnet` | `opus` | `medium` | App factory, Blueprints, Flask-Login/JWT, Marshmallow/WTForms |
 | `inertia-react-architect` | inertia-react | `sonnet` | `opus` | `medium` | Inertia.js + React server-driven pages, no React Router |
 | `inertia-vue-architect` | inertia-vue | `sonnet` | `opus` | `medium` | Inertia.js + Vue 3 server-driven pages, no client-side router |
@@ -827,6 +834,7 @@ less margin at stake.
 | `php-foundation` | Shared lib | PHP 8 conventions + Composer + PHPUnit/Pest (no stack profile) |
 | `java-foundation` | Shared lib | Java conventions + Maven/Gradle + JVM testing (no stack profile) |
 | `csharp-foundation` | Shared lib | C# conventions + dotnet CLI/NuGet + xUnit/Moq/FluentAssertions (no stack profile) |
+| `dart-foundation` | Shared lib | Dart 3 conventions + pub/lints/build_runner + package:test/mocktail (no stack profile) |
 | `nodejs-plugin` | Stack provider | Express / Fastify / Koa / plain Node.js |
 | `nestjs-plugin` | Stack provider | NestJS + TypeORM/Prisma/Mongoose |
 | `nextjs-plugin` | Stack provider | Next.js App Router (full-stack) |
@@ -834,6 +842,8 @@ less margin at stake.
 | `vue-plugin` | Stack provider | Vue 3 SPA |
 | `angular-plugin` | Stack provider | Angular 18-21 |
 | `react-native-plugin` | Stack provider | React Native / Expo |
+| `flutter-plugin` | Stack provider | Flutter (mobile / web / desktop) |
+| `dart-plugin` | Stack provider | Plain Dart (CLI / package / shelf / dart_frog) |
 | `inertia-vue-plugin` | Stack provider | Inertia.js + Vue 3 (Laravel backend) |
 | `inertia-react-plugin` | Stack provider | Inertia.js + React (Laravel backend) |
 | `laravel-plugin` | Stack provider | Laravel + Eloquent + Artisan + Inertia |
@@ -862,6 +872,8 @@ less margin at stake.
 | NestJS + Angular | nestjs (200) + angular (200) | nest-architect (backend) + angular-architect (frontend) |
 | Next.js (full-stack) | nextjs (250) | nextjs-architect (owns backend + frontend) |
 | Expo mobile | react-native (300) | rn-architect (frontend) |
+| Flutter app | flutter (300) | flutter-architect (owns backend + frontend; dart-plugin stays inactive) |
+| Dart server / CLI / package | dart (100) | dart-architect |
 | Vanilla Node.js | nodejs (100) | node-architect |
 | Plain Java (no framework) | java (100) | java-architect |
 | Spring Boot REST API | spring-boot (150) | spring-boot-architect |

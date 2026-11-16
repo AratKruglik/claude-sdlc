@@ -95,6 +95,8 @@ shape_package_manager() {
     elif has_file pom.xml; then echo maven
     elif has_file build.gradle || has_file build.gradle.kts; then echo gradle
     elif glob_exists '*.sln' || glob_exists '*.csproj'; then echo dotnet
+    elif has_file pubspec.yaml; then
+        if grep -Eq 'sdk:[[:space:]]*flutter' "${repo}/pubspec.yaml" 2>/dev/null; then echo flutter; else echo dart; fi
     fi
 }
 
@@ -155,6 +157,8 @@ shape_test_framework() {
             elif grep -rqs --include='*.csproj' 'NUnit' "${repo}" 2>/dev/null; then echo nunit
             elif grep -rqs --include='*.csproj' 'MSTest' "${repo}" 2>/dev/null; then echo mstest
             fi ;;
+        flutter) echo flutter_test ;;
+        dart) grep -Eq '^[[:space:]]+test:' "${repo}/pubspec.yaml" 2>/dev/null && echo dart_test ;;
     esac
 }
 
@@ -178,6 +182,8 @@ shape_test_command() {
         maven)  if has_file mvnw; then echo "./mvnw test"; else echo "mvn test"; fi ;;
         gradle) if has_file gradlew; then echo "./gradlew test"; else echo "gradle test"; fi ;;
         dotnet) echo "dotnet test" ;;
+        flutter) echo "flutter test" ;;
+        dart) [ "$fw" = dart_test ] && echo "dart test" ;;
     esac
 }
 
@@ -200,6 +206,7 @@ shape_lint_command() {
         maven)  grep -q spotless "${repo}/pom.xml" 2>/dev/null && { if has_file mvnw; then echo "./mvnw -q spotless:check"; else echo "mvn -q spotless:check"; fi; } ;;
         gradle) grep -qs spotless "${repo}/build.gradle" "${repo}/build.gradle.kts" 2>/dev/null && { if has_file gradlew; then echo "./gradlew spotlessCheck"; else echo "gradle spotlessCheck"; fi; } ;;
         dotnet) echo "dotnet format --verify-no-changes" ;;
+        flutter|dart) echo "$pm analyze" ;;
     esac
 }
 
@@ -222,6 +229,7 @@ shape_format_command() {
         maven)  grep -q spotless "${repo}/pom.xml" 2>/dev/null && { if has_file mvnw; then echo "./mvnw -q spotless:apply"; else echo "mvn -q spotless:apply"; fi; } ;;
         gradle) grep -qs spotless "${repo}/build.gradle" "${repo}/build.gradle.kts" 2>/dev/null && { if has_file gradlew; then echo "./gradlew spotlessApply"; else echo "gradle spotlessApply"; fi; } ;;
         dotnet) echo "dotnet format" ;;
+        flutter|dart) echo "dart format ." ;;
     esac
 }
 
@@ -251,6 +259,8 @@ shape_coverage_available() {
         pytest) toml_dep pytest-cov || grep -qs pytest-cov "${repo}/requirements-dev.txt" "${repo}/requirements.txt" 2>/dev/null ;;
         junit) grep -qs jacoco "${repo}/pom.xml" "${repo}/build.gradle" "${repo}/build.gradle.kts" 2>/dev/null ;;
         xunit|nunit|mstest) grep -rqs --include='*.csproj' coverlet "${repo}" 2>/dev/null ;;
+        flutter_test) return 0 ;;
+        dart_test) grep -Eq '^[[:space:]]+coverage:' "${repo}/pubspec.yaml" 2>/dev/null ;;
         *) return 1 ;;
     esac
 }
@@ -263,7 +273,8 @@ shape_ci() {
 }
 
 shape_monorepo() {
-    json_has_key package.json '.workspaces' || has_file pnpm-workspace.yaml || has_file nx.json || has_file turbo.json
+    json_has_key package.json '.workspaces' || has_file pnpm-workspace.yaml || has_file nx.json || has_file turbo.json \
+        || has_file melos.yaml || grep -Eq '^workspace:' "${repo}/pubspec.yaml" 2>/dev/null
 }
 
 project_shape() {

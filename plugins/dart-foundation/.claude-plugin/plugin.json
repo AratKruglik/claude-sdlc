@@ -1,0 +1,22 @@
+{
+  "name": "dart-foundation",
+  "version": "2.1.0",
+  "description": "Shared Dart foundation skills for the SDLC marketplace: dart-conventions (Dart 3 null safety, records, patterns, sealed and class modifiers, async discipline, Effective Dart), dart-tooling (pubspec constraints, pub workspaces, analysis_options + lints, format/analyze/fix, build_runner) and dart-testing (package:test, mocktail, async and stream matchers, coverage). Referenced by dart-plugin and flutter-plugin. No agent, no stack profile — pure shared library.",
+  "author": {
+    "name": "Oleksii Kruhlyk",
+    "url": "https://github.com/AratKruglik"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/AratKruglik/claude-sdlc",
+  "keywords": [
+    "dart",
+    "pub",
+    "null-safety",
+    "shared",
+    "foundation",
+    "sdlc"
+  ],
+  "dependencies": [
+    "sdlc"
+  ]
+}

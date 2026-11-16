@@ -63,7 +63,7 @@ stub_guards "${DEV}/sdlc/hooks"
 STUBS="${TMP_ROOT}/bin"
 LOG="${TMP_ROOT}/formatter.log"
 mkdir -p "$STUBS"
-for tool in ruff npx dotnet; do
+for tool in ruff npx dotnet dart flutter; do
     printf '#!/bin/sh\necho "%s $*" >> "%s"\n' "$tool" "$LOG" > "${STUBS}/${tool}"
 done
 printf '#!/bin/sh\nexit 1\n' > "${STUBS}/docker"
@@ -83,7 +83,7 @@ for tool in mvnw gradlew vendor/bin/pint vendor/bin/php-cs-fixer; do
 done
 # Language markers run-tool.sh uses to decide a stack applies to the project at all, and the
 # local npm binaries it requires before it treats `npx --no-install <pkg>` as installed.
-: > "${PROJ}/composer.json"; : > "${PROJ}/pyproject.toml"; : > "${PROJ}/App.csproj"
+: > "${PROJ}/composer.json"; : > "${PROJ}/pyproject.toml"; : > "${PROJ}/App.csproj"; : > "${PROJ}/pubspec.yaml"
 mkdir -p "${PROJ}/node_modules/.bin"
 for tool in prettier eslint; do
     printf '#!/bin/sh\necho "%s $*" >> "%s"\n' "$tool" "$LOG" > "${PROJ}/node_modules/.bin/${tool}"

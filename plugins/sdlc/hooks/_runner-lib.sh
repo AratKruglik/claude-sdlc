@@ -50,6 +50,7 @@ runner_applicable() {
                 || [ -f "$root/Pipfile" ] || ls "$root"/requirements*.txt >/dev/null 2>&1
             ;;
         java)   [ -f "$root/pom.xml" ] || [ -f "$root/build.gradle" ] || [ -f "$root/build.gradle.kts" ] ;;
+        dart)   [ -f "$root/pubspec.yaml" ] ;;
         dotnet)
             find "$root" -maxdepth 2 \( -name '*.sln' -o -name '*.csproj' \) -print -quit 2>/dev/null | grep -q .
             ;;
