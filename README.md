@@ -133,29 +133,29 @@ What is new in 2.0.0, and why each one is a breaking change:
 ## How It Works: Stack Provider Pattern
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    sdlc (core)                               │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  pipeline-orchestrator (skill) — NEVER CHANGES        │  │
-│  │                                                       │  │
-│  │  Phase 1: BA          → core's business-analyst       │  │
-│  │  Phase 2: Dev         → ⚡ DISPATCH to stack provider │  │
-│  │  Phase X: extra       → ⚡ stack-specific phases      │  │
-│  │  Phase N-2: QA        → core's qa-engineer            │  │
-│  │  Phase N-1: Security  → core's security-analyst       │  │
-│  │  Phase N: Docs/PR     → core's document-writer        │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                            ▲                                │
-│                            │ reads stack.md profiles        │
-└────────────────────────────┼────────────────────────────────┘
-                             │
-    ┌────────────────────────┼───────────────────────────┐
-    │            │           │             │             │
-┌───▼───┐  ┌────▼────┐ ┌────▼────┐  ┌────▼────┐  ┌────▼────┐
-│laravel│  │ nodejs  │ │  nestjs │  │ nextjs  │  │  react  │
-│plugin │  │ plugin  │ │  plugin │  │ plugin  │  │  plugin │
-│stack.md│ │ stack.md│ │stack.md │  │stack.md │  │stack.md │
-└───────┘  └─────────┘ └─────────┘  └─────────┘  └─────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                         sdlc (core)                          │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │ pipeline-orchestrator (skill) - NEVER CHANGES          │  │
+│  │                                                        │  │
+│  │ Phase 1: BA          -> core's business-analyst        │  │
+│  │ Phase 2: Dev         => DISPATCH to stack provider     │  │
+│  │ Phase X: extra       => stack-specific phases          │  │
+│  │ Phase N-2: QA        -> core's qa-engineer             │  │
+│  │ Phase N-1: Security  -> core's security-analyst        │  │
+│  │ Phase N: Docs/PR     -> core's document-writer         │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                              ▲                               │
+│                              │ reads stack.md profiles       │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+     ┌────────────┬────────────┼────────────┬────────────┐
+     │            │            │            │            │
+┌────▼─────┐ ┌────▼─────┐ ┌────▼─────┐ ┌────▼─────┐ ┌────▼─────┐
+│ laravel  │ │  nodejs  │ │  nestjs  │ │  nextjs  │ │  react   │
+│  plugin  │ │  plugin  │ │  plugin  │ │  plugin  │ │  plugin  │
+│ stack.md │ │ stack.md │ │ stack.md │ │ stack.md │ │ stack.md │
+└──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘
 ```
 
 **Key principles:**
