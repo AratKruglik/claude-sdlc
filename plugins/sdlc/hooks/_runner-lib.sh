@@ -51,6 +51,10 @@ runner_applicable() {
             ;;
         java)   [ -f "$root/pom.xml" ] || [ -f "$root/build.gradle" ] || [ -f "$root/build.gradle.kts" ] ;;
         dart)   [ -f "$root/pubspec.yaml" ] ;;
+        swift)
+            [ -f "$root/Package.swift" ] || [ -f "$root/Project.swift" ] || [ -f "$root/Tuist.swift" ] || [ -f "$root/project.yml" ] \
+                || ls -d "$root"/*.xcodeproj >/dev/null 2>&1 || ls -d "$root"/*.xcworkspace >/dev/null 2>&1
+            ;;
         dotnet)
             find "$root" -maxdepth 3 \( -name '*.sln' -o -name '*.slnx' -o -name '*.csproj' \) -print -quit 2>/dev/null | grep -q .
             ;;

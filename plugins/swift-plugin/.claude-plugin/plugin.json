@@ -1,0 +1,25 @@
+{
+  "name": "swift-plugin",
+  "version": "2.4.0",
+  "description": "Plain Swift backend stack provider for the SDLC marketplace (priority=100). Detects Package.swift and registers a swift-architect agent (Sonnet/medium) as the development-phase backend implementer for SwiftPM libraries, command-line tools (swift-argument-parser) and HTTP servers (Vapor, Hummingbird). Xcode app projects are claimed by apple-plugin (priority 300, backend + frontend), so swift-plugin stays inactive there. Reuses shared skills from swift-foundation (swift-conventions, swift-tooling, swift-testing).",
+  "author": {
+    "name": "Oleksii Kruhlyk",
+    "url": "https://github.com/AratKruglik"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/AratKruglik/claude-sdlc",
+  "keywords": [
+    "swift",
+    "swiftpm",
+    "vapor",
+    "hummingbird",
+    "cli",
+    "backend",
+    "sdlc",
+    "stack-provider"
+  ],
+  "dependencies": [
+    "sdlc",
+    "swift-foundation"
+  ]
+}

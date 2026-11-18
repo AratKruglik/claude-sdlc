@@ -1,0 +1,18 @@
+patterns:
+  - rule_name: swift_server_cors_wildcard
+    regex: "allowedOrigin:\\s*\\.all"
+    paths: ["**/*.swift"]
+    exclude_paths: ["**/Tests/**", "**/*Tests.swift"]
+    reminder: "A wildcard CORS origin lets any site call this API from a victim's browser. Use .custom / .any([...]) with the real frontend origins, and never combine a wildcard with allowCredentials: true."
+
+  - rule_name: swift_server_path_from_request
+    regex: "(FileManager|FileIO|fileio|URL\\(fileURLWithPath:)[^\\n]*(req|request)\\.(parameters|query|url)"
+    paths: ["**/*.swift"]
+    exclude_paths: ["**/Tests/**", "**/*Tests.swift"]
+    reminder: "A file path built from the request is a path-traversal risk. Standardize the path, resolve it against a fixed base directory and verify the result stays inside it; serve static files through FileMiddleware."
+
+  - rule_name: swift_server_raw_sql
+    regex: "\\.raw\\(\\s*\"[^\"]*\\\\\\((?!bind:)"
+    paths: ["**/*.swift"]
+    exclude_paths: ["**/Tests/**", "**/*Tests.swift"]
+    reminder: "Plain \\(value) interpolation inside an SQLKit raw query splices the value into the SQL text. Use \\(bind: value) or the query builder."

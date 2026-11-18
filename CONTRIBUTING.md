@@ -56,6 +56,9 @@ detect:
 
 `detect` takes `any` (OR) or `all` (AND). Rules are `file_exists`, `file_contains`, or the
 literal `"*"` — the last one is reserved for the vanilla profile.
+A `file_exists` glob that starts with `**/` matches a file by name up to four levels deep
+(`**/appsettings.json`); any other glob is anchored to the project root and may name a directory
+(`*.xcodeproj`), so an `ios/` subproject of a Flutter or React Native app does not match.
 
 The body declares, in prose the orchestrator reads: `agents_per_phase`, per-phase prompt
 injections, the convention skills to apply, `post_pipeline_checks`, and any `extra_phases`.

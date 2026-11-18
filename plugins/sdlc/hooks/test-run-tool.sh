@@ -96,6 +96,15 @@ probe=$(run --lang php --probe -- ./vendor/bin/pint x.php)
 assert_contains "probe reports applicable=false" '"applicable":false' "$probe"
 assert_contains "probe reports mode none" '"mode":"none"' "$probe"
 
+fresh_project xcode-only
+mkdir -p "$PROJ/App.xcodeproj"
+probe=$(run --lang swift --probe -- swiftlint lint)
+assert_contains "swift applies to a project with only an .xcodeproj" '"applicable":true' "$probe"
+fresh_project xcode-nested
+mkdir -p "$PROJ/ios/Runner.xcodeproj"
+probe=$(run --lang swift --probe -- swiftlint lint)
+assert_contains "swift does not apply to a nested ios/ project" '"applicable":false' "$probe"
+
 # ── local resolution ───────────────────────────────────────────────────────────
 
 fresh_project php-local

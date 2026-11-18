@@ -81,6 +81,11 @@ glob_exists() {
     for m in "${repo}"/$1; do [ -e "$m" ] && return 0; done
     return 1
 }
+swift_imports() {
+    # $1 = module; true when a Swift source outside build output imports it
+    grep -rqsE --include='*.swift' --exclude-dir=.build --exclude-dir=Pods --exclude-dir=DerivedData \
+        "^(@testable )?import $1\$" "${repo}" 2>/dev/null
+}
 
 shape_package_manager() {
     if has_file pnpm-lock.yaml; then echo pnpm
@@ -97,6 +102,9 @@ shape_package_manager() {
     elif glob_exists '*.sln' || glob_exists '*.slnx' || glob_exists '*.csproj'; then echo dotnet
     elif has_file pubspec.yaml; then
         if grep -Eq 'sdk:[[:space:]]*flutter' "${repo}/pubspec.yaml" 2>/dev/null; then echo flutter; else echo dart; fi
+    elif glob_exists '*.xcodeproj' || glob_exists '*.xcworkspace' || has_file Project.swift || has_file Tuist.swift \
+        || { has_file project.yml && grep -Eq '^targets:' "${repo}/project.yml" 2>/dev/null; }; then echo xcode
+    elif has_file Package.swift; then echo swiftpm
     fi
 }
 
@@ -162,6 +170,10 @@ shape_test_framework() {
             fi ;;
         flutter) echo flutter_test ;;
         dart) grep -Eq '^[[:space:]]+test:' "${repo}/pubspec.yaml" 2>/dev/null && echo dart_test ;;
+        swiftpm|xcode)
+            if swift_imports Testing; then echo swift_testing
+            elif swift_imports XCTest; then echo xctest
+            fi ;;
     esac
 }
 
@@ -187,6 +199,7 @@ shape_test_command() {
         dotnet) echo "dotnet test" ;;
         flutter) echo "flutter test" ;;
         dart) [ "$fw" = dart_test ] && echo "dart test" ;;
+        swiftpm) [ -n "$fw" ] && echo "swift test" ;;
     esac
 }
 
@@ -215,6 +228,7 @@ shape_lint_command() {
             fi ;;
         dotnet) echo "dotnet format --verify-no-changes" ;;
         flutter|dart) echo "$pm analyze" ;;
+        swiftpm|xcode) has_file .swiftlint.yml && echo "swiftlint lint" ;;
     esac
 }
 
@@ -242,6 +256,10 @@ shape_format_command() {
             fi ;;
         dotnet) echo "dotnet format" ;;
         flutter|dart) echo "dart format ." ;;
+        swiftpm|xcode)
+            if has_file .swift-format; then echo "swift format --in-place --recursive ."
+            elif has_file .swiftformat; then echo "swiftformat ."
+            fi ;;
     esac
 }
 
@@ -259,6 +277,7 @@ shape_typecheck_command() {
             if has_file mypy.ini || json_toml_has mypy; then echo "mypy ."
             elif json_toml_has pyright || has_file pyrightconfig.json; then echo "pyright"
             fi ;;
+        swiftpm) echo "swift build --build-tests" ;;
     esac
 }
 
@@ -273,6 +292,7 @@ shape_coverage_available() {
         xunit|nunit|mstest) grep -rqs --include='*.csproj' coverlet "${repo}" 2>/dev/null ;;
         flutter_test) return 0 ;;
         dart_test) grep -Eq '^[[:space:]]+coverage:' "${repo}/pubspec.yaml" 2>/dev/null ;;
+        swift_testing|xctest) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -452,11 +472,16 @@ evaluate_rule() {
             path=$(jq -r '.file_exists' <<<"$rule")
             RULE_DESC="$path"
             case "$path" in
-                *'*'*)
-                    # Glob rule (`**/name`, `*.ext`): match by basename up to 4 levels deep,
+                '**/'*)
+                    # Deep glob (`**/name`): match by basename up to 4 levels deep,
                     # skipping dependency and build output directories.
                     find "$repo" -maxdepth 4 \( -name node_modules -o -name .git -o -name vendor -o -name bin -o -name obj -o -name build -o -name target \) -prune \
                         -o -type f -name "${path##*/}" -print -quit 2>/dev/null | grep -q . && return 0
+                    RULE_FAIL="no file matches ${path}"; return 1 ;;
+                *'*'*)
+                    # Any other glob (`*.xcodeproj`) is anchored at the root and may name a directory,
+                    # so the ios/Runner.xcodeproj of a Flutter or React Native app does not match.
+                    glob_exists "$path" && return 0
                     RULE_FAIL="no file matches ${path}"; return 1 ;;
             esac
             [ -f "${repo}/${path}" ] && return 0

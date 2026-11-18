@@ -1,0 +1,30 @@
+patterns:
+  - rule_name: swift_hardcoded_secret
+    regex: "(?i)(password|secret|api_?key|token|credential)\\s*[:=]\\s*(String\\s*=\\s*)?\"[A-Za-z0-9_\\-]{12,}\""
+    paths: ["**/*.swift"]
+    exclude_paths: ["**/Tests/**", "**/*Tests.swift", "**/*Tests/**"]
+    reminder: "Hardcoded secret detected. Server code reads secrets from the environment or a secrets manager; app code never holds real secrets — anything in the binary, Info.plist or an .xcconfig is extractable from the shipped app."
+
+  - rule_name: swift_tls_trust_all
+    regex: "completionHandler\\(\\s*\\.useCredential\\s*,\\s*URLCredential\\(\\s*trust:"
+    paths: ["**/*.swift"]
+    exclude_paths: ["**/Tests/**", "**/*Tests.swift"]
+    reminder: "Answering a server-trust challenge with .useCredential + URLCredential(trust:) without evaluating the trust (SecTrustEvaluateWithError) or a pinned key accepts any certificate. Use the default handling, or pin and evaluate before accepting."
+
+  - rule_name: swift_sql_interpolation
+    regex: "(sqlite3_exec|sqlite3_prepare_v2|execute|unsafeRaw|SQLQueryString)\\([^)]*\"[^\"]*\\\\\\("
+    paths: ["**/*.swift"]
+    exclude_paths: ["**/Tests/**", "**/*Tests.swift"]
+    reminder: "String interpolation inside raw SQL is SQL injection. Bind parameters (sqlite3_bind_*, GRDB arguments, Fluent query builder, SQLKit \\(bind:)) instead of splicing values into the statement."
+
+  - rule_name: swift_process_shell
+    regex: "(launchPath|executableURL)\\s*=\\s*[^\\n]*(/bin/(ba|z)?sh)"
+    paths: ["**/*.swift"]
+    exclude_paths: ["**/Tests/**", "**/*Tests.swift"]
+    reminder: "Running a Process through /bin/sh -c turns any user-controlled argument into command injection. Launch the executable directly with an argument array and validate every argument."
+
+  - rule_name: swift_cleartext_http
+    regex: "(URL\\(string:|\")\\s*\"?http://(?!localhost|127\\.0\\.0\\.1)"
+    paths: ["**/*.swift"]
+    exclude_paths: ["**/Tests/**", "**/*Tests.swift"]
+    reminder: "Cleartext HTTP leaks traffic and tokens. Use HTTPS; on Apple platforms App Transport Security blocks cleartext by default and should stay that way in release builds."

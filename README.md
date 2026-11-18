@@ -11,8 +11,8 @@
 <p align="center">
   <a href="https://github.com/AratKruglik/claude-sdlc/releases/latest"><img src="https://img.shields.io/github/v/release/AratKruglik/claude-sdlc?label=release&color=D97757" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/Claude%20Code-plugin%20marketplace-D97757" alt="Claude Code plugin marketplace">
-  <img src="https://img.shields.io/badge/stacks-21-4A8BF5" alt="21 stack plugins">
-  <img src="https://img.shields.io/badge/agents-32-2BB3A6" alt="32 agents">
+  <img src="https://img.shields.io/badge/stacks-23-4A8BF5" alt="23 stack plugins">
+  <img src="https://img.shields.io/badge/agents-34-2BB3A6" alt="34 agents">
   <img src="https://img.shields.io/badge/models-Opus%20%C2%B7%20Sonnet%20%C2%B7%20Haiku-9B7BF0" alt="Opus, Sonnet and Haiku">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3DBE6B" alt="MIT license"></a>
 </p>
@@ -28,7 +28,15 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v2.3.0** — 31 marketplace entries: 28 local (1 core + 6 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 4 JVM/.NET stacks + 4 Python stacks + 2 Dart/Flutter stacks) plus 3 optional external.
+**v2.4.0** — 34 marketplace entries: 31 local (1 core + 7 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 4 JVM/.NET stacks + 4 Python stacks + 2 Dart/Flutter stacks + 2 Swift/Apple stacks) plus 3 optional external.
+
+What changed in 2.4.0 — see the [CHANGELOG](CHANGELOG.md) for the upgrade notes:
+
+- **Swift and Apple platforms** — three new plugins: `swift-foundation` (shared skills: Swift 6 conventions and strict concurrency, SwiftPM / `xcodebuild` tooling, Swift Testing / XCTest), `swift-plugin` (priority 100, SwiftPM packages, CLIs, Vapor / Hummingbird servers) and `apple-plugin` (priority 300, backend + frontend — native iOS, iPadOS, macOS and watchOS apps in Swift and SwiftUI, with a skill per platform).
+- **Root-anchored detection globs** — a `file_exists` glob without `**/` now matches a file or directory in the project root only, so `*.xcodeproj` detects an Apple app while the `ios/` project inside a Flutter or React Native app does not.
+- **Swift hooks** — format the edited file with the project's own tool (`swift format` or SwiftFormat), `swift build --build-tests` after `swift-architect`, SwiftLint after `apple-architect`; they need the 2.4.0 `sdlc` core (`--lang swift`).
+
+Plugin versions: `sdlc`, `swift-foundation`, `swift-plugin`, `apple-plugin` at 2.4.0; every other plugin keeps its 2.3.0-release version.
 
 What changed in 2.3.0 — see the [CHANGELOG](CHANGELOG.md) for the per-plugin version table and upgrade notes:
 
@@ -38,7 +46,7 @@ What changed in 2.3.0 — see the [CHANGELOG](CHANGELOG.md) for the per-plugin v
 - **Hooks** — `dotnet format` actually formats; Gradle projects get a compile check; Dart hooks need the 2.3.0 `sdlc` core (`--lang dart`).
 - **Security patterns** — a core regex that did not compile and a dozen rules that missed their target or fired on safe code are fixed and tested; exact duplicates of foundation rules are gone.
 
-Plugin versions: `sdlc`, `dart-foundation`, `dart-plugin`, `flutter-plugin`, `kotlin-plugin` at 2.3.0; `nodejs-plugin`, `aspnet-core-plugin`, `django-plugin`, `fastapi-plugin`, `flask-plugin`, `spring-boot-plugin`, `java-plugin` at 2.2.0 (detection or hook behaviour changed); the rest at 2.1.1 (`laravel-plugin` and `php-foundation` at 2.1.2).
+Plugin versions as of 2.3.0: `sdlc`, `dart-foundation`, `dart-plugin`, `flutter-plugin`, `kotlin-plugin` at 2.3.0; `nodejs-plugin`, `aspnet-core-plugin`, `django-plugin`, `fastapi-plugin`, `flask-plugin`, `spring-boot-plugin`, `java-plugin` at 2.2.0 (detection or hook behaviour changed); the rest at 2.1.1 (`laravel-plugin` and `php-foundation` at 2.1.2).
 
 
 What changed in 2.2.0 (`sdlc` only; the other plugins keep their versions) — see the [CHANGELOG](CHANGELOG.md):
@@ -102,6 +110,9 @@ What is new in 2.0.0, and why each one is a breaking change:
 # or for Dart / Flutter projects:
 /plugin install flutter-plugin@sdlc-marketplace  # Flutter (mobile/web/desktop)
 /plugin install dart-plugin@sdlc-marketplace     # Plain Dart (CLI/package/shelf/dart_frog)
+# or for Swift / Apple projects:
+/plugin install apple-plugin@sdlc-marketplace    # iOS / iPadOS / macOS / watchOS apps (SwiftUI)
+/plugin install swift-plugin@sdlc-marketplace    # Plain Swift (SwiftPM package/CLI/Vapor/Hummingbird)
 
 # 3. Install optional plugins
 /plugin marketplace add mattpocock/skills
@@ -205,6 +216,7 @@ Some technologies are supersets of others. Next.js is React + a server. NestJS i
 | 100 | `aspnet-core-plugin` | backend, database | `appsettings.json` in the root or up to 4 levels deep |
 | 100 | `python-plugin` | backend | `pyproject.toml` or `requirements.txt` or `setup.py` or `Pipfile` |
 | 100 | `dart-plugin` | backend | `pubspec.yaml` |
+| 100 | `swift-plugin` | backend | `Package.swift` |
 | 120 | `kotlin-plugin` | backend | Kotlin JVM plugin in `build.gradle(.kts)` / `libs.versions.toml` / `pom.xml` |
 | 150 | `react-plugin` | frontend | `package.json` + `react` (without `next`, `react-native`) |
 | 150 | `vue-plugin` | frontend | `package.json` + `vue` |
@@ -219,6 +231,7 @@ Some technologies are supersets of others. Next.js is React + a server. NestJS i
 | 250 | `nextjs-plugin` | backend, frontend | `package.json` + `next` |
 | 300 | `react-native-plugin` | frontend | `package.json` + `react-native` |
 | 300 | `flutter-plugin` | backend, frontend | `pubspec.yaml` + `sdk: flutter` |
+| 300 | `apple-plugin` | backend, frontend | `*.xcodeproj` / `*.xcworkspace` / `Project.swift` / `Tuist.swift` / XcodeGen `project.yml` in the root |
 
 ---
 
@@ -671,11 +684,11 @@ the hooks are the default.
 ### Stack hooks resolve the toolchain: local first, Docker second, skip otherwise
 
 Every stack plugin's formatter hook and its `post-implement-check` call go through
-`plugins/sdlc/hooks/run-tool.sh --lang <php|node|python|java|dotnet|dart> -- <command>`:
+`plugins/sdlc/hooks/run-tool.sh --lang <php|node|python|java|dotnet|dart|swift> -- <command>`:
 
 1. **Applicability.** The language must be present in the project (`composer.json`,
    `package.json`, `pyproject.toml`/`requirements*.txt`, `pom.xml`/`build.gradle*`,
-   `*.csproj`/`*.sln`, `pubspec.yaml`). A PHP hook in a Node repo does nothing.
+   `*.csproj`/`*.sln`, `pubspec.yaml`, `Package.swift`/`*.xcodeproj`/Tuist/XcodeGen). A PHP hook in a Node repo does nothing.
 2. **Explicit runner.** `phase_command_overrides.development.{lang}_runner` in
    `.claude/sdlc.local.yaml` wins — `php` forces local, `docker compose exec -T app php` forces
    that service.
@@ -734,6 +747,7 @@ Development-phase agents carry a second tier in `model_plan` — resolved for th
 | `qa-engineer` | sdlc | `sonnet` | — | `medium` | Tests against clear criteria; hard 3-attempt cap keeps cost in check |
 | `document-writer` | sdlc | `haiku` | — | `low` | Structured output from known facts; ~5x cheaper than Opus |
 | `angular-architect` | angular | `sonnet` | `opus` | `medium` | Angular standalone/NgModule, signals, NgRx |
+| `apple-architect` | apple | `sonnet` | `opus` | `medium` | iOS / iPadOS / macOS / watchOS apps — SwiftUI, Observation, SwiftData, per-platform idioms |
 | `dart-architect` | dart | `sonnet` | `opus` | `medium` | Plain Dart — packages, CLIs, shelf/dart_frog servers |
 | `aspnet-core-architect` | aspnet-core | `sonnet` | `opus` | `medium` | Minimal API / MVC, DTOs, FluentValidation, DI, authorization, HTTPS/HSTS |
 | `django-architect` | django | `sonnet` | `opus` | `medium` | Django views, DRF ViewSets/serializers, URLconf, models |
@@ -752,6 +766,7 @@ Development-phase agents carry a second tier in `model_plan` — resolved for th
 | `react-architect` | react | `sonnet` | `opus` | `medium` | React conventions and state/routing skills |
 | `rn-architect` | react-native | `sonnet` | `opus` | `medium` | Expo/bare + iOS/Android axes |
 | `spring-boot-architect` | spring-boot | `sonnet` | `opus` | `medium` | Spring Boot — controllers, JPA, migrations, Spring Security |
+| `swift-architect` | swift | `sonnet` | `opus` | `medium` | Plain Swift — SwiftPM packages, CLIs, Vapor/Hummingbird servers |
 | `symfony-architect` | symfony | `sonnet` | `opus` | `medium` | Attribute routing, controllers-as-services, DI, Voters, Serializer, Messenger, Twig |
 | `vue-architect` | vue | `sonnet` | `opus` | `medium` | Vue 3/2 detection + convention skills |
 | `efcore-specialist` | aspnet-core | `sonnet` | — | `low` | EF Core Fluent API config, indexes, migration generation and verification |
@@ -876,6 +891,7 @@ less margin at stake.
 | `java-foundation` | Shared lib | Java conventions + Maven/Gradle + JVM testing (no stack profile) |
 | `csharp-foundation` | Shared lib | C# conventions + dotnet CLI/NuGet + xUnit/Moq/FluentAssertions (no stack profile) |
 | `dart-foundation` | Shared lib | Dart 3 conventions + pub/lints/build_runner + package:test/mocktail (no stack profile) |
+| `swift-foundation` | Shared lib | Swift 6 conventions + strict concurrency + SwiftPM/xcodebuild + Swift Testing/XCTest (no stack profile) |
 | `nodejs-plugin` | Stack provider | Express / Fastify / Koa / plain Node.js |
 | `nestjs-plugin` | Stack provider | NestJS + TypeORM/Prisma/Mongoose |
 | `nextjs-plugin` | Stack provider | Next.js App Router (full-stack) |
@@ -885,6 +901,8 @@ less margin at stake.
 | `react-native-plugin` | Stack provider | React Native / Expo |
 | `flutter-plugin` | Stack provider | Flutter (mobile / web / desktop) |
 | `dart-plugin` | Stack provider | Plain Dart (CLI / package / shelf / dart_frog) |
+| `apple-plugin` | Stack provider | Apple apps — iOS / iPadOS / macOS / watchOS (Swift + SwiftUI) |
+| `swift-plugin` | Stack provider | Plain Swift (SwiftPM package / CLI / Vapor / Hummingbird) |
 | `inertia-vue-plugin` | Stack provider | Inertia.js + Vue 3 (Laravel backend) |
 | `inertia-react-plugin` | Stack provider | Inertia.js + React (Laravel backend) |
 | `laravel-plugin` | Stack provider | Laravel + Eloquent + Artisan + Inertia |
@@ -916,6 +934,8 @@ less margin at stake.
 | Expo mobile | react-native (300) | rn-architect (frontend) |
 | Flutter app | flutter (300) | flutter-architect (owns backend + frontend; dart-plugin stays inactive) |
 | Dart server / CLI / package | dart (100) | dart-architect |
+| iPhone + iPad + Watch app (Xcode) | apple (300) | apple-architect (owns backend + frontend; swift-plugin stays inactive) |
+| Vapor / Hummingbird API, Swift CLI or package | swift (100) | swift-architect |
 | Vanilla Node.js | nodejs (100) | node-architect |
 | Plain Java (no framework) | java (100) | java-architect |
 | Spring Boot REST API | spring-boot (150) | spring-boot-architect |

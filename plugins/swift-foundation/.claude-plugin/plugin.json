@@ -1,0 +1,22 @@
+{
+  "name": "swift-foundation",
+  "version": "2.4.0",
+  "description": "Shared Swift foundation skills for the SDLC marketplace: swift-conventions (Swift 6 language mode, value types, optionals, typed errors, protocols and generics, strict concurrency — actors, Sendable, MainActor default isolation), swift-tooling (SwiftPM manifests and dependencies, swift build/test, xcodebuild basics, swift-format / SwiftFormat / SwiftLint, Tuist / XcodeGen) and swift-testing (Swift Testing @Test/#expect, XCTest, async tests, test doubles, coverage). Referenced by swift-plugin and apple-plugin. No agent, no stack profile — pure shared library.",
+  "author": {
+    "name": "Oleksii Kruhlyk",
+    "url": "https://github.com/AratKruglik"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/AratKruglik/claude-sdlc",
+  "keywords": [
+    "swift",
+    "swiftpm",
+    "concurrency",
+    "shared",
+    "foundation",
+    "sdlc"
+  ],
+  "dependencies": [
+    "sdlc"
+  ]
+}

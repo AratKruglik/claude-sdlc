@@ -106,6 +106,13 @@ sdlc-marketplace/
 │   │   └── agents/dart-architect.md     ← sonnet + model_plan:opus
 │   ├── flutter-plugin/                  ← Flutter, backend + frontend (priority: 300)
 │   │   └── agents/flutter-architect.md  ← sonnet + model_plan:opus
+│   ├── swift-foundation/                ← shared Swift skills, no stack profile
+│   │   └── skills/                      ← swift-conventions, swift-tooling, swift-testing
+│   ├── swift-plugin/                    ← plain Swift backend (priority: 100)
+│   │   └── agents/swift-architect.md    ← sonnet + model_plan:opus
+│   ├── apple-plugin/                    ← iOS/iPadOS/macOS/watchOS apps, backend + frontend (priority: 300)
+│   │   ├── agents/apple-architect.md    ← sonnet + model_plan:opus
+│   │   └── skills/                      ← swiftui-*, ios-ipados, macos-app, watchos-app, apple-testing
 │   │
 │   └── laravel-plugin/
 │       ├── .claude-plugin/plugin.json   ← dependencies: sdlc
@@ -221,7 +228,7 @@ For security phase, inject:
 | `stack` | string | ✅ | Unique stack name (`laravel`, `django`, `nestjs`, `vanilla`). |
 | `priority` | int | ✅ | 0 — always-match fallback; 100+ — specific framework. Higher = winner. |
 | `detect.any` / `detect.all` | array | ✅ | Auto-detection rules. `["*"]` for vanilla. |
-| `detect.*.file_exists` | string | — | File that must exist in the project root. |
+| `detect.*.file_exists` | string | — | File that must exist in the project root. `**/name` searches up to 4 levels deep; any other glob (`*.xcodeproj`) is root-anchored and may match a directory. |
 | `detect.*.file_contains` | object | — | `{path, pattern}` — regex check of the file content. |
 
 ---

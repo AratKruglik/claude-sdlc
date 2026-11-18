@@ -3,6 +3,72 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [2.4.0] — 2026-11-18 — marketplace v2.4.0 / sdlc v2.4.0
+
+Swift and native Apple apps. Three plugins debut at 2.4.0 and `sdlc` gets a minor bump for the
+Swift runner and the detection change; every other plugin keeps its version.
+
+| Plugin | From | To |
+|---|---|---|
+| `apple-plugin` | new | 2.4.0 |
+| `sdlc` | 2.3.0 | 2.4.0 |
+| `swift-foundation` | new | 2.4.0 |
+| `swift-plugin` | new | 2.4.0 |
+
+### Added
+
+- **Swift and Apple platforms stack providers.** Three new plugins, following the `*-foundation` +
+  stack-provider split:
+  - `swift-foundation` — shared skills, no agent or stack profile: `swift-conventions` (Swift 6
+    language mode, value types, optionals, errors, generics, strict concurrency with actors,
+    `Sendable` and MainActor default isolation), `swift-tooling` (`Package.swift`, `swift build` /
+    `swift test`, `xcodebuild`, buildable folders / Tuist / XcodeGen, swift-format / SwiftFormat /
+    SwiftLint) and `swift-testing` (Swift Testing, XCTest, async tests, test doubles).
+  - `swift-plugin` (priority 100, `backend`) — detects `Package.swift`; `swift-architect` for
+    SwiftPM libraries, swift-argument-parser CLIs and Vapor / Hummingbird servers.
+  - `apple-plugin` (priority 300, `backend` + `frontend`) — detects an `.xcodeproj`, an
+    `.xcworkspace`, a Tuist manifest or an XcodeGen `project.yml` in the root; `apple-architect`
+    plus `swiftui-conventions`, `swiftui-state`, `swiftui-navigation`, one skill per platform
+    (`ios-ipados`, `macos-app`, `watchos-app`) and `apple-testing`. Claiming `backend` too keeps
+    `swift-plugin` inactive on app projects that also have a root `Package.swift`.
+  - Hooks for both: the edited `.swift` file is formatted with the tool the project configured
+    (`swift format` for `.swift-format`, `swiftformat` for `.swiftformat`, nothing otherwise);
+    config protection for `.swiftlint.yml` / `.swift-format` / `.swiftformat`;
+    `swift build --build-tests` after `swift-architect`, `swiftlint lint` after `apple-architect`
+    when the project uses SwiftLint. Xcode builds have no hook — the architect compiles each
+    touched platform target itself.
+- **`run-tool.sh --lang swift`** — applies when the root has `Package.swift`, an `.xcodeproj` /
+  `.xcworkspace`, `Project.swift` / `Tuist.swift` or `project.yml`. The Swift hooks need this
+  `sdlc` core.
+- **`project_shape` knows Swift** — `detect-stack.sh` reports `swiftpm` / `xcode` as the package
+  manager, Swift Testing vs XCTest, `swift test` and `swift build --build-tests` for SwiftPM, and
+  SwiftLint / swift-format / SwiftFormat commands only when their config exists.
+
+### Changed
+
+- **`file_exists` globs without `**/` are anchored to the project root** and may match a
+  directory. Before, every glob was matched by file name up to four levels deep, so a rule like
+  `*.xcodeproj` could never match (it is a directory) and a nested `ios/*.xcodeproj` in a Flutter
+  or React Native app would have tied with their profiles. `**/name` rules (aspnet-core) behave as
+  before.
+- **The `security-guidance` marketplace entry is pinned to a commit `sha`.**
+- **README** — banner gains a Swift chip; badges count 23 stacks and 34 agents.
+
+### Upgrade notes
+
+- **Update `sdlc` first.** The Swift hooks and the Swift project-shape probe need `sdlc` 2.4.0
+  (`run-tool.sh --lang swift`). On an older installed `sdlc` the hooks stay silent instead of
+  failing.
+- **Custom `stack.md` profiles with a `file_exists` glob that does not start with `**/`** now
+  match in the project root only. Prefix the rule with `**/` to keep the old four-level search.
+  No profile shipped in this marketplace is affected.
+- **Apple app projects now activate `apple-plugin`.** A repository with an Xcode project in the
+  root used to resolve to `vanilla`, so the pipeline's agents and phase prompts change there.
+  Building and testing need macOS with Xcode; the pipeline never archives, signs or uploads.
+- **SwiftPM packages that only build for iOS or watchOS** resolve to `swift` by default — run
+  them with `--stack=apple`.
+- **`/sdlc:security-init`** needs to be re-run to pick up the Swift and Apple security patterns.
+
 ## [2.3.0] — 2026-11-16 — marketplace v2.3.0 / sdlc v2.3.0
 
 Four new stack plugins and a marketplace-wide audit. Every plugin changed, so every plugin is
