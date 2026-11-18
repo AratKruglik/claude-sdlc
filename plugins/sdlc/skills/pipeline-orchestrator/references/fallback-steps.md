@@ -167,7 +167,7 @@ For each `stack.md`:
 3. Evaluate `detect` rules against the project root:
    - `detect.any: ["*"]` → always matches.
    - `detect.all: [...]` → all sub-rules must match.
-   - `file_exists: <path>` → check via `Glob` whether the file exists.
+   - `file_exists: <path>` → check via `Glob` whether the file exists. A glob starting with `**/` searches up to four levels deep by file name; any other glob (`*.xcodeproj`) matches a file or directory in the project root only.
    - `file_contains: { path, pattern }` → `Read` the file, run regex.
 4. Score by `priority` (higher wins).
 

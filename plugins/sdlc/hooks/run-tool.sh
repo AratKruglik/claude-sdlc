@@ -2,12 +2,14 @@
 # Run a stack tool the way this project can actually run it — locally, or inside the running
 # Docker Compose service that has it — or skip silently when neither applies.
 #
-#   run-tool.sh --lang <php|node|python|java|dotnet|dart|any> [--service-hint NAME] [--quiet] [--probe]
+#   run-tool.sh --lang <php|node|python|java|dotnet|dart|swift|any> [--service-hint NAME] [--quiet] [--probe]
 #               -- <command> [args…]
 #
 #   --lang          Which language marker must exist in the project for the tool to apply
 #                   (composer.json, package.json, pyproject.toml/requirements*.txt, pom.xml/
-#                   build.gradle*, *.sln/*.csproj, pubspec.yaml). Not applicable → exit 0, nothing run.
+#                   build.gradle*, *.sln/*.csproj, pubspec.yaml, Package.swift/*.xcodeproj/
+#                   *.xcworkspace/Project.swift/Tuist.swift/project.yml). Not applicable → exit 0,
+#                   nothing run.
 #   --service-hint  Preferred compose service when falling back to Docker (default: the first
 #                   of app, php, web, api, backend, node, frontend, python, worker found).
 #   --quiet         Discard the tool's output and always exit 0 (PostToolUse formatters).

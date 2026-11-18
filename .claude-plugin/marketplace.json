@@ -20,7 +20,8 @@
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/anthropics/claude-plugins-official.git",
-        "path": "plugins/security-guidance"
+        "path": "plugins/security-guidance",
+        "sha": "fa4eb54397ee2faccb6940512a19c017cb1337f3"
       },
       "description": "Optional external dependency (official Anthropic). Hooks-based in-session security review: per-edit pattern match, end-of-turn diff review, commit review. Pipeline runs without it; the security phase still does full OWASP."
     },
@@ -172,6 +173,21 @@
       "name": "flutter-plugin",
       "source": "./plugins/flutter-plugin",
       "description": "Flutter stack provider (priority=300, backend + frontend). Detects sdk: flutter in pubspec.yaml. Mobile, web and desktop targets; widgets, theming, accessibility, gen-l10n; Riverpod / Bloc / Provider (follows what is installed); go_router / auto_route / Navigator with deep links; widget, golden and integration tests. Adds flutter-architect agent (Sonnet/medium). Reuses dart-foundation skills."
+    },
+    {
+      "name": "swift-foundation",
+      "source": "./plugins/swift-foundation",
+      "description": "Shared Swift foundation skills for the SDLC marketplace. Contains stack-agnostic Swift conventions (swift-conventions — Swift 6 language mode, value types, optionals, errors, generics, strict concurrency with actors, Sendable and MainActor default isolation), swift-tooling (Package.swift and dependencies, swift build/test, xcodebuild, buildable folders / Tuist / XcodeGen, swift-format / SwiftFormat / SwiftLint) and swift-testing (Swift Testing, XCTest, async tests, test doubles, coverage). No agent, no stack profile — pure shared library. Referenced by swift-plugin and apple-plugin."
+    },
+    {
+      "name": "swift-plugin",
+      "source": "./plugins/swift-plugin",
+      "description": "Plain Swift backend stack provider (priority=100). Detects Package.swift. Adds swift-architect agent (Sonnet/medium) for SwiftPM libraries, command-line tools (swift-argument-parser) and HTTP servers (Vapor + Fluent, Hummingbird). Stays inactive on Apple app projects, where apple-plugin (300) claims both aspects. Reuses swift-foundation skills."
+    },
+    {
+      "name": "apple-plugin",
+      "source": "./plugins/apple-plugin",
+      "description": "Apple platforms stack provider (priority=300, backend + frontend). Detects an Xcode project or workspace, or a Tuist / XcodeGen manifest, in the project root. Native iOS, iPadOS, macOS and watchOS apps in Swift and SwiftUI: views, Observation and SwiftData, NavigationStack / NavigationSplitView with deep links, per-platform skills (iPhone and iPad adaptivity, Mac windows / menus / sandbox, watch apps and complications), widgets and App Intents, Swift Testing / XCTest / XCUITest. Adds apple-architect agent (Sonnet/medium). Reuses swift-foundation skills."
     }
   ]
 }

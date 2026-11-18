@@ -65,7 +65,7 @@
           "properties": {
             "file_exists": {
               "type": "string",
-              "description": "Path (relative to project root) that must exist."
+              "description": "Path (relative to project root) that must exist. A glob starting with **/ matches a file by name up to 4 levels deep; any other glob (*.xcodeproj) matches a file or directory in the root only."
             }
           },
           "required": ["file_exists"],

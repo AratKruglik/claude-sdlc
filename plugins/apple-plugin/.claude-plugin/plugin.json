@@ -1,0 +1,27 @@
+{
+  "name": "apple-plugin",
+  "version": "2.4.0",
+  "description": "Apple platforms stack provider for the SDLC marketplace (priority=300). Detects an Xcode project or workspace, or a Tuist / XcodeGen manifest, in the project root and claims both backend and frontend aspects, so it wins over swift-plugin on Apple app projects. Native iOS, iPadOS, macOS and watchOS apps in Swift and SwiftUI: Observation, SwiftData, navigation, per-platform skills, widgets and App Intents, Swift Testing / XCUITest. Adds apple-architect agent (Sonnet/medium). Reuses swift-foundation skills.",
+  "author": {
+    "name": "Oleksii Kruhlyk",
+    "url": "https://github.com/AratKruglik"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/AratKruglik/claude-sdlc",
+  "keywords": [
+    "swift",
+    "swiftui",
+    "ios",
+    "ipados",
+    "macos",
+    "watchos",
+    "xcode",
+    "swiftdata",
+    "sdlc",
+    "stack-provider"
+  ],
+  "dependencies": [
+    "sdlc",
+    "swift-foundation"
+  ]
+}

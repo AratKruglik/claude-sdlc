@@ -79,6 +79,51 @@ touch "$REPO/node_modules/pkg/appsettings.json"
 OUT=$(run_detect "$REPO")
 assert_field "case2b dependency dirs are not searched" '.primary_profile.stack' "vanilla" "$OUT"
 
+# ── Case 2c: Swift / Apple — root-anchored globs keep nested ios/ projects out ──
+REPO="$TMP_ROOT/apple-repo"
+mkdir -p "$REPO/Orders.xcodeproj"
+touch "$REPO/Orders.xcodeproj/project.pbxproj"
+printf '// swift-tools-version: 6.0\nlet package = Package(name: "Core", platforms: [.iOS(.v17)])\n' > "$REPO/Package.swift"
+OUT=$(run_detect "$REPO")
+assert_field "case2c xcodeproj + Package.swift: apple owns backend" '.active_profiles.backend.stack' "apple" "$OUT"
+assert_field "case2c xcodeproj + Package.swift: apple owns frontend" '.active_profiles.frontend.stack' "apple" "$OUT"
+assert_field "case2c no tie with swift" '.aspect_ties | length' "0" "$OUT"
+REPO="$TMP_ROOT/tuist-repo"
+mkdir -p "$REPO"
+touch "$REPO/Tuist.swift" "$REPO/Project.swift"
+OUT=$(run_detect "$REPO")
+assert_field "case2c Tuist manifest detects apple" '.primary_profile.stack' "apple" "$OUT"
+REPO="$TMP_ROOT/xcodegen-repo"
+mkdir -p "$REPO"
+printf 'name: Orders\ntargets:\n  Orders:\n    type: application\n    platform: iOS\n' > "$REPO/project.yml"
+OUT=$(run_detect "$REPO")
+assert_field "case2c XcodeGen project.yml detects apple" '.primary_profile.stack' "apple" "$OUT"
+REPO="$TMP_ROOT/not-xcodegen-repo"
+mkdir -p "$REPO"
+printf 'name: docs\nnav:\n  - index.md\n' > "$REPO/project.yml"
+OUT=$(run_detect "$REPO")
+assert_field "case2c unrelated project.yml stays vanilla" '.primary_profile.stack' "vanilla" "$OUT"
+REPO="$TMP_ROOT/vapor-repo"
+mkdir -p "$REPO"
+printf '// swift-tools-version: 6.0\nlet package = Package(name: "Api", platforms: [.macOS(.v13)])\n' > "$REPO/Package.swift"
+OUT=$(run_detect "$REPO")
+assert_field "case2c Vapor package resolves to swift" '.active_profiles.backend.stack' "swift" "$OUT"
+assert_field "case2c Vapor package has no frontend" '.active_profiles.frontend' "null" "$OUT"
+REPO="$TMP_ROOT/flutter-ios-repo"
+mkdir -p "$REPO/ios/Runner.xcodeproj" "$REPO/ios/Runner.xcworkspace"
+touch "$REPO/ios/Runner.xcodeproj/project.pbxproj"
+printf 'name: app\ndependencies:\n  flutter:\n    sdk: flutter\n' > "$REPO/pubspec.yaml"
+OUT=$(run_detect "$REPO")
+assert_field "case2c Flutter ios/ project: flutter owns backend" '.active_profiles.backend.stack' "flutter" "$OUT"
+assert_field "case2c Flutter ios/ project: flutter owns frontend" '.active_profiles.frontend.stack' "flutter" "$OUT"
+assert_field "case2c Flutter ios/ project: no ties" '.aspect_ties | length' "0" "$OUT"
+REPO="$TMP_ROOT/rn-ios-repo"
+mkdir -p "$REPO/ios/App.xcodeproj" "$REPO/ios/App.xcworkspace"
+printf '{"dependencies": {"react-native": "0.82.0", "react": "19.1.0"}}\n' > "$REPO/package.json"
+OUT=$(run_detect "$REPO")
+assert_field "case2c React Native ios/ project: rn owns frontend" '.active_profiles.frontend.stack' "react-native" "$OUT"
+assert_field "case2c React Native ios/ project: apple not matched" '[.matched_profiles[]? | (.stack? // .)] | index("apple")' "null" "$OUT"
+
 # ── Case 3: Laravel + Inertia/Vue → full-stack fan-out ──
 REPO="$TMP_ROOT/laravel-inertia-vue-repo"
 mkdir -p "$REPO"

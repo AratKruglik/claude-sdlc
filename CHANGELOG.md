@@ -3,6 +3,45 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
+## [Unreleased]
+
+### Added
+
+- **Swift and Apple platforms stack providers.** Three new plugins, following the `*-foundation` +
+  stack-provider split:
+  - `swift-foundation` — shared skills, no agent or stack profile: `swift-conventions` (Swift 6
+    language mode, value types, optionals, errors, generics, strict concurrency with actors,
+    `Sendable` and MainActor default isolation), `swift-tooling` (`Package.swift`, `swift build` /
+    `swift test`, `xcodebuild`, buildable folders / Tuist / XcodeGen, swift-format / SwiftFormat /
+    SwiftLint) and `swift-testing` (Swift Testing, XCTest, async tests, test doubles).
+  - `swift-plugin` (priority 100, `backend`) — detects `Package.swift`; `swift-architect` for
+    SwiftPM libraries, swift-argument-parser CLIs and Vapor / Hummingbird servers.
+  - `apple-plugin` (priority 300, `backend` + `frontend`) — detects an `.xcodeproj`, an
+    `.xcworkspace`, a Tuist manifest or an XcodeGen `project.yml` in the root; `apple-architect`
+    plus `swiftui-conventions`, `swiftui-state`, `swiftui-navigation`, one skill per platform
+    (`ios-ipados`, `macos-app`, `watchos-app`) and `apple-testing`. Claiming `backend` too keeps
+    `swift-plugin` inactive on app projects that also have a root `Package.swift`.
+  - Hooks for both: the edited `.swift` file is formatted with the tool the project configured
+    (`swift format` for `.swift-format`, `swiftformat` for `.swiftformat`, nothing otherwise);
+    config protection for `.swiftlint.yml` / `.swift-format` / `.swiftformat`;
+    `swift build --build-tests` after `swift-architect`, `swiftlint lint` after `apple-architect`
+    when the project uses SwiftLint. Xcode builds have no hook — the architect compiles each
+    touched platform target itself.
+- **`run-tool.sh --lang swift`** — applies when the root has `Package.swift`, an `.xcodeproj` /
+  `.xcworkspace`, `Project.swift` / `Tuist.swift` or `project.yml`. The Swift hooks need this
+  `sdlc` core.
+- **`project_shape` knows Swift** — `detect-stack.sh` reports `swiftpm` / `xcode` as the package
+  manager, Swift Testing vs XCTest, `swift test` and `swift build --build-tests` for SwiftPM, and
+  SwiftLint / swift-format / SwiftFormat commands only when their config exists.
+
+### Changed
+
+- **`file_exists` globs without `**/` are anchored to the project root** and may match a
+  directory. Before, every glob was matched by file name up to four levels deep, so a rule like
+  `*.xcodeproj` could never match (it is a directory) and a nested `ios/*.xcodeproj` in a Flutter
+  or React Native app would have tied with their profiles. `**/name` rules (aspnet-core) behave as
+  before.
+
 ## [2.3.0] — 2026-11-16 — marketplace v2.3.0 / sdlc v2.3.0
 
 Four new stack plugins and a marketplace-wide audit. Every plugin changed, so every plugin is

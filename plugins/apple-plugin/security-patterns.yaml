@@ -1,0 +1,35 @@
+patterns:
+  - rule_name: apple_userdefaults_secrets
+    regex: "(?i)(UserDefaults[^\\n]*\\.set\\([^\\n]*forKey:\\s*\"[^\"]*(token|secret|password|credential|api_?key)|@AppStorage\\(\\s*\"[^\"]*(token|secret|password|credential|api_?key))"
+    paths: ["**/*.swift"]
+    exclude_paths: ["**/Tests/**", "**/*Tests.swift"]
+    reminder: "UserDefaults and @AppStorage are a plaintext plist in the app container, included in backups. Store tokens and secrets in the Keychain (kSecClassGenericPassword with an appropriate kSecAttrAccessible value)."
+
+  - rule_name: apple_keychain_always_accessible
+    substrings: ["kSecAttrAccessibleAlways"]
+    paths: ["**/*.swift"]
+    exclude_paths: ["**/Tests/**", "**/*Tests.swift"]
+    reminder: "kSecAttrAccessibleAlways / AlwaysThisDeviceOnly are deprecated and leave the item readable while the device is locked. Use kSecAttrAccessibleAfterFirstUnlock (background access) or kSecAttrAccessibleWhenUnlocked(ThisDeviceOnly)."
+
+  - rule_name: apple_ats_disabled
+    substrings: ["NSAllowsArbitraryLoads"]
+    paths: ["**/Info.plist", "**/*.plist", "**/project.yml", "**/Project.swift"]
+    reminder: "NSAllowsArbitraryLoads disables App Transport Security for every connection. Remove it, or use a per-domain NSExceptionDomains entry with a justification App Review will accept."
+
+  - rule_name: apple_webview_js_bridge
+    regex: "(addScriptMessageHandler|evaluateJavaScript)\\("
+    paths: ["**/*.swift"]
+    exclude_paths: ["**/Tests/**", "**/*Tests.swift"]
+    reminder: "A WKWebView script bridge turns page content into an input channel. Load only trusted origins (check in WKNavigationDelegate), validate every message body, and never pass tokens into JavaScript."
+
+  - rule_name: apple_open_url_unvalidated
+    regex: "\\.onOpenURL\\s*\\{|func application\\([^)]*open url:|func scene\\([^)]*openURLContexts|NSUserActivityTypeBrowsingWeb"
+    paths: ["**/*.swift"]
+    exclude_paths: ["**/Tests/**", "**/*Tests.swift"]
+    reminder: "Custom URL schemes and Universal Links are attacker-controlled input. Validate scheme, host and every parameter before navigating, signing in or triggering a payment; never act on a URL that only matches a prefix."
+
+  - rule_name: apple_sensitive_logging
+    regex: "(print|NSLog|debugPrint|\\.(debug|info|notice|error)\\()[^\\n]*(token|password|secret|authorization)[^\\n]*(privacy:\\s*\\.public)?"
+    paths: ["**/*.swift"]
+    exclude_paths: ["**/Tests/**", "**/*Tests.swift"]
+    reminder: "Logging credentials leaks them into the unified log and sysdiagnoses. Never log tokens or passwords; with os.Logger, never mark sensitive values privacy: .public."

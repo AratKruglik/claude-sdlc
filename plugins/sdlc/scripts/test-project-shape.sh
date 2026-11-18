@@ -133,6 +133,29 @@ assert_field "case4 dart test" '.test_command' "dart test" "$OUT"
 assert_field "case4 dart format" '.format_command' "dart format ." "$OUT"
 assert_field "case4 dart without coverage pkg" '.coverage_available' "false" "$OUT"
 
+REPO="$TMP_ROOT/swiftpm"; mkdir -p "$REPO/Tests/ApiTests" "$REPO/.build/checkouts/dep"
+printf '// swift-tools-version: 6.0\n' > "$REPO/Package.swift"
+printf 'import Testing\n@testable import Api\n' > "$REPO/Tests/ApiTests/ApiTests.swift"
+printf 'import XCTest\n' > "$REPO/.build/checkouts/dep/DepTests.swift"
+: > "$REPO/.swift-format"
+OUT=$(shape "$REPO")
+assert_field "case4 swiftpm" '.package_manager' "swiftpm" "$OUT"
+assert_field "case4 swift testing" '.test_framework' "swift_testing" "$OUT"
+assert_field "case4 swift test" '.test_command' "swift test" "$OUT"
+assert_field "case4 swift build check" '.typecheck_command' "swift build --build-tests" "$OUT"
+assert_field "case4 swift-format" '.format_command' "swift format --in-place --recursive ." "$OUT"
+assert_field "case4 swiftpm without swiftlint" '.lint_command' "null" "$OUT"
+
+REPO="$TMP_ROOT/xcode"; mkdir -p "$REPO/App.xcodeproj" "$REPO/AppTests"
+printf 'import XCTest\n' > "$REPO/AppTests/AppTests.swift"
+: > "$REPO/.swiftlint.yml"; : > "$REPO/Package.swift"
+OUT=$(shape "$REPO")
+assert_field "case4 xcode beats a root Package.swift" '.package_manager' "xcode" "$OUT"
+assert_field "case4 xctest" '.test_framework' "xctest" "$OUT"
+assert_field "case4 xcode test needs a scheme" '.test_command' "null" "$OUT"
+assert_field "case4 swiftlint" '.lint_command' "swiftlint lint" "$OUT"
+assert_field "case4 xcode coverage" '.coverage_available' "true" "$OUT"
+
 # ── Case 5: empty repo → nulls, never a crash ──
 REPO="$TMP_ROOT/empty"; mkdir -p "$REPO"
 OUT=$(shape "$REPO")
