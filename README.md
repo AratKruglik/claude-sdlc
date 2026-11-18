@@ -28,13 +28,15 @@
 
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
-**v2.3.0** — 31 marketplace entries: 28 local (1 core + 6 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 4 JVM/.NET stacks + 4 Python stacks + 2 Dart/Flutter stacks) plus 3 optional external.
+**v2.4.0** — 34 marketplace entries: 31 local (1 core + 7 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 4 JVM/.NET stacks + 4 Python stacks + 2 Dart/Flutter stacks + 2 Swift/Apple stacks) plus 3 optional external.
 
-**Unreleased, on `main`** — Swift and Apple platforms bring the marketplace to 34 entries: 31 local (7 shared libs, 2 Swift/Apple stacks) plus 3 optional external. See the [CHANGELOG](CHANGELOG.md):
+What changed in 2.4.0 — see the [CHANGELOG](CHANGELOG.md) for the upgrade notes:
 
 - **Swift and Apple platforms** — three new plugins: `swift-foundation` (shared skills: Swift 6 conventions and strict concurrency, SwiftPM / `xcodebuild` tooling, Swift Testing / XCTest), `swift-plugin` (priority 100, SwiftPM packages, CLIs, Vapor / Hummingbird servers) and `apple-plugin` (priority 300, backend + frontend — native iOS, iPadOS, macOS and watchOS apps in Swift and SwiftUI, with a skill per platform).
 - **Root-anchored detection globs** — a `file_exists` glob without `**/` now matches a file or directory in the project root only, so `*.xcodeproj` detects an Apple app while the `ios/` project inside a Flutter or React Native app does not.
-- **Swift hooks** — format the edited file with the project's own tool (`swift format` or SwiftFormat), `swift build --build-tests` after `swift-architect`, SwiftLint after `apple-architect`; they need the `sdlc` core from the same release (`--lang swift`).
+- **Swift hooks** — format the edited file with the project's own tool (`swift format` or SwiftFormat), `swift build --build-tests` after `swift-architect`, SwiftLint after `apple-architect`; they need the 2.4.0 `sdlc` core (`--lang swift`).
+
+Plugin versions: `sdlc`, `swift-foundation`, `swift-plugin`, `apple-plugin` at 2.4.0; every other plugin keeps its 2.3.0-release version.
 
 What changed in 2.3.0 — see the [CHANGELOG](CHANGELOG.md) for the per-plugin version table and upgrade notes:
 
@@ -44,7 +46,7 @@ What changed in 2.3.0 — see the [CHANGELOG](CHANGELOG.md) for the per-plugin v
 - **Hooks** — `dotnet format` actually formats; Gradle projects get a compile check; Dart hooks need the 2.3.0 `sdlc` core (`--lang dart`).
 - **Security patterns** — a core regex that did not compile and a dozen rules that missed their target or fired on safe code are fixed and tested; exact duplicates of foundation rules are gone.
 
-Plugin versions: `sdlc`, `dart-foundation`, `dart-plugin`, `flutter-plugin`, `kotlin-plugin` at 2.3.0; `nodejs-plugin`, `aspnet-core-plugin`, `django-plugin`, `fastapi-plugin`, `flask-plugin`, `spring-boot-plugin`, `java-plugin` at 2.2.0 (detection or hook behaviour changed); the rest at 2.1.1 (`laravel-plugin` and `php-foundation` at 2.1.2).
+Plugin versions as of 2.3.0: `sdlc`, `dart-foundation`, `dart-plugin`, `flutter-plugin`, `kotlin-plugin` at 2.3.0; `nodejs-plugin`, `aspnet-core-plugin`, `django-plugin`, `fastapi-plugin`, `flask-plugin`, `spring-boot-plugin`, `java-plugin` at 2.2.0 (detection or hook behaviour changed); the rest at 2.1.1 (`laravel-plugin` and `php-foundation` at 2.1.2).
 
 
 What changed in 2.2.0 (`sdlc` only; the other plugins keep their versions) — see the [CHANGELOG](CHANGELOG.md):

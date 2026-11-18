@@ -3,7 +3,17 @@
 All notable changes to the SDLC marketplace are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [SemVer](https://semver.org/) per plugin.
 
-## [Unreleased]
+## [2.4.0] — 2026-11-18 — marketplace v2.4.0 / sdlc v2.4.0
+
+Swift and native Apple apps. Three plugins debut at 2.4.0 and `sdlc` gets a minor bump for the
+Swift runner and the detection change; every other plugin keeps its version.
+
+| Plugin | From | To |
+|---|---|---|
+| `apple-plugin` | new | 2.4.0 |
+| `sdlc` | 2.3.0 | 2.4.0 |
+| `swift-foundation` | new | 2.4.0 |
+| `swift-plugin` | new | 2.4.0 |
 
 ### Added
 
@@ -41,6 +51,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/), versioning is [S
   `*.xcodeproj` could never match (it is a directory) and a nested `ios/*.xcodeproj` in a Flutter
   or React Native app would have tied with their profiles. `**/name` rules (aspnet-core) behave as
   before.
+- **The `security-guidance` marketplace entry is pinned to a commit `sha`.**
+- **README** — banner gains a Swift chip; badges count 23 stacks and 34 agents.
+
+### Upgrade notes
+
+- **Update `sdlc` first.** The Swift hooks and the Swift project-shape probe need `sdlc` 2.4.0
+  (`run-tool.sh --lang swift`). On an older installed `sdlc` the hooks stay silent instead of
+  failing.
+- **Custom `stack.md` profiles with a `file_exists` glob that does not start with `**/`** now
+  match in the project root only. Prefix the rule with `**/` to keep the old four-level search.
+  No profile shipped in this marketplace is affected.
+- **Apple app projects now activate `apple-plugin`.** A repository with an Xcode project in the
+  root used to resolve to `vanilla`, so the pipeline's agents and phase prompts change there.
+  Building and testing need macOS with Xcode; the pipeline never archives, signs or uploads.
+- **SwiftPM packages that only build for iOS or watchOS** resolve to `swift` by default — run
+  them with `--stack=apple`.
+- **`/sdlc:security-init`** needs to be re-run to pick up the Swift and Apple security patterns.
 
 ## [2.3.0] — 2026-11-16 — marketplace v2.3.0 / sdlc v2.3.0
 
