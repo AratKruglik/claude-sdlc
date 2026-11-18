@@ -11,8 +11,8 @@
 <p align="center">
   <a href="https://github.com/AratKruglik/claude-sdlc/releases/latest"><img src="https://img.shields.io/github/v/release/AratKruglik/claude-sdlc?label=release&color=D97757" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/Claude%20Code-plugin%20marketplace-D97757" alt="Claude Code plugin marketplace">
-  <img src="https://img.shields.io/badge/stacks-21-4A8BF5" alt="21 stack plugins">
-  <img src="https://img.shields.io/badge/agents-32-2BB3A6" alt="32 agents">
+  <img src="https://img.shields.io/badge/stacks-23-4A8BF5" alt="23 stack plugins">
+  <img src="https://img.shields.io/badge/agents-34-2BB3A6" alt="34 agents">
   <img src="https://img.shields.io/badge/models-Opus%20%C2%B7%20Sonnet%20%C2%B7%20Haiku-9B7BF0" alt="Opus, Sonnet and Haiku">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3DBE6B" alt="MIT license"></a>
 </p>
@@ -29,6 +29,12 @@
 Multi-stack AI-assisted SDLC pipelines built on the **Stack Provider Pattern**: a single core orchestrator runs the pipeline, framework plugins register themselves via declarative `stack.md` profiles. No core overrides, no slot registries, no copy-paste between stacks.
 
 **v2.3.0** — 31 marketplace entries: 28 local (1 core + 6 shared libs + 7 JS/TS stacks + 4 PHP/Laravel/Symfony stacks + 4 JVM/.NET stacks + 4 Python stacks + 2 Dart/Flutter stacks) plus 3 optional external.
+
+**Unreleased, on `main`** — Swift and Apple platforms bring the marketplace to 34 entries: 31 local (7 shared libs, 2 Swift/Apple stacks) plus 3 optional external. See the [CHANGELOG](CHANGELOG.md):
+
+- **Swift and Apple platforms** — three new plugins: `swift-foundation` (shared skills: Swift 6 conventions and strict concurrency, SwiftPM / `xcodebuild` tooling, Swift Testing / XCTest), `swift-plugin` (priority 100, SwiftPM packages, CLIs, Vapor / Hummingbird servers) and `apple-plugin` (priority 300, backend + frontend — native iOS, iPadOS, macOS and watchOS apps in Swift and SwiftUI, with a skill per platform).
+- **Root-anchored detection globs** — a `file_exists` glob without `**/` now matches a file or directory in the project root only, so `*.xcodeproj` detects an Apple app while the `ios/` project inside a Flutter or React Native app does not.
+- **Swift hooks** — format the edited file with the project's own tool (`swift format` or SwiftFormat), `swift build --build-tests` after `swift-architect`, SwiftLint after `apple-architect`; they need the `sdlc` core from the same release (`--lang swift`).
 
 What changed in 2.3.0 — see the [CHANGELOG](CHANGELOG.md) for the per-plugin version table and upgrade notes:
 
